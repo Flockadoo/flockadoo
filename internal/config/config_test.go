@@ -135,6 +135,7 @@ func TestSaveRoundTrip(t *testing.T) {
 	in.Provider.EngineBin = `C:\Users\you\AppData\Local\inferoute\llama.cpp\llama-server.exe`
 	in.Provider.GGUFFile = "qwen2.5-7b-instruct-q4_k_m.gguf"
 	in.Provider.ToolCallParser = "hermes"
+	in.Provider.ReasoningParser = "qwen3"
 	in.Provider.MaxModelLen = 131072
 	in.Provider.RopeType = "yarn"
 	in.Provider.RopeBaseContextLen = 32768
@@ -155,7 +156,7 @@ func TestSaveRoundTrip(t *testing.T) {
 	if out.Provider.EngineBin != in.Provider.EngineBin {
 		t.Errorf("EngineBin = %q, want %q", out.Provider.EngineBin, in.Provider.EngineBin)
 	}
-	if out.Provider.ToolCallParser != "hermes" || out.Provider.MaxModelLen != 131072 ||
+	if out.Provider.ToolCallParser != "hermes" || out.Provider.ReasoningParser != "qwen3" || out.Provider.MaxModelLen != 131072 ||
 		out.Provider.RopeType != "yarn" || out.Provider.RopeBaseContextLen != 32768 {
 		t.Errorf("serve flags = %+v", out.Provider)
 	}

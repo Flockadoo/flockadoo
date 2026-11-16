@@ -284,6 +284,7 @@ func refreshClusterEngine(ctx context.Context, cfg *config.Config) error {
 	}
 	spec := engine.ServeSpec(kind, engine.BinPath(kind, cfg.Provider.EngineBin), cfg.Provider.Model, firstNonEmpty(cfg.Provider.HFRepo, cfg.Provider.Model), engine.ServeOpts{
 		ToolCallParser:     cfg.Provider.ToolCallParser,
+		ReasoningParser:    cfg.Provider.ReasoningParser,
 		MaxModelLen:        cfg.Provider.MaxModelLen,
 		RopeType:           cfg.Provider.RopeType,
 		RopeBaseContextLen: cfg.Provider.RopeBaseContextLen,

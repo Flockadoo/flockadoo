@@ -59,7 +59,10 @@ type Config struct {
 		LLMTimeoutSeconds int `yaml:"llm_timeout_seconds"`
 		// Catalog serve flags (SNTNL-119). Persisted from approved-builds so
 		// auto-start can rebuild the same argv without a catalog fetch.
-		ToolCallParser     string `yaml:"tool_call_parser,omitempty"`
+		ToolCallParser string `yaml:"tool_call_parser,omitempty"`
+		// ReasoningParser is vLLM's --reasoning-parser for a model that
+		// thinks before it answers; on llama.cpp it turns on --jinja.
+		ReasoningParser    string `yaml:"reasoning_parser,omitempty"`
 		MaxModelLen        int64  `yaml:"max_model_len,omitempty"`
 		RopeType           string `yaml:"rope_type,omitempty"`
 		RopeBaseContextLen int64  `yaml:"rope_base_context_len,omitempty"`
@@ -133,6 +136,7 @@ func (c *Config) normalize() {
 	c.Provider.EngineBin = strings.TrimSpace(c.Provider.EngineBin)
 	c.Provider.Model = strings.TrimSpace(c.Provider.Model)
 	c.Provider.ToolCallParser = strings.TrimSpace(c.Provider.ToolCallParser)
+	c.Provider.ReasoningParser = strings.TrimSpace(c.Provider.ReasoningParser)
 	c.Provider.RopeType = strings.TrimSpace(c.Provider.RopeType)
 	c.Provider.HFRepo = strings.TrimSpace(c.Provider.HFRepo)
 	c.Provider.GGUFFile = strings.TrimSpace(c.Provider.GGUFFile)

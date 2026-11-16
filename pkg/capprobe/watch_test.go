@@ -43,6 +43,8 @@ func TestProbeAsksForARepeatableAnswer(t *testing.T) {
 // probeName says which of the five checks an engine request is.
 func probeName(body map[string]any) string {
 	switch {
+	case body["reasoning_effort"] != nil:
+		return "reasoning"
 	case body["tool_choice"] == "required":
 		return "forced_tools"
 	case body["tools"] != nil:
@@ -68,6 +70,8 @@ func passingAnswer(name string) string {
 		return toolCallAnswer
 	case "logprobs":
 		return `{"choices":[{"message":{"content":"ok"},"logprobs":{"content":[{"token":"ok"}]}}]}`
+	case "reasoning":
+		return vllmThinking
 	default:
 		return `{"choices":[{"message":{"content":"{\"ok\":true,\"name\":\"x\"}"}}]}`
 	}
@@ -425,6 +429,7 @@ func TestRoundStopsWhenEngineIsTaken(t *testing.T) {
 			defer mu.Unlock()
 			return idle
 		},
+		Reasons: true, // a reasoning model, so every check runs
 	})
 	ranSoFar := func() []string {
 		mu.Lock()
@@ -463,6 +468,7 @@ func TestEachProbeHoldsASlot(t *testing.T) {
 		EngineURL:   engine.URL,
 		PlatformURL: platform.server(t).URL,
 		Fingerprint: func() string { return "fp" },
+		Reasons:     true, // a reasoning model, so every check runs
 		Claim: func() (func(), bool) {
 			claims.Add(1)
 			held.Add(1)

@@ -69,6 +69,24 @@ func TestDeploymentFingerprintTracksEngineArgs(t *testing.T) {
 	}
 }
 
+// A single machine keeps no launch arguments; the engine is started from the
+// config's parsers. Turning one on must still mean a new probe, or the
+// reasoning check the inference node routes on would never run.
+func TestDeploymentFingerprintTracksTheParsers(t *testing.T) {
+	cfg := &config.Config{}
+	cfg.Provider.Model = "m"
+	cfg.Provider.Engine = "vllm"
+	engine := listLLM{models: []llm.Model{{ID: "m", WeightFingerprint: "w", MaxModelLen: 8192}}}
+	plain := deploymentFingerprint(context.Background(), cfg, engine, nil)
+	cfg.Provider.ReasoningParser = "qwen3"
+	reasoning := deploymentFingerprint(context.Background(), cfg, engine, nil)
+	cfg.Provider.ToolCallParser = "qwen3_coder"
+	tools := deploymentFingerprint(context.Background(), cfg, engine, nil)
+	if plain == reasoning || reasoning == tools {
+		t.Fatalf("a parser did not change the fingerprint: %q, %q, %q", plain, reasoning, tools)
+	}
+}
+
 // An engine that does not answer has no fingerprint. A partial one would look
 // like a different deployment and reset the reported capabilities.
 func TestDeploymentFingerprintEmptyWhileEngineIsDown(t *testing.T) {

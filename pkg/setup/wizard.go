@@ -532,6 +532,7 @@ func applyModel(cfg *config.Config, opts Options, kind engine.Kind, platformURL 
 func applyServeOpts(cfg *config.Config, entry verify.CatalogEntry, hfRepo string) {
 	opts := engine.ServeOptsFromCatalog(entry)
 	cfg.Provider.ToolCallParser = opts.ToolCallParser
+	cfg.Provider.ReasoningParser = opts.ReasoningParser
 	cfg.Provider.MaxModelLen = opts.MaxModelLen
 	cfg.Provider.RopeType = opts.RopeType
 	cfg.Provider.RopeBaseContextLen = opts.RopeBaseContextLen

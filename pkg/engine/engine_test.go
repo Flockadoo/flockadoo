@@ -130,6 +130,51 @@ func TestServeSpecWithOpts(t *testing.T) {
 	}
 }
 
+// vLLM sends a reasoning model's thinking apart from its answer only when it
+// is started with --reasoning-parser from the catalog. llama.cpp splits
+// thinking out by itself once its chat templates are on (--jinja).
+func TestServeSpecReasoningParser(t *testing.T) {
+	t.Parallel()
+
+	parser := " qwen3 "
+	opts := ServeOptsFromCatalog(verify.CatalogEntry{Alias: "qwen/qwen3.6-35b-a3b", ReasoningParser: &parser})
+	if opts.ReasoningParser != "qwen3" {
+		t.Fatalf("from catalog = %q", opts.ReasoningParser)
+	}
+	vllm := strings.Join(ServeSpec(KindVLLMMetal, "vllm", "qwen/qwen3.6-35b-a3b", "", opts).Args, " ")
+	if !strings.Contains(vllm, "--reasoning-parser qwen3") {
+		t.Fatalf("vLLM args = %s", vllm)
+	}
+	plain := strings.Join(ServeSpec(KindVLLM, "vllm", "Qwen/Qwen2.5-7B-Instruct", "", ServeOpts{}).Args, " ")
+	if strings.Contains(plain, "reasoning-parser") {
+		t.Fatalf("a model that does not reason got a parser: %s", plain)
+	}
+
+	llama := ServeSpec(KindLlamaCpp, "llama-server", "m", "org/m", ServeOpts{GGUFFile: "m.gguf", ReasoningParser: "qwen3"}).Args
+	if join := strings.Join(llama, " "); !strings.Contains(join, "--jinja") || strings.Contains(join, "reasoning-parser") {
+		t.Fatalf("llama.cpp args = %s", join)
+	}
+	both := ServeSpec(KindLlamaCpp, "llama-server", "m", "org/m", ServeOpts{GGUFFile: "m.gguf", ToolCallParser: "hermes", ReasoningParser: "qwen3"}).Args
+	if n := strings.Count(strings.Join(both, " "), "--jinja"); n != 1 {
+		t.Fatalf("--jinja %d times: %v", n, both)
+	}
+}
+
+// Auto-start rebuilds the command from the saved config, parser included.
+func TestSpecFromConfigPassesTheReasoningParser(t *testing.T) {
+	cfg := &config.Config{}
+	cfg.Provider.Engine = "vllm-metal"
+	cfg.Provider.Model = "qwen/qwen3.6-35b-a3b"
+	cfg.Provider.ReasoningParser = "qwen3"
+	spec, err := SpecFromConfig(cfg)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(strings.Join(spec.Args, " "), "--reasoning-parser qwen3") {
+		t.Fatalf("args = %v", spec.Args)
+	}
+}
+
 func TestServeSpecEmbedding(t *testing.T) {
 	t.Parallel()
 
