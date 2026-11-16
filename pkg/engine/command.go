@@ -20,7 +20,11 @@ type Spec struct {
 
 // ServeOpts are catalog-driven flags appended to vLLM / llama.cpp serve commands.
 type ServeOpts struct {
-	ToolCallParser     string
+	ToolCallParser string
+	// ReasoningParser is vLLM's --reasoning-parser, so a reasoning model's
+	// thinking is sent apart from its answer. llama.cpp splits thinking out
+	// itself once --jinja is on.
+	ReasoningParser    string
 	MaxModelLen        int64
 	RopeType           string
 	RopeBaseContextLen int64
@@ -34,6 +38,9 @@ func ServeOptsFromCatalog(entry verify.CatalogEntry) ServeOpts {
 	opts := ServeOpts{}
 	if entry.ToolCallParser != nil {
 		opts.ToolCallParser = strings.TrimSpace(*entry.ToolCallParser)
+	}
+	if entry.ReasoningParser != nil {
+		opts.ReasoningParser = strings.TrimSpace(*entry.ReasoningParser)
 	}
 	if entry.MaxModelLen != nil {
 		opts.MaxModelLen = *entry.MaxModelLen
@@ -114,7 +121,7 @@ func ServeSpec(kind Kind, bin, modelAlias, hfRepo string, opts ServeOpts) Spec {
 		if opts.MaxModelLen > 0 {
 			spec.Args = append(spec.Args, "-c", strconv.FormatInt(opts.MaxModelLen, 10))
 		}
-		if strings.TrimSpace(opts.ToolCallParser) != "" {
+		if strings.TrimSpace(opts.ToolCallParser) != "" || strings.TrimSpace(opts.ReasoningParser) != "" {
 			spec.Args = append(spec.Args, "--jinja")
 		}
 		// vLLM detects embedding models itself; llama-server answers 501 on
@@ -152,6 +159,9 @@ func vllmServeFlags(opts ServeOpts) []string {
 	}
 	if parser := strings.TrimSpace(opts.ToolCallParser); parser != "" {
 		args = append(args, "--enable-auto-tool-choice", "--tool-call-parser", parser)
+	}
+	if parser := strings.TrimSpace(opts.ReasoningParser); parser != "" {
+		args = append(args, "--reasoning-parser", parser)
 	}
 	return args
 }

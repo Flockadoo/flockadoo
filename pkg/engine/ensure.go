@@ -92,6 +92,7 @@ func SpecFromConfig(cfg *config.Config) (Spec, error) {
 	hfRepo := firstNonEmpty(cfg.Provider.HFRepo, cfg.Provider.Model)
 	spec := ServeSpec(kind, bin, cfg.Provider.Model, hfRepo, ServeOpts{
 		ToolCallParser:     cfg.Provider.ToolCallParser,
+		ReasoningParser:    cfg.Provider.ReasoningParser,
 		MaxModelLen:        cfg.Provider.MaxModelLen,
 		RopeType:           cfg.Provider.RopeType,
 		RopeBaseContextLen: cfg.Provider.RopeBaseContextLen,
