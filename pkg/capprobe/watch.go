@@ -460,10 +460,14 @@ func probePassed(name string, raw []byte) bool {
 	var resp struct {
 		Choices []struct {
 			Message struct {
-				Content string `json:"content"`
-				// Thinking, apart from the answer: vLLM's and llama.cpp's names.
-				Reasoning        string `json:"reasoning"`
-				ReasoningContent string `json:"reasoning_content"`
+				// Pointers, not strings: vLLM sends unused fields as null
+				// ("reasoning": null on every reply, "content": null when the
+				// reply is only tool calls or only thinking). A null into a
+				// Go string fails the whole decode, and the check is then
+				// stored as unsupported.
+				Content          *string `json:"content"`
+				Reasoning        *string `json:"reasoning"`
+				ReasoningContent *string `json:"reasoning_content"`
 				ToolCalls        []struct {
 					Function struct {
 						Name string `json:"name"`
@@ -484,10 +488,10 @@ func probePassed(name string, raw []byte) bool {
 		return len(choice.Message.ToolCalls) > 0 && choice.Message.ToolCalls[0].Function.Name != ""
 	case "json_object":
 		var v any
-		return json.Unmarshal([]byte(choice.Message.Content), &v) == nil
+		return json.Unmarshal([]byte(text(choice.Message.Content)), &v) == nil
 	case "json_schema":
 		var v map[string]any
-		if json.Unmarshal([]byte(choice.Message.Content), &v) != nil {
+		if json.Unmarshal([]byte(text(choice.Message.Content)), &v) != nil {
 			return false
 		}
 		_, a := v["ok"]
@@ -497,10 +501,18 @@ func probePassed(name string, raw []byte) bool {
 		return choice.Logprobs != nil && len(choice.Logprobs.Content) > 0
 	case "reasoning":
 		// An engine started without a reasoning parser puts the thinking
-		// inside content, which fails.
-		return strings.TrimSpace(choice.Message.Reasoning) != "" ||
-			strings.TrimSpace(choice.Message.ReasoningContent) != ""
+		// inside content, which fails. vLLM names the field reasoning;
+		// llama.cpp names it reasoning_content.
+		return strings.TrimSpace(text(choice.Message.Reasoning)) != "" ||
+			strings.TrimSpace(text(choice.Message.ReasoningContent)) != ""
 	default:
 		return false
 	}
+}
+
+func text(s *string) string {
+	if s == nil {
+		return ""
+	}
+	return *s
 }

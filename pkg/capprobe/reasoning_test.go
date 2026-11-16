@@ -16,6 +16,29 @@ const (
 	inlineThinker = `{"choices":[{"message":{"content":"<think>\n17 plus 25 is 42.\n</think>\n\n42"}}]}`
 )
 
+// vLLM serializes unused message fields as null. That includes "reasoning"
+// on every chat completion, and "content" when the reply is only a tool
+// call or only thinking. Those nulls must not fail the decode: a failed
+// decode is stored as unsupported, and this release re-runs every check.
+func TestNullMessageFieldsDoNotFailTheProbe(t *testing.T) {
+	cases := []struct {
+		name string
+		raw  string
+		want bool
+	}{
+		{"logprobs", `{"choices":[{"message":{"content":"ok","reasoning":null},"logprobs":{"content":[{"token":"ok"}]}}]}`, true},
+		{"json_object", `{"choices":[{"message":{"content":"{\"ok\":true}","reasoning":null,"reasoning_content":null}}]}`, true},
+		{"tools", `{"choices":[{"message":{"content":null,"reasoning":null,"tool_calls":[{"function":{"name":"get_current_weather"}}]}}]}`, true},
+		{"reasoning", `{"choices":[{"message":{"content":null,"reasoning":"17 plus 25 is 42.","reasoning_content":null}}]}`, true},
+		{"reasoning", `{"choices":[{"message":{"content":"<think>\nthought\n</think>\n42","reasoning":null}}]}`, false},
+	}
+	for _, tc := range cases {
+		if got := probePassed(tc.name, []byte(tc.raw)); got != tc.want {
+			t.Errorf("probePassed(%s) = %v, want %v\n%s", tc.name, got, tc.want, tc.raw)
+		}
+	}
+}
+
 // The probe passes only when the thinking comes back apart from the answer:
 // the inference node routes a reasoning model only to providers that do.
 func TestReasoningProbePassesOnlyWhenThinkingComesApart(t *testing.T) {
