@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"strings"
 	"time"
 
 	"github.com/sentnl/inferoute-node/inferoute-client/pkg/logger"
@@ -41,6 +42,11 @@ type Watcher struct {
 	Claim  func() (release func(), ok bool)
 	Note   func(string)
 	Client *http.Client
+	// Reasons is true when the catalog gives the model a reasoning parser.
+	// Only then is the reasoning check run: the inference node serves a
+	// reasoning model only from providers whose engine sends its thinking
+	// apart from the answer.
+	Reasons bool
 
 	// Waits. Zero uses the defaults; tests shorten them.
 	BusyWait  time.Duration
@@ -58,7 +64,7 @@ func (w *Watcher) Loop(ctx context.Context) {
 	retryWait := orDefault(w.RetryWait, time.Minute)
 	watchWait := orDefault(w.WatchWait, time.Minute)
 
-	outcomes := make([]Outcome, probeCount)
+	outcomes := w.fresh()
 	seen := ""      // deployment the outcomes belong to
 	candidate := "" // a different fingerprint seen once, not yet trusted
 	dirty := false  // results not yet reported
@@ -92,7 +98,7 @@ func (w *Watcher) Loop(ctx context.Context) {
 				}
 				continue
 			}
-			outcomes = make([]Outcome, probeCount)
+			outcomes = w.fresh()
 			w.softFails = [probeCount]int{}
 			seen = fp
 		}
@@ -153,6 +159,15 @@ func (w *Watcher) Loop(ctx context.Context) {
 			return
 		}
 	}
+}
+
+// fresh is a deployment's outcomes before any check has run.
+func (w *Watcher) fresh() []Outcome {
+	outcomes := make([]Outcome, probeCount)
+	if !w.Reasons {
+		outcomes[reasoningCheck] = NotApplicable
+	}
+	return outcomes
 }
 
 // claim reserves the engine for one probe. A round can last minutes, so this
@@ -226,6 +241,8 @@ type capabilityReport struct {
 	JSONObject  *bool  `json:"json_object,omitempty"`
 	JSONSchema  *bool  `json:"json_schema,omitempty"`
 	Logprobs    *bool  `json:"logprobs,omitempty"`
+	// Reasoning is left out for a model that does not reason.
+	Reasoning *bool `json:"reasoning,omitempty"`
 }
 
 func (w *Watcher) publish(ctx context.Context, fp string, outcomes []Outcome) error {
@@ -272,6 +289,7 @@ func report(ctx context.Context, client *http.Client, base, key, fp string, outc
 		JSONObject:  outcomeBool(flagAt(outcomes, 2)),
 		JSONSchema:  outcomeBool(flagAt(outcomes, 3)),
 		Logprobs:    outcomeBool(flagAt(outcomes, 4)),
+		Reasoning:   outcomeBool(flagAt(outcomes, reasoningCheck)),
 	}
 	code, raw, err = callJSON(ctx, client, http.MethodPost, base+"/api/provider/capabilities", key, body, nil)
 	if err != nil {
@@ -388,6 +406,11 @@ func probeBody(model, name string) map[string]any {
 	case "logprobs":
 		body["logprobs"] = true
 		body["top_logprobs"] = 1
+	case "reasoning":
+		// Any effort but none turns thinking on, including for a model that
+		// thinks only when asked (vLLM sets the template's enable_thinking).
+		body["messages"] = []map[string]string{{"role": "user", "content": "What is 17 + 25? Think it through, then give the number."}}
+		body["reasoning_effort"] = "low"
 	}
 	return body
 }
@@ -437,8 +460,11 @@ func probePassed(name string, raw []byte) bool {
 	var resp struct {
 		Choices []struct {
 			Message struct {
-				Content   string `json:"content"`
-				ToolCalls []struct {
+				Content string `json:"content"`
+				// Thinking, apart from the answer: vLLM's and llama.cpp's names.
+				Reasoning        string `json:"reasoning"`
+				ReasoningContent string `json:"reasoning_content"`
+				ToolCalls        []struct {
 					Function struct {
 						Name string `json:"name"`
 					} `json:"function"`
@@ -469,6 +495,11 @@ func probePassed(name string, raw []byte) bool {
 		return a && b
 	case "logprobs":
 		return choice.Logprobs != nil && len(choice.Logprobs.Content) > 0
+	case "reasoning":
+		// An engine started without a reasoning parser puts the thinking
+		// inside content, which fails.
+		return strings.TrimSpace(choice.Message.Reasoning) != "" ||
+			strings.TrimSpace(choice.Message.ReasoningContent) != ""
 	default:
 		return false
 	}

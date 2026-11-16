@@ -558,6 +558,9 @@ func startCapacity(ctx context.Context, cfg *config.Config, configPath, llmURL s
 		// Each probe holds a slot, so the benchmark waits for it.
 		Claim: srv.ClaimIdleSlot,
 		Note:  srv.SetCapabilities,
+		// A reasoning model is checked for its thinking coming back apart
+		// from the answer; the node routes it only to providers that pass.
+		Reasons: cfg.Provider.ReasoningParser != "",
 	}).Loop(ctx)
 
 	if !benchmarks {
@@ -647,6 +650,9 @@ func deploymentFingerprint(ctx context.Context, cfg *config.Config, llmClient ll
 	}
 	fp += "|" + fmt.Sprint(engine.NNodes(cfg.Provider.EngineArgs))
 	fp += "|" + engineArgsDigest(cfg.Provider.EngineArgs)
+	// A single machine has no saved launch arguments; its engine is started
+	// with the config's parsers, so turning one on is a new deployment too.
+	fp += "|" + cfg.Provider.ToolCallParser + "|" + cfg.Provider.ReasoningParser
 	return fp
 }
 
