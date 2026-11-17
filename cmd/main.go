@@ -70,6 +70,10 @@ For more information, visit: https://github.com/inferoute/inferoute-client
 
 func main() {
 	enableVirtualTerminal()
+	// Until the config file is read, log to the default files. Library code
+	// logs nowhere unless main installs a logger (finding TST-1).
+	early := installEarlyLogger()
+	defer func() { _ = early.Close() }()
 
 	// Subcommands that must not start the provider daemon.
 	if len(os.Args) > 1 && os.Args[1] == "compatibility" {
@@ -186,6 +190,9 @@ func main() {
 		fatal("Failed to initialize logger: %v", err)
 	}
 	logger.SetDefaultLogger(log)
+	// The configured logger may write to the same files; release the early
+	// one's handles so the two never rotate the same file.
+	_ = early.Close()
 	defer log.Logger.Sync()
 
 	logger.Info("Starting Inferoute Provider Client",
@@ -662,4 +669,17 @@ func deploymentFingerprint(ctx context.Context, cfg *config.Config, llmClient ll
 func engineArgsDigest(args []string) string {
 	sum := sha256.Sum256([]byte(strings.Join(args, "\x00")))
 	return hex.EncodeToString(sum[:6])
+}
+
+// installEarlyLogger installs the default file logger, so the subcommands
+// and the start of the daemon log where they always have. It returns the
+// logger so main can close its files once the configured one replaces it.
+// If the files cannot be opened, logging stays off.
+func installEarlyLogger() *logger.Logger {
+	l, err := logger.New(logger.DefaultConfig())
+	if err != nil {
+		return nil
+	}
+	logger.SetDefaultLogger(l)
+	return l
 }

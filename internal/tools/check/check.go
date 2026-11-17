@@ -165,8 +165,64 @@ func tests(ctx context.Context, o options, w io.Writer) error {
 	if err != nil {
 		return err
 	}
+	ours, err := telemetryOff(home)
+	if err != nil {
+		return err
+	}
 	args := append([]string{"test", "-race", "-count=1", "-shuffle=on"}, o.testFlags...)
-	return goTool(ctx, o, w, env, append(args, "./...")...)
+	if err := goTool(ctx, o, w, env, append(args, "./...")...); err != nil {
+		return err
+	}
+	return homeLeftEmpty(w, home, ours)
+}
+
+// telemetryOff turns the Go command's telemetry off inside home, where it
+// would otherwise keep counters (os.UserConfigDir()/go/telemetry). The mode
+// file goes where each platform's config directory is under isolatedHome.
+// It returns the files it wrote.
+func telemetryOff(home string) (map[string]bool, error) {
+	ours := map[string]bool{}
+	for _, cfg := range []string{
+		filepath.Join(home, ".config"),                        // Linux: XDG_CONFIG_HOME
+		filepath.Join(home, "Library", "Application Support"), // macOS
+		filepath.Join(home, "AppData", "Roaming"),             // Windows: APPDATA
+	} {
+		dir := filepath.Join(cfg, "go", "telemetry")
+		if err := os.MkdirAll(dir, 0o750); err != nil {
+			return nil, err
+		}
+		if err := os.WriteFile(filepath.Join(dir, "mode"), []byte("off"), 0o600); err != nil {
+			return nil, err
+		}
+		rel, _ := filepath.Rel(home, filepath.Join(dir, "mode"))
+		ours[filepath.ToSlash(rel)] = true
+	}
+	return ours, nil
+}
+
+// homeLeftEmpty fails if the tests left anything in their home directory
+// other than the files the check wrote there itself (plan 19.I): a test
+// writes in t.TempDir(), never in the user's files.
+func homeLeftEmpty(w io.Writer, home string, ours map[string]bool) error {
+	var left []string
+	err := filepath.WalkDir(home, func(path string, d fs.DirEntry, err error) error {
+		if err != nil || path == home {
+			return err
+		}
+		rel, _ := filepath.Rel(home, path)
+		if !d.IsDir() && !ours[filepath.ToSlash(rel)] {
+			left = append(left, filepath.ToSlash(rel))
+		}
+		return nil
+	})
+	if err != nil {
+		return err
+	}
+	if len(left) > 0 {
+		_, _ = fmt.Fprintf(w, "the tests left files in HOME; write them under t.TempDir() instead:\n%s\n", strings.Join(left, "\n"))
+		return fmt.Errorf("%d files written into HOME", len(left))
+	}
+	return nil
 }
 
 // isolatedHome returns the environment that moves every per-user directory
