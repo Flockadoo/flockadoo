@@ -57,6 +57,10 @@ type StatusSnapshot struct {
 	Nodes            string        `json:"nodes,omitempty"`
 	EngineNote       string        `json:"engine_note,omitempty"`
 	CapabilityLine   string        `json:"capability_line,omitempty"`
+	// Connection and ConnectionReason are the tunnel's state and why (plan
+	// item C1; not filled yet).
+	Connection       string `json:"connection,omitempty"`
+	ConnectionReason string `json:"connection_reason,omitempty"`
 }
 
 func (s *Server) snapshot() StatusSnapshot {

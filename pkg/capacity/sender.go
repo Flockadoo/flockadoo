@@ -34,6 +34,9 @@ type Sender struct {
 	slots  Slots
 	engine llm.Client
 	client *http.Client
+	// Active, when set, says whether to report at all (plan item C1; not
+	// used yet).
+	Active func() bool
 
 	instance string
 	seq      atomic.Int64

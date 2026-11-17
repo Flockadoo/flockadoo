@@ -61,6 +61,7 @@ type rejection struct {
 }
 
 type session struct {
+	ws     *websocket.Conn
 	ys     *yamux.Session
 	raw    net.Conn
 	hole   *holeConn
@@ -139,7 +140,7 @@ func (g *Gateway) accept(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	s := &session{
-		ys: ys, raw: raw, hole: hole,
+		ws: ws, ys: ys, raw: raw, hole: hole,
 		// The node's proxy transport: one stream per request, no reuse.
 		client: &http.Client{Transport: &http.Transport{
 			DialContext:       func(context.Context, string, string) (net.Conn, error) { return ys.Open() },
@@ -262,6 +263,28 @@ func (g *Gateway) Replace() {
 	if s := g.takeLive(); s != nil {
 		_ = s.ys.Close()
 	}
+}
+
+// ReplaceWithReason closes the live session the way the gateway will once it
+// names a replacement (decision DC8): a WebSocket close with code and
+// reason, here the client's CloseReplaced.
+func (g *Gateway) ReplaceWithReason(code int, reason string) {
+	if s := g.takeLive(); s != nil {
+		_ = s.ws.Close(websocket.StatusCode(code), reason)
+		_ = s.ys.Close()
+	}
+}
+
+// OpenStream opens a raw stream to the client on the live session, for a
+// test that writes something other than a well-formed request.
+func (g *Gateway) OpenStream() (net.Conn, error) {
+	g.mu.Lock()
+	s := g.live
+	g.mu.Unlock()
+	if s == nil {
+		return nil, errors.New("fakegateway: no live session")
+	}
+	return s.ys.Open()
 }
 
 // Blackhole makes the live session half-open: from now on the gateway reads

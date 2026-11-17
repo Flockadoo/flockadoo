@@ -26,6 +26,11 @@ type Timing struct {
 	BaseDelay time.Duration // the first reconnect delay
 	MaxDelay  time.Duration // the delay doubles up to this
 	Stable    time.Duration // a session connected this long counts as stable (item Q1)
+	// Item C1, not used yet: the keepalive that finds a half-open peer, and
+	// the time a stream may take to send its request header.
+	KeepAlive         time.Duration
+	KeepAliveTimeout  time.Duration
+	ReadHeaderTimeout time.Duration
 }
 
 // DefaultTiming is the production pacing: 1 s doubling to 32 s, plus up to

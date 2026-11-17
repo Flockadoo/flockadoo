@@ -102,3 +102,20 @@ func TestTheEnginesQueueAndCacheGoWithTheReport(t *testing.T) {
 		t.Fatalf("body = %v, want engine_waiting 3, kv_cache_usage 0.5, accepting false", p.body)
 	}
 }
+
+// Plan item C1, decision DC8: a client whose key was rejected, or that was
+// replaced, stops reporting.
+func TestNothingIsSentWhileTheTunnelIsTerminal(t *testing.T) {
+	srv, posts := capacityNode(t)
+	s := NewSender(srv.URL, "k", func() (int32, int32, bool) { return 0, 1, true }, nil)
+	s.Active = func() bool { return false }
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	go s.Loop(ctx)
+	s.Notify()
+	select {
+	case p := <-posts:
+		t.Fatalf("a terminal client sent a capacity report: %v", p.body)
+	case <-time.After(300 * time.Millisecond):
+	}
+}
