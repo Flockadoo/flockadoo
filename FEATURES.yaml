@@ -1,0 +1,124 @@
+# Feature map for inferoute-client.
+# Every feature lists its code and its tests, and every path under `code` and
+# `tests` must exist (a glob must match a file): the check command's features
+# step and TestTheFeatureMapIsCurrent enforce it. Invariant ids are from
+# section 13 of the plan (inferoute-plans/client_reliability_audit_3d9b52e7.plan.md).
+# A feature gains a `target` package as section 14's packages appear.
+
+features:
+  - name: Gateway tunnel
+    entry: connect.Client.Run dials wss://<platform>/api/connect/ws and serves the gateway's yamux streams
+    code: [pkg/connect/client.go, pkg/server/server.go]
+    tests: [pkg/connect/client_test.go]
+    invariants: [I7]
+
+  - name: Request relay
+    entry: Server.handleInference, for each request the gateway opens on the tunnel
+    code: [pkg/server/handler.go, pkg/server/models.go, pkg/llm/vllm.go, pkg/llm/client.go]
+    tests: [pkg/server/handler_test.go]
+    invariants: [I3, I4, I5, I6]
+
+  - name: Admission
+    entry: tryAcquireInference, acquireInferenceWait and ClaimIdleSlot; the benchmark gate
+    code: [pkg/server/inflight.go]
+    tests: [pkg/server/handler_test.go, pkg/server/probe_benchmark_test.go]
+    invariants: [I1, I2, I11]
+
+  - name: Request authentication
+    entry: Server.validateHMAC, a validate_hmac call to the node per request
+    code: [pkg/server/server.go]
+    tests: [pkg/server/hmac_test.go]
+    notes: removed by item B2's first PR together with the local /v1 routes (DC1, DC3)
+
+  - name: Model verification
+    entry: Verifier.CheckInference on the request path; ApplyToModels for the health report
+    code: [pkg/verify/verifier.go, pkg/verify/measure.go, pkg/verify/fingerprint.go, pkg/verify/server.go, pkg/verify/context_gate.go, pkg/verify/hfresolve.go, pkg/verify/llamacache.go]
+    tests: [pkg/verify/verifier_test.go, pkg/verify/measure_test.go, pkg/verify/fingerprint_test.go, pkg/verify/context_gate_test.go, pkg/verify/hfresolve_test.go, pkg/verify/llamacache_test.go]
+    invariants: [I13, I14]
+    notes: >-
+      Verification identifies a model, it does not prove one (finding SEC-2). Safetensors are
+      hashed by header only, which fixes the architecture and tensor layout, not the weights,
+      and a modified client can report anything. The node must never treat it as proof.
+
+  - name: Approved catalog
+    entry: Catalog.Refresh before each health report; compat.FetchCatalog in the wizard
+    code: [pkg/verify/catalog.go, pkg/verify/engines.go, pkg/verify/types.go, pkg/compat/catalog.go]
+    tests: [pkg/health/advertise_test.go, pkg/verify/engines_test.go, pkg/verify/contract_shape_test.go]
+
+  - name: Health report
+    entry: Reporter.SendHealthReport, every 3 minutes and after each connect; node health for a cluster worker
+    code: [pkg/health/reporter.go, pkg/health/display.go]
+    tests: [pkg/health/reporter_test.go, pkg/health/advertise_test.go, pkg/contract/shape_test.go]
+
+  - name: Capacity report
+    entry: capacity.Sender.Loop, on every slot change and every 20 seconds
+    code: [pkg/capacity/sender.go]
+    tests: [pkg/capacity/sender_test.go]
+    invariants: [I7]
+
+  - name: Capability probes
+    entry: capprobe.Watcher.Loop
+    code: [pkg/capprobe/*.go]
+    tests: [pkg/capprobe/*_test.go]
+    invariants: [I8, I9]
+
+  - name: Concurrency benchmark
+    entry: benchmark.Watcher.Loop; the benchmark subcommand drops a marker it polls for
+    code: [pkg/benchmark/*.go]
+    tests: [pkg/benchmark/*_test.go, pkg/server/probe_benchmark_test.go]
+    invariants: [I9, I11]
+
+  - name: Deployment fingerprint
+    entry: deploymentFingerprint keys benchmark and capability results
+    code: [cmd/main.go]
+    tests: [cmd/main_test.go]
+    invariants: [I9]
+
+  - name: Engine install and start
+    entry: engine.Install, engine.StartAndWait, setup.EnsureOnStart
+    code: [pkg/engine/install.go, pkg/engine/install_llama.go, pkg/engine/start.go, pkg/engine/detect.go, pkg/engine/health.go, pkg/engine/ensure.go, pkg/engine/kind.go, pkg/setup/ensure.go]
+    tests: [pkg/engine/*_test.go, pkg/setup/ensure_test.go]
+    invariants: [I10]
+
+  - name: Setup wizard
+    entry: setup.Execute (inferoute-client setup)
+    code: [pkg/setup/command.go, pkg/setup/wizard.go, pkg/setup/prompt.go, pkg/setup/spinner.go]
+    tests: [pkg/setup/wizard_test.go, pkg/setup/serve_opts_test.go, pkg/setup/spinner_test.go]
+
+  - name: Compatibility check
+    entry: compat.Run (inferoute-client compatibility)
+    code: [pkg/compat/command.go, pkg/compat/score.go, pkg/compat/hardware.go, pkg/compat/output.go]
+    tests: [pkg/compat/*_test.go]
+
+  - name: GPU information
+    entry: gpu.Monitor.GetGPUInfo for the health report
+    code: [pkg/gpu/*.go]
+    tests: [pkg/gpu/*_test.go]
+    invariants: [I10]
+
+  - name: Cluster (vLLM, Linux)
+    entry: inferscale.BringUp and setup.prepareCluster; the node-built engine command
+    code: [pkg/inferscale/*.go, pkg/setup/cluster.go, pkg/engine/command.go, pkg/engine/alive.go]
+    tests: [pkg/inferscale/*_test.go, pkg/setup/cluster_test.go]
+    invariants: [I10, I12]
+
+  - name: Self-update
+    entry: update.Apply (inferoute-client update); the 426 handling on every node call
+    code: [pkg/update/update.go, pkg/nodeapi/client.go]
+    tests: [pkg/update/update_test.go, pkg/nodeapi/client_test.go]
+
+  - name: Dashboard, console and tray
+    entry: Server.snapshot and redrawConsole; /api/status, /api/health, /api/busy; the Windows tray
+    code: [pkg/server/status.go, pkg/server/server.go, pkg/server/dashboard.html, pkg/tray/tray.go, cmd/dashboard.go, pkg/usermsg/*.go]
+    tests: [pkg/server/status_test.go, cmd/dashboard_test.go, pkg/usermsg/*_test.go]
+    invariants: [I12]
+
+  - name: Configuration
+    entry: config.Load and Save; ~/.config/inferoute/config.yaml
+    code: [internal/config/config.go]
+    tests: [internal/config/config_test.go]
+
+  - name: Check command
+    entry: go run ./internal/tools/check, which CI runs on Linux, macOS and Windows
+    code: [internal/tools/check/*.go, .golangci.yml, .github/workflows/ci.yml]
+    tests: [internal/tools/check/*_test.go]

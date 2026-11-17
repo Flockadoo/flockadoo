@@ -25,7 +25,6 @@ const (
 	stepLint   = "lint"
 	stepTests  = "tests"
 
-	// stepFeatures is plan item G1; it is not a step yet.
 	stepFeatures = "features"
 )
 
@@ -69,7 +68,7 @@ func steps() []step {
 			return goTool(ctx, o, w, env, "vet", "./...")
 		}})
 	}
-	return append(s, step{stepLint, lint}, step{stepTests, tests})
+	return append(s, step{stepLint, lint}, step{stepTests, tests}, step{stepFeatures, checkFeatures})
 }
 
 // run runs the steps in order and stops at the first failure (plan section
