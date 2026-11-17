@@ -3,6 +3,7 @@
 
 # Runs as root, downloads or executes.
 /pkg/inferscale/            @ankh2054
+/internal/download/         @ankh2054
 /pkg/setup/cluster.go       @ankh2054
 /pkg/engine/install.go      @ankh2054
 /pkg/engine/install_llama.go @ankh2054

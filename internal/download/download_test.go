@@ -85,3 +85,42 @@ func TestAnInstalledFileIsCheckedAgainstThePin(t *testing.T) {
 		t.Fatal("a missing file matched")
 	}
 }
+
+// Moved from pkg/inferscale (TestDownloadTruncatedRetries): a body cut short
+// is refused and leaves nothing behind, and a retry that gets the whole file
+// succeeds. Its last step, that an existing file was kept without a
+// download, is gone with that behaviour: an installed file is now checked
+// against the pin instead (Matches).
+func TestATruncatedDownloadIsRefusedAndARetrySucceeds(t *testing.T) {
+	payload := []byte("complete-binary")
+	drop := true
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if !drop {
+			_, _ = w.Write(payload)
+			return
+		}
+		conn, bufrw, err := w.(http.Hijacker).Hijack()
+		if err != nil {
+			return
+		}
+		defer func() { _ = conn.Close() }()
+		_, _ = bufrw.WriteString("HTTP/1.1 200 OK\r\nContent-Length: 100\r\nConnection: close\r\n\r\nshort")
+		_ = bufrw.Flush()
+	}))
+	t.Cleanup(srv.Close)
+	dir := t.TempDir()
+	if _, err := Verified(context.Background(), srv.Client(), srv.URL, sum(payload), dir); err == nil {
+		t.Fatal("a short body was accepted")
+	}
+	if left, _ := os.ReadDir(dir); len(left) != 0 {
+		t.Fatalf("a short body left %v behind", left)
+	}
+	drop = false
+	path, err := Verified(context.Background(), srv.Client(), srv.URL, sum(payload), dir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got, _ := os.ReadFile(path); string(got) != string(payload) {
+		t.Fatalf("retry = %q", got)
+	}
+}

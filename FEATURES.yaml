@@ -93,8 +93,8 @@ features:
 
   - name: Cluster (vLLM, Linux)
     entry: inferscale.BringUp and setup.prepareCluster; the node-built engine command
-    code: [pkg/inferscale/*.go, pkg/setup/cluster.go, pkg/engine/command.go, pkg/engine/alive.go]
-    tests: [pkg/inferscale/*_test.go, pkg/setup/cluster_test.go]
+    code: [pkg/inferscale/*.go, pkg/inferscale/release.json, internal/download/*.go, .github/workflows/inferscale-pin.yml, pkg/setup/cluster.go, pkg/engine/command.go, pkg/engine/alive.go]
+    tests: [pkg/inferscale/*_test.go, internal/download/*_test.go, pkg/setup/cluster_test.go]
     invariants: [I10, I12]
 
   - name: Self-update

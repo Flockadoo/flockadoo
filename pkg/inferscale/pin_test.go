@@ -46,6 +46,26 @@ func TestTheEmbeddedPinParses(t *testing.T) {
 			t.Errorf("%s: %q is not a SHA-256", name, sum)
 		}
 	}
+	// A pin, once there is one, covers every platform the client installs on.
+	if p.Version == "" {
+		return
+	}
+	for _, goos := range []string{"linux", "darwin", "windows"} {
+		for _, goarch := range []string{"amd64", "arm64"} {
+			if goos == "windows" && goarch == "arm64" {
+				continue // no Windows arm64 build
+			}
+			cli, daemon, err := Asset(goos, goarch)
+			if err != nil {
+				t.Fatal(err)
+			}
+			for _, name := range []string{cli, daemon} {
+				if name != "" && p.SHA256[name] == "" {
+					t.Errorf("release.json pins %s but not %s", p.Version, name)
+				}
+			}
+		}
+	}
 }
 
 func testPin() Pin {

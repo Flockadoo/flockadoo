@@ -1,21 +1,53 @@
 package inferscale
 
 import (
+	_ "embed"
+	"encoding/json"
 	"errors"
 	"fmt"
-	"os"
 	"runtime"
 )
 
-// Release is the only published tag. It is overwritten on every push to main.
-// shortcut: set INFERSCALE_VERSION when a non-moving tag exists.
-const Release = "edge"
+// release.json pins the Inferscale release this client installs: its
+// version, its source commit and the SHA-256 of every file. Inferscale's
+// release workflow opens a pull request that changes it, and only a
+// maintainer merges it (plan item S1, decision DC6). Nothing at run time
+// changes the version or a checksum.
+//
+//go:embed release.json
+var releaseJSON []byte
 
-func Version() string {
-	if v := os.Getenv("INFERSCALE_VERSION"); v != "" {
-		return v
+// Pin is the pinned Inferscale release.
+type Pin struct {
+	Version string            `json:"version"`
+	Commit  string            `json:"commit"`
+	SHA256  map[string]string `json:"sha256"`
+}
+
+// ErrNotPinned: this build pins no file for the asset, so it is not
+// downloaded or run.
+var ErrNotPinned = errors.New("this build pins no Inferscale release for this platform; update the client")
+
+func embeddedPin() (Pin, error) {
+	var p Pin
+	if err := json.Unmarshal(releaseJSON, &p); err != nil {
+		return Pin{}, fmt.Errorf("release.json: %w", err)
 	}
-	return Release
+	return p, nil
+}
+
+// sum is the pinned SHA-256 of the named asset.
+func (p Pin) sum(name string) (string, error) {
+	if p.Version == "" || p.SHA256[name] == "" {
+		return "", fmt.Errorf("%s: %w", name, ErrNotPinned)
+	}
+	return p.SHA256[name], nil
+}
+
+// Version is the pinned Inferscale release.
+func Version() string {
+	p, _ := embeddedPin()
+	return p.Version
 }
 
 // Asset names the release files for this OS and CPU. Windows is one zip that
@@ -36,26 +68,10 @@ func Asset(goos, goarch string) (cli, daemon string, err error) {
 	}
 }
 
-func downloadURL(name string) string {
-	return "https://github.com/Inferoute/inferoute-tailscale/releases/download/" + Version() + "/" + name
+func downloadURLFor(p Pin, name string) string {
+	return "https://github.com/Inferoute/inferoute-tailscale/releases/download/" + p.Version + "/" + name
 }
 
 func hostAsset() (cli, daemon string, err error) {
 	return Asset(runtime.GOOS, runtime.GOARCH)
 }
-
-// Pin is not written yet: plan item S1, tests first.
-type Pin struct {
-	Version string            `json:"version"`
-	Commit  string            `json:"commit"`
-	SHA256  map[string]string `json:"sha256"`
-}
-
-// ErrNotPinned is not written yet.
-var ErrNotPinned = errors.New("not pinned")
-
-func (p Pin) sum(name string) (string, error) { return p.SHA256[name], nil }
-
-func embeddedPin() (Pin, error) { return Pin{}, nil }
-
-func downloadURLFor(p Pin, name string) string { return downloadURL(name) }
