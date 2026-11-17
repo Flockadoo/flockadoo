@@ -40,6 +40,10 @@ type options struct {
 	env        []string // added to every tool's environment
 	only       []string // run only these steps, by name; nil runs every step
 	testFlags  []string // added to go test
+
+	// requiredInvariants must each have a checklist entry; nil for a
+	// fixture module, which is not held to this repository's plan.
+	requiredInvariants []string
 }
 
 type step struct {

@@ -187,7 +187,7 @@ func TestRefusedRequestsNeverReachTheEngine(t *testing.T) {
 		{"every slot is taken", func() func() {
 			r.eng.Next(fakeengine.Stream("x").Stall(1))
 			ctx, cancel := context.WithCancel(context.Background())
-			resp, err := r.send(ctx, streamBody, nil)
+			resp, err := r.send(ctx, streamBody, nil) //nolint:bodyclose // the returned undo closes it once the refusal has been checked
 			if err != nil {
 				t.Fatal(err)
 			}

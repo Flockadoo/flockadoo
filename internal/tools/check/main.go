@@ -51,5 +51,7 @@ func mainErr(ctx context.Context, lintBase string) error {
 		lintConfig: filepath.Join(root, ".golangci.yml"),
 		lintBase:   lintBase,
 		golangci:   golangci,
+
+		requiredInvariants: requiredInvariants,
 	})
 }
