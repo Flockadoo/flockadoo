@@ -34,7 +34,7 @@ func TestARecordedStreamCrossesTheRealTunnelByteForByte(t *testing.T) {
 	cfg.Provider.APIKey = key
 	cfg.Provider.Engine = "vllm"
 	s := &Server{config: cfg, llmClient: llm.NewClient("vllm", eng.URL, 30*time.Second)}
-	s.maxInflight.Store(1)
+	s.SetMaxInflight(1)
 
 	ctx, cancel := context.WithCancel(context.Background())
 	done := make(chan struct{})

@@ -150,7 +150,7 @@ func (s *Server) snapshot() StatusSnapshot {
 }
 
 func (s *Server) sessionLabel() string {
-	if s.benchmarking.Load() {
+	if !s.admit().Snapshot().Accepting {
 		return "benchmarking"
 	}
 	return "online"

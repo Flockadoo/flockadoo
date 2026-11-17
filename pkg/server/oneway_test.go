@@ -89,7 +89,7 @@ func TestARequestIsServedWhileTheNodeIsUnreachable(t *testing.T) {
 	cfg.Provider.Engine = "vllm"
 	cfg.Provider.Model = rigModel
 	s := &Server{config: cfg, llmClient: llm.NewClient("vllm", eng.URL, 30*time.Second)}
-	s.maxInflight.Store(1)
+	s.SetMaxInflight(1)
 	ctx, cancel := context.WithCancel(context.Background())
 	done := make(chan struct{})
 	go func() {

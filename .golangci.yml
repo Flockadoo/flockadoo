@@ -62,6 +62,13 @@ linters:
 
     depguard:
       rules:
+        # Section 14, rule 1: the admission gate depends on nothing else here.
+        admission-imports-nothing-internal:
+          files:
+            - "**/internal/admission/**"
+          deny:
+            - pkg: github.com/sentnl/inferoute-node/inferoute-client/
+              desc: "internal/admission imports nothing internal (plan section 14, rule 1)"
         # Section 14, rule 8.
         testenv-only-in-tests:
           files:

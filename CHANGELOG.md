@@ -2,6 +2,8 @@
 
 ## [Unreleased]
 
+- `max_concurrent_inference` must be 1 or more. `0` (which meant unlimited) or a negative value now stops the client at startup with a message saying what to set. Leaving it out still lets the client measure the limit.
+- Returning turns of a conversation that wait for a free slot are now served in the order they arrived, and as soon as a slot frees (they used to check every 100 ms and the quickest won). At most 32 wait at once (`server.session_queue_limit`); a turn beyond that is refused at once so Inferoute can send it elsewhere. When the concurrency benchmark starts, waiting turns are refused at once rather than waiting it out.
 - The local web server (`127.0.0.1:8080` by default) no longer answers `/v1/chat/completions`, `/v1/completions` or `/v1/embeddings`. Inference from Inferoute arrives on the client's own connection to Inferoute, as before; to use your model yourself, talk to your engine directly. The dashboard, `/api/status`, `/api/health` and `/api/busy` are unchanged.
 - The client no longer asks Inferoute to confirm each request (the `validate_hmac` call). A request that arrives on the connection the client opened with its key comes from Inferoute; requests are now served even while Inferoute's API is briefly unreachable, and each one is answered without that round trip.
 - The deployment fingerprint reads the engine's version from the running engine instead of running `<engine> --version` once a minute. An engine upgrade now counts as a new deployment, so the concurrency benchmark and the capability checks run again. The fingerprint changes once after this update, which re-runs them once.

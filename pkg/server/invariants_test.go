@@ -57,7 +57,7 @@ func newRig(t *testing.T, limit int32) *rig {
 	cfg.Provider.Engine = "vllm"
 	cfg.Provider.Model = rigModel
 	r.s = &Server{config: cfg, llmClient: llm.NewClient("vllm", r.eng.URL, 30*time.Second), sessionQueueWait: 5 * time.Second}
-	r.s.maxInflight.Store(limit)
+	r.s.SetMaxInflight(limit)
 
 	ctx, cancel := context.WithCancel(context.Background())
 	done := make(chan struct{})
@@ -105,9 +105,9 @@ func (r *rig) call(t *testing.T, body string, hdr map[string]string) (int, strin
 func (r *rig) awaitSlotsFree(t *testing.T, scenario string) {
 	t.Helper()
 	deadline := time.Now().Add(3 * time.Second)
-	for r.s.inflight.Load() != 0 {
+	for r.s.admit().Snapshot().Inflight != 0 {
 		if time.Now().After(deadline) {
-			t.Fatalf("%s: %d slots still taken", scenario, r.s.inflight.Load())
+			t.Fatalf("%s: %d slots still taken", scenario, r.s.admit().Snapshot().Inflight)
 		}
 		time.Sleep(5 * time.Millisecond)
 	}

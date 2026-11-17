@@ -10,7 +10,6 @@ import (
 	"net/http/httptest"
 	"os"
 	"strings"
-	"sync"
 	"testing"
 	"time"
 
@@ -67,7 +66,7 @@ func newTestServer(nodeURL string, llmClient llm.Client) *Server {
 	cfg.Provider.APIKey = "test-key"
 	cfg.Provider.Engine = "vllm"
 	s := &Server{config: cfg, llmClient: llmClient}
-	s.maxInflight.Store(1)
+	s.SetMaxInflight(1)
 	return s
 }
 
@@ -468,112 +467,5 @@ func TestSameSessionQueueTimesOut(t *testing.T) {
 	case <-first:
 	case <-time.After(2 * time.Second):
 		t.Fatal("first request did not finish")
-	}
-}
-
-func TestIsBusyIsSlotOnly(t *testing.T) {
-	s := &Server{}
-	s.maxInflight.Store(1)
-	if s.slotsBusy() {
-		t.Fatal("free slot reported busy")
-	}
-	if !s.tryAcquireInference() {
-		t.Fatal("acquire")
-	}
-	if !s.slotsBusy() {
-		t.Fatal("held slot reported free")
-	}
-}
-
-func TestTryAcquireInference(t *testing.T) {
-	s := &Server{}
-	s.maxInflight.Store(1)
-	if !s.tryAcquireInference() {
-		t.Fatal("first acquire should succeed")
-	}
-	if s.tryAcquireInference() {
-		t.Fatal("second acquire should fail")
-	}
-	s.releaseInference()
-	if !s.tryAcquireInference() {
-		t.Fatal("acquire after release should succeed")
-	}
-
-	unlimited := &Server{}
-	var wg sync.WaitGroup
-	for i := 0; i < 8; i++ {
-		wg.Add(1)
-		go func() {
-			defer wg.Done()
-			if !unlimited.tryAcquireInference() {
-				t.Error("unlimited acquire failed")
-			}
-		}()
-	}
-	wg.Wait()
-}
-
-// A probe gets a slot only on an idle engine, and the slot counts as in flight.
-func TestClaimIdleSlot(t *testing.T) {
-	s := &Server{}
-	s.maxInflight.Store(1)
-
-	release, ok := s.ClaimIdleSlot()
-	if !ok {
-		t.Fatal("claim refused on an idle server")
-	}
-	if n, _, _ := s.SlotSnapshot(); n != 1 {
-		t.Fatalf("inflight = %d with a claim held, want 1", n)
-	}
-	if s.tryAcquireInference() {
-		t.Fatal("a request took the only slot while a probe held it")
-	}
-	if _, ok := s.ClaimIdleSlot(); ok {
-		t.Fatal("second claim granted while the first is held")
-	}
-	release()
-	if n, _, _ := s.SlotSnapshot(); n != 0 {
-		t.Fatalf("inflight = %d after release, want 0", n)
-	}
-
-	// Not beside a request, even with slots free.
-	s.maxInflight.Store(4)
-	if !s.tryAcquireInference() {
-		t.Fatal("acquire")
-	}
-	if _, ok := s.ClaimIdleSlot(); ok {
-		t.Fatal("claim granted beside a request in flight")
-	}
-	s.releaseInference()
-
-	// Not while the benchmark has the engine.
-	s.SetBenchmarking(true)
-	if _, ok := s.ClaimIdleSlot(); ok {
-		t.Fatal("claim granted during the benchmark")
-	}
-	if n, _, _ := s.SlotSnapshot(); n != 0 {
-		t.Fatalf("a refused claim left inflight = %d", n)
-	}
-}
-
-func TestRaisingLimitUnblocksQueuedSession(t *testing.T) {
-	s := &Server{sessionQueueWait: time.Second}
-	s.maxInflight.Store(1)
-	if !s.tryAcquireInference() {
-		t.Fatal("acquire")
-	}
-	done := make(chan bool, 1)
-	go func() {
-		done <- s.acquireInferenceWait(context.Background(), time.Second)
-	}()
-	time.Sleep(50 * time.Millisecond)
-	s.SetMaxInflight(2)
-	select {
-	case ok := <-done:
-		if !ok {
-			t.Fatal("queued acquire should succeed after the limit rises")
-		}
-	case <-time.After(2 * time.Second):
-		t.Fatal("queued acquire did not notice the new limit")
 	}
 }

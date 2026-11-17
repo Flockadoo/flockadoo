@@ -11,6 +11,7 @@ import (
 	"errors"
 
 	"github.com/gorilla/mux"
+	"github.com/sentnl/inferoute-node/inferoute-client/internal/admission"
 	"github.com/sentnl/inferoute-node/inferoute-client/internal/config"
 	"github.com/sentnl/inferoute-node/inferoute-client/pkg/connect"
 	"github.com/sentnl/inferoute-node/inferoute-client/pkg/engine"
@@ -45,12 +46,13 @@ func CreateServer(cfg *config.Config, gpuMonitor *gpu.Monitor, healthReporter *h
 		consoleUI:        true,
 		sessionQueueWait: cfg.SessionQueueWait(),
 	}
+	s.sessionQueueLimit = cfg.Server.SessionQueueLimit
 	kind, _ := engine.ParseKind(cfg.Provider.Engine)
 	n := int32(engine.DefaultConcurrency(kind))
 	if v, ok := cfg.ExplicitConcurrency(); ok {
 		n = int32(v)
 	}
-	s.maxInflight.Store(n)
+	s.SetMaxInflight(n)
 
 	return s
 }
@@ -60,16 +62,31 @@ func (s *Server) SetCapacityNotify(fn func()) {
 	s.onCapacity = fn
 }
 
-// SetMaxInflight changes the live slot limit and reports it immediately.
+// admit is the admission gate, created on first use with a limit of 1 until
+// SetMaxInflight sets the real one.
+func (s *Server) admit() *admission.Gate {
+	s.gateOnce.Do(func() {
+		one, _ := admission.NewLimit(1)
+		s.gate = admission.NewGate(one, s.notifyCapacityChange)
+	})
+	return s.gate
+}
+
+// SetMaxInflight changes the live slot limit and reports it immediately. A
+// limit below 1 is refused (decision DC4): config rejects one at startup, and
+// the benchmark never measures one.
 func (s *Server) SetMaxInflight(n int32) {
-	s.maxInflight.Store(n)
-	s.notifyCapacityChange()
+	l, err := admission.NewLimit(int(n))
+	if err != nil {
+		logger.Error("refused a concurrency limit", zap.Error(err))
+		return
+	}
+	s.admit().SetLimit(l)
 }
 
 // SetBenchmarking closes the gate while a concurrency benchmark runs.
 func (s *Server) SetBenchmarking(on bool) {
-	s.benchmarking.Store(on)
-	s.notifyCapacityChange()
+	s.admit().SetClosed(on)
 	s.redrawConsole()
 }
 
@@ -92,7 +109,8 @@ func (s *Server) SetCapabilities(note string) {
 
 // SlotSnapshot is what the capacity sender reports.
 func (s *Server) SlotSnapshot() (inflight, maxInflight int32, accepting bool) {
-	return s.inflight.Load(), s.maxInflight.Load(), !s.benchmarking.Load()
+	snap := s.admit().Snapshot()
+	return snap.Inflight, snap.Limit, snap.Accepting
 }
 
 // SetConsoleUI enables or disables the ANSI terminal dashboard.

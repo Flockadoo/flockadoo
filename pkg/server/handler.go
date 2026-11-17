@@ -9,6 +9,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/sentnl/inferoute-node/inferoute-client/internal/admission"
 	"github.com/sentnl/inferoute-node/inferoute-client/pkg/usermsg"
 )
 
@@ -100,9 +101,9 @@ func (s *Server) handleInference(w http.ResponseWriter, r *http.Request, llmPath
 	// it comes from Inferoute. It is not checked with the node again
 	// (decision DC1): serving a request makes no call to the node.
 
-	// A benchmark owns the engine. Returning conversations do not skip this:
-	// they skip the slot check below, and would otherwise land mid-benchmark.
-	if s.benchmarking.Load() {
+	// A benchmark owns the engine: refuse before reading the body. The gate
+	// refuses it again, atomically, when the slot is taken.
+	if !s.admit().Snapshot().Accepting {
 		s.writeBusy(w, r, startTime)
 		return
 	}
@@ -137,27 +138,20 @@ func (s *Server) handleInference(w http.ResponseWriter, r *http.Request, llmPath
 		return
 	}
 
-	acquired := false
+	var slot *admission.Slot
 	if sameSession {
-		// Returning conversations wait for a free slot. Parallel calls that
-		// share a key are admitted together, up to the slot limit.
-		acquired = s.acquireInferenceWait(r.Context(), s.sessionQueueWait)
+		// Returning conversations wait for a free slot, in arrival order and
+		// up to the queue limit. Parallel calls that share a key are admitted
+		// together, up to the slot limit.
+		slot, _ = s.admit().Acquire(r.Context(), s.sessionQueueWait, s.queueLimit())
 	} else {
-		acquired = s.tryAcquireInference()
+		slot, _ = s.admit().TryAcquire()
 	}
-	if !acquired {
+	if slot == nil {
 		s.writeBusy(w, r, startTime)
 		return
 	}
-	defer s.releaseInference()
-	// The benchmark may have closed the gate after the check at the top,
-	// while this request read its body or queued for a slot (up to
-	// sessionQueueWait). It now waits for in-flight work to finish, so give
-	// the slot back instead of sending this request into its measurement.
-	if s.benchmarking.Load() {
-		s.writeBusy(w, r, startTime)
-		return
-	}
+	defer slot.Release()
 	s.setActiveSession(sessionKey)
 
 	llmResp, err := s.forwardToLLM(r.Context(), llmPath, body)

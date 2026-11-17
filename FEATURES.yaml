@@ -20,9 +20,9 @@ features:
     notes: inference arrives only on the tunnel, and serving it makes no call to the node (decisions DC1, DC3)
 
   - name: Admission
-    entry: tryAcquireInference, acquireInferenceWait and ClaimIdleSlot; the benchmark gate
-    code: [pkg/server/inflight.go]
-    tests: [pkg/server/handler_test.go, pkg/server/probe_benchmark_test.go]
+    entry: admission.Gate (TryAcquire, Acquire for returning turns, ClaimIdle for probes, SetClosed for the benchmark); the relay holds a Slot per request
+    code: [internal/admission/admission.go, pkg/server/inflight.go, pkg/server/handler.go]
+    tests: [internal/admission/admission_test.go, pkg/server/admission_test.go, pkg/server/handler_test.go, pkg/server/probe_benchmark_test.go]
     invariants: [I1, I2, I11]
 
   - name: Model verification
@@ -140,12 +140,16 @@ invariants:
     tests: [TestTheEngineNeverRunsMoreThanTheLimit]
   - id: I1-double-release
     statement: the count survives a double release and a panic between claim and release
-    pending: B1
-    notes: finding ADM-1
+    tests: [TestASlotIsReleasedOnce, TestASecondReleaseOfASlotChangesNothing, TestTheLimitHoldsUnderRandomUse, TestAPanicInTheEngineCallReturnsTheSlot]
+    notes: finding ADM-1, fixed by item B1
   - id: I1-always-a-limit
     statement: there is always a limit; 0 or below stops the client at startup
-    pending: B1
-    notes: finding ADM-2, decision DC4
+    tests: [TestAConcurrencyLimitBelowOneIsRefused, TestNewLimitRefusesBelowOne]
+    notes: finding ADM-2, decision DC4, fixed by item B1
+  - id: I1-returning-turns
+    statement: returning turns of a conversation wait in arrival order, up to a queue limit beyond which they are refused at once
+    tests: [TestReturningTurnsAreAdmittedInArrivalOrder, TestReturningTurnsBeyondTheQueueLimitAreRefusedAtOnce, TestWaitingTurnsAreAdmittedInArrivalOrder, TestATurnBeyondTheQueueIsRefusedAtOnce]
+    notes: finding ADM-3, fixed by item B1
   - id: I2
     statement: every admitted request returns its slot, whatever happens to it
     tests: [TestEverySlotComesBack, TestTheEngineNeverRunsMoreThanTheLimit]
@@ -290,7 +294,7 @@ invariants:
     tests: [TestEverySlotComesBack]
   - id: 7.3-released-once-double-release
     statement: a second release of the same slot changes nothing
-    pending: B1
+    tests: [TestASlotIsReleasedOnce, TestASecondReleaseOfASlotChangesNothing]
   - id: 7.3-cancellation
     statement: cancellation releases the engine call and the slot
     tests: [TestACancelledStreamReleasesTheEngineAndTheSlot]
@@ -299,7 +303,7 @@ invariants:
     tests: [TestEverySlotComesBack]
   - id: 7.3-failures-no-leak-panic
     statement: a panic between claim and release leaks no slot
-    pending: B1
+    tests: [TestAPanicInTheEngineCallReturnsTheSlot, TestTheLimitHoldsUnderRandomUse]
   - id: 7.3-race
     statement: concurrent requests cannot corrupt state; every test runs with the race detector
     tests: [TestTheEngineNeverRunsMoreThanTheLimit]

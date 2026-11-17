@@ -24,8 +24,13 @@ type Config struct {
 		Port int    `yaml:"port"`
 		Host string `yaml:"host"`
 		// MaxConcurrentInference is set only when the provider chooses a limit.
-		// Nil lets the benchmark (or the engine default) decide. 0 = unlimited.
+		// Nil lets the benchmark (or the engine default) decide. It must be at
+		// least 1: there is no "unlimited" (decision DC4).
 		MaxConcurrentInference *int `yaml:"max_concurrent_inference,omitempty"`
+		// SessionQueueLimit is how many returning turns of conversations may
+		// wait for a slot at once; beyond it a turn gets 503 at once and the
+		// platform sends it elsewhere. Default 32, at least 1.
+		SessionQueueLimit int `yaml:"session_queue_limit,omitempty"`
 		// SessionQueueWaitSeconds bounds how long a same-session request
 		// (matching X-Session-Key) waits for the inference slot instead of
 		// being rejected with 503. Default 90.
@@ -93,6 +98,7 @@ func Defaults() *Config {
 	cfg.Server.Port = 8080
 	cfg.Server.Host = "127.0.0.1"
 	cfg.Server.SessionQueueWaitSeconds = 90
+	cfg.Server.SessionQueueLimit = 32
 	cfg.Server.RequestTimeoutSeconds = minRequestTimeoutSeconds
 	cfg.Provider.URL = DefaultPlatformURL
 	cfg.Provider.Engine = "vllm"
@@ -128,9 +134,23 @@ func Load(path string) (*Config, error) {
 	if err := yaml.Unmarshal(data, cfg); err != nil {
 		return nil, fmt.Errorf("failed to parse configuration file: %w", err)
 	}
+	if err := cfg.validate(); err != nil {
+		return nil, fmt.Errorf("%s: %w", path, err)
+	}
 
 	cfg.normalize()
 	return cfg, nil
+}
+
+// validate refuses settings the client cannot run with.
+func (c *Config) validate() error {
+	if v := c.Server.MaxConcurrentInference; v != nil && *v < 1 {
+		return fmt.Errorf("server.max_concurrent_inference is %d; set it to 1 or more, or remove it to let the client measure it (there is no unlimited)", *v)
+	}
+	if c.Server.SessionQueueLimit < 1 {
+		return fmt.Errorf("server.session_queue_limit is %d; set it to 1 or more, or remove it for the default of 32", c.Server.SessionQueueLimit)
+	}
+	return nil
 }
 
 func (c *Config) normalize() {

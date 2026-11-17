@@ -117,8 +117,11 @@ func (w *Watcher) Loop(ctx context.Context) {
 				taken = true
 				break
 			}
-			res := probe(ctx, w.Client, w.EngineURL, w.Model, name)
-			release()
+			// Deferred, so a panic in the probe cannot keep the slot (ADM-1).
+			res := func() probeResult {
+				defer release()
+				return probe(ctx, w.Client, w.EngineURL, w.Model, name)
+			}()
 			outcomes[i] = w.settle(i, res)
 			dirty = true
 			if w.Note != nil {

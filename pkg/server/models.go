@@ -1,9 +1,9 @@
 package server
 
 import (
+	"github.com/sentnl/inferoute-node/inferoute-client/internal/admission"
 	"net/http"
 	"sync"
-	"sync/atomic"
 	"time"
 
 	"context"
@@ -18,25 +18,26 @@ import (
 
 // Server represents the HTTP server
 type Server struct {
-	config           *config.Config
-	gpuMonitor       *gpu.Monitor
-	healthReporter   *health.Reporter
-	llmClient        llm.Client
-	verifier         *verify.Verifier
-	connector        *connect.Client
-	connectCancel    context.CancelFunc
-	consoleUI        bool
-	consoleMu        sync.Mutex
-	maxInflight      atomic.Int32
-	inflight         atomic.Int32
-	benchmarking     atomic.Bool
+	config         *config.Config
+	gpuMonitor     *gpu.Monitor
+	healthReporter *health.Reporter
+	llmClient      llm.Client
+	verifier       *verify.Verifier
+	connector      *connect.Client
+	connectCancel  context.CancelFunc
+	consoleUI      bool
+	consoleMu      sync.Mutex
+	// gate admits requests to the engine; the count lives inside it (plan
+	// item B1). admit creates it on first use.
+	gateOnce         sync.Once
+	gate             *admission.Gate
 	onCapacity       func()
 	engineNote       string
 	engineNoteMu     sync.Mutex
 	capabilitiesNote string
 	sessionQueueWait time.Duration
 	// sessionQueueLimit is how many returning turns may wait for a slot at
-	// once (plan item B1; not used yet).
+	// once; beyond it a turn is refused at once. Zero means the default.
 	sessionQueueLimit int
 	// sessions remembers recent X-Session-Key values so a returning
 	// conversation can wait for a slot. There is no per-session lock:

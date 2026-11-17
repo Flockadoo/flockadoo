@@ -25,7 +25,7 @@ const passesEveryProbe = `{"choices":[{"message":{"content":"{\"ok\":true,\"name
 // it, and the rest of the probe round waits for the benchmark.
 func TestProbesAndBenchmarkTakeTurns(t *testing.T) {
 	s := &Server{}
-	s.maxInflight.Store(4)
+	s.SetMaxInflight(4)
 
 	var probing, benching atomic.Int32 // requests on the engine right now
 	var probes, benchChats, overlaps atomic.Int32
@@ -56,7 +56,7 @@ func TestProbesAndBenchmarkTakeTurns(t *testing.T) {
 			// not wait would send its chats in the next 100ms.
 			close(firstProbe)
 			deadline := time.Now().Add(2 * time.Second)
-			for !s.benchmarking.Load() && time.Now().Before(deadline) {
+			for s.admit().Snapshot().Accepting && time.Now().Before(deadline) {
 				time.Sleep(time.Millisecond)
 			}
 			time.Sleep(100 * time.Millisecond)
