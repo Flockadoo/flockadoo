@@ -60,7 +60,7 @@ func TestDoReachesTheClientsHandlerThroughTheTunnel(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 	body, _ := io.ReadAll(resp.Body)
 	if resp.StatusCode != http.StatusOK || string(body) != "echo:hi" {
 		t.Fatalf("got %d %q, want 200 echo:hi", resp.StatusCode, body)
@@ -169,7 +169,7 @@ func TestASecondDialReplacesTheFirst(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Do after the replacement: %v", err)
 	}
-	resp.Body.Close()
+	_ = resp.Body.Close()
 }
 
 // Blackhole is a half-open connection: the gateway stops reading and
@@ -198,7 +198,10 @@ func rawWebSocket(t *testing.T, gw *fakegateway.Gateway, key string) *websocket.
 	}
 	header := http.Header{}
 	header.Set("Authorization", "Bearer "+key)
-	conn, _, err := websocket.Dial(context.Background(), wsURL, &websocket.DialOptions{HTTPHeader: header})
+	conn, resp, err := websocket.Dial(context.Background(), wsURL, &websocket.DialOptions{HTTPHeader: header})
+	if resp != nil && resp.Body != nil {
+		_ = resp.Body.Close()
+	}
 	if err != nil {
 		t.Fatal(err)
 	}

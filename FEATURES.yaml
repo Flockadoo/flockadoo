@@ -122,3 +122,8 @@ features:
     entry: go run ./internal/tools/check, which CI runs on Linux, macOS and Windows
     code: [internal/tools/check/*.go, .golangci.yml, .github/workflows/ci.yml]
     tests: [internal/tools/check/*_test.go]
+
+  - name: Test harness
+    entry: internal/testenv/fakeengine, fakegateway and fakeplatform, started in one line by a test (plan section 17)
+    code: [internal/testenv/fakeengine/fakeengine.go, internal/testenv/fakeengine/corpus.go, internal/testenv/fakegateway/fakegateway.go, internal/testenv/fakeplatform/fakeplatform.go, scripts/copy_corpus.sh]
+    tests: [internal/testenv/*/*_test.go, pkg/server/harness_test.go]

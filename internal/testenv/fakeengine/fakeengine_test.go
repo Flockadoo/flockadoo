@@ -155,7 +155,7 @@ func TestReplaySendsTheRecordingByteForByte(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 	got, err := io.ReadAll(resp.Body)
 	if err != nil {
 		t.Fatal(err)
@@ -189,7 +189,7 @@ func TestPartialEndsTheConnectionWithoutDone(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 	body, err := io.ReadAll(resp.Body)
 	if err == nil {
 		t.Fatalf("a cut stream read to a clean end: %q", body)
@@ -208,7 +208,7 @@ func TestStallHoldsTheStreamUntilTheClientLeaves(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 	line, err := bufio.NewReader(resp.Body).ReadString('\n')
 	if err != nil || !strings.Contains(line, `"content":"a"`) {
 		t.Fatalf("first line = %q, %v", line, err)
@@ -265,8 +265,9 @@ func TestHangNeverAnswers(t *testing.T) {
 	e := fakeengine.VLLM(t)
 	e.Next(fakeengine.Hang())
 	client := &http.Client{Timeout: 150 * time.Millisecond}
-	_, err := client.Post(e.URL+"/v1/chat/completions", "application/json", strings.NewReader(`{}`))
+	resp, err := client.Post(e.URL+"/v1/chat/completions", "application/json", strings.NewReader(`{}`))
 	if err == nil {
+		_ = resp.Body.Close()
 		t.Fatal("a hung engine answered")
 	}
 	e.AwaitIdle(t)
@@ -281,11 +282,13 @@ func TestCrashRefusesEveryLaterConnection(t *testing.T) {
 		t.Fatalf("before the crash /v1/models = %d, want 200", status)
 	}
 	e.Next(fakeengine.Crash())
-	if _, err := http.Post(e.URL+"/v1/chat/completions", "application/json", strings.NewReader(`{}`)); err == nil {
+	if resp, err := http.Post(e.URL+"/v1/chat/completions", "application/json", strings.NewReader(`{}`)); err == nil {
+		_ = resp.Body.Close()
 		t.Fatal("the request that crashed the engine got an answer")
 	}
 	client := &http.Client{Transport: &http.Transport{DisableKeepAlives: true}, Timeout: time.Second}
-	if _, err := client.Get(e.URL + "/v1/models"); err == nil {
+	if resp, err := client.Get(e.URL + "/v1/models"); err == nil {
+		_ = resp.Body.Close()
 		t.Fatal("a crashed engine still accepts connections")
 	}
 }
@@ -316,7 +319,7 @@ func TestRecordsBodiesAndTheMostRequestsAtOnce(t *testing.T) {
 			req, _ := http.NewRequestWithContext(ctx, http.MethodPost, e.URL+"/v1/completions", strings.NewReader(`{"n":`+string(rune('0'+i))+`}`))
 			if resp, err := http.DefaultClient.Do(req); err == nil {
 				_, _ = io.Copy(io.Discard, resp.Body)
-				resp.Body.Close()
+				_ = resp.Body.Close()
 			}
 		}()
 	}
@@ -353,7 +356,7 @@ func get(t *testing.T, url string) (int, string) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 	b, _ := io.ReadAll(resp.Body)
 	return resp.StatusCode, string(b)
 }
@@ -364,7 +367,7 @@ func post(t *testing.T, url, body string) (int, string) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 	b, err := io.ReadAll(resp.Body)
 	if err != nil && !errors.Is(err, io.ErrUnexpectedEOF) {
 		t.Fatal(err)

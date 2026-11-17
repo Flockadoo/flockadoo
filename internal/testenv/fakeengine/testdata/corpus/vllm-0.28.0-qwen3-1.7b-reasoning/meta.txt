@@ -1,0 +1,5 @@
+engine: vllm-reasoning
+model: Qwen/Qwen3-1.7B
+recorded: 2026-11-16T12:57:46Z
+os: Darwin arm64
+script: record_sse.sh v1

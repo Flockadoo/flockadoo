@@ -1,0 +1,18 @@
+data: {"choices":[{"finish_reason":null,"index":0,"delta":{"role":"assistant","content":null}}],"created":1794836235,"id":"chatcmpl-eSWRB6yUiU0as6ZFnVuO424WPeygEyZq","model":"Qwen/Qwen2.5-3B-Instruct","system_fingerprint":"b12359-b1b770d90","object":"chat.completion.chunk"}
+
+data: {"choices":[{"finish_reason":null,"index":0,"delta":{"content":"Red"}}],"created":1794836235,"id":"chatcmpl-eSWRB6yUiU0as6ZFnVuO424WPeygEyZq","model":"Qwen/Qwen2.5-3B-Instruct","system_fingerprint":"b12359-b1b770d90","object":"chat.completion.chunk"}
+
+data: {"choices":[{"finish_reason":null,"index":0,"delta":{"content":"\n"}}],"created":1794836235,"id":"chatcmpl-eSWRB6yUiU0as6ZFnVuO424WPeygEyZq","model":"Qwen/Qwen2.5-3B-Instruct","system_fingerprint":"b12359-b1b770d90","object":"chat.completion.chunk"}
+
+data: {"choices":[{"finish_reason":null,"index":0,"delta":{"content":"Blue"}}],"created":1794836235,"id":"chatcmpl-eSWRB6yUiU0as6ZFnVuO424WPeygEyZq","model":"Qwen/Qwen2.5-3B-Instruct","system_fingerprint":"b12359-b1b770d90","object":"chat.completion.chunk"}
+
+data: {"choices":[{"finish_reason":null,"index":0,"delta":{"content":"\n"}}],"created":1794836235,"id":"chatcmpl-eSWRB6yUiU0as6ZFnVuO424WPeygEyZq","model":"Qwen/Qwen2.5-3B-Instruct","system_fingerprint":"b12359-b1b770d90","object":"chat.completion.chunk"}
+
+data: {"choices":[{"finish_reason":null,"index":0,"delta":{"content":"Green"}}],"created":1794836235,"id":"chatcmpl-eSWRB6yUiU0as6ZFnVuO424WPeygEyZq","model":"Qwen/Qwen2.5-3B-Instruct","system_fingerprint":"b12359-b1b770d90","object":"chat.completion.chunk"}
+
+data: {"choices":[{"finish_reason":"stop","index":0,"delta":{}}],"created":1794836235,"id":"chatcmpl-eSWRB6yUiU0as6ZFnVuO424WPeygEyZq","model":"Qwen/Qwen2.5-3B-Instruct","system_fingerprint":"b12359-b1b770d90","object":"chat.completion.chunk"}
+
+data: {"choices":[],"created":1794836235,"id":"chatcmpl-eSWRB6yUiU0as6ZFnVuO424WPeygEyZq","model":"Qwen/Qwen2.5-3B-Instruct","system_fingerprint":"b12359-b1b770d90","object":"chat.completion.chunk","usage":{"completion_tokens":6,"prompt_tokens":38,"total_tokens":44,"prompt_tokens_details":{"cached_tokens":0}},"timings":{"cache_n":0,"prompt_n":38,"prompt_ms":244.952,"prompt_per_token_ms":6.446105263157895,"prompt_per_second":155.13243410953982,"predicted_n":6,"predicted_ms":110.582,"predicted_per_token_ms":22.1164,"predicted_per_second":45.21531533160912}}
+
+data: [DONE]
+

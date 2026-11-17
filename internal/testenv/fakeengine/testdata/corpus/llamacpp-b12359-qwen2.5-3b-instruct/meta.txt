@@ -1,0 +1,5 @@
+engine: llamacpp
+model: Qwen/Qwen2.5-3B-Instruct
+recorded: 2026-11-16T13:37:15Z
+os: Darwin arm64
+script: record_sse.sh v1

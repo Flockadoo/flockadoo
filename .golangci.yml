@@ -98,10 +98,18 @@ linters:
 
   exclusions:
     rules:
-      # Tests may wait, build contexts and read the environment.
+      # As in the node: tests may use quick HTTP calls, unchecked assertions
+      # and fixed arguments.
+      - path: _test\.go$
+        linters: [forcetypeassert, noctx, gosec, unparam]
+      # Tests may wait, build contexts, read the environment and make quick
+      # HTTP calls. The t.Skip rule still applies to them (section 17.5).
       - path: _test\.go$
         linters: [forbidigo]
-        text: "(context\\.(Background|TODO)|time\\.Sleep|os\\.(Getenv|LookupEnv)|runtime\\.(GOOS|GOARCH)|fmt\\.Print|os\\.(Stdout|Stderr))"
+        text: "(context\\.(Background|TODO)|time\\.Sleep|os\\.(Getenv|LookupEnv)|runtime\\.(GOOS|GOARCH)|fmt\\.Print|os\\.(Stdout|Stderr)|http\\.(DefaultClient|Get|Post|PostForm|Head|NewRequest)|exec\\.Command)"
+      # The fakes are test code outside _test.go files.
+      - path: ^internal/testenv/
+        linters: [forbidigo, noctx, gosec]
       # cmd/ owns the process: the root context, the terminal, the environment.
       - path: ^cmd/
         linters: [forbidigo]

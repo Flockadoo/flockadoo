@@ -132,7 +132,7 @@ func TestHangHoldsUntilTheClientGivesUp(t *testing.T) {
 	req.Header.Set("Authorization", "Bearer key")
 	resp, err := client.Do(req)
 	if err == nil {
-		resp.Body.Close()
+		_ = resp.Body.Close()
 		t.Fatal("a hung platform answered")
 	}
 	if n := len(p.Requests(http.MethodPost, "/api/provider/verify-model")); n != 1 {
@@ -193,7 +193,7 @@ func call(t *testing.T, method, url, key, body string) (int, string) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 	b, _ := io.ReadAll(resp.Body)
 	return resp.StatusCode, string(b)
 }

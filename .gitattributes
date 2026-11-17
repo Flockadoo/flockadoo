@@ -3,3 +3,7 @@
 *.go   text eol=lf
 go.mod text eol=lf
 go.sum text eol=lf
+
+# The engine stream corpus is compared byte for byte with its checksums and
+# replayed exactly; no checkout may change its line endings.
+internal/testenv/fakeengine/testdata/corpus/** -text

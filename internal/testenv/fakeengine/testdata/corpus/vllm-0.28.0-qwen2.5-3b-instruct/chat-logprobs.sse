@@ -1,0 +1,12 @@
+data: {"id":"chatcmpl-bcbd496c0276059b","object":"chat.completion.chunk","created":1794832563,"model":"Qwen/Qwen2.5-3B-Instruct","choices":[{"index":0,"delta":{"role":"assistant","content":""},"logprobs":null,"finish_reason":null}],"prompt_token_ids":null,"prompt_text":null}
+
+data: {"id":"chatcmpl-bcbd496c0276059b","object":"chat.completion.chunk","created":1794832563,"model":"Qwen/Qwen2.5-3B-Instruct","choices":[{"index":0,"delta":{"content":"Bonjour"},"logprobs":{"content":[{"token":"Bonjour","logprob":-0.026502002030611038,"bytes":[66,111,110,106,111,117,114],"top_logprobs":[{"token":"Bonjour","logprob":-0.026502002030611038,"bytes":[66,111,110,106,111,117,114]},{"token":"Hello","logprob":-4.4015021324157715,"bytes":[72,101,108,108,111]}]}]},"finish_reason":null,"token_ids":null}]}
+
+data: {"id":"chatcmpl-bcbd496c0276059b","object":"chat.completion.chunk","created":1794832563,"model":"Qwen/Qwen2.5-3B-Instruct","choices":[{"index":0,"delta":{"content":"!"},"logprobs":{"content":[{"token":"!","logprob":-0.3521062135696411,"bytes":[33],"top_logprobs":[{"token":"!","logprob":-0.3521062135696411,"bytes":[33]},{"token":".","logprob":-1.3521062135696411,"bytes":[46]}]}]},"finish_reason":null,"token_ids":null}]}
+
+data: {"id":"chatcmpl-bcbd496c0276059b","object":"chat.completion.chunk","created":1794832563,"model":"Qwen/Qwen2.5-3B-Instruct","choices":[{"index":0,"delta":{},"logprobs":{"content":[{"token":"<|im_end|>","logprob":-0.21189631521701813,"bytes":[60,124,105,109,95,101,110,100,124,62],"top_logprobs":[{"token":"<|im_end|>","logprob":-0.21189631521701813,"bytes":[60,124,105,109,95,101,110,100,124,62]},{"token":" Comment","logprob":-2.5868964195251465,"bytes":[32,67,111,109,109,101,110,116]}]}]},"finish_reason":"stop","stop_reason":null,"token_ids":null}]}
+
+data: {"id":"chatcmpl-bcbd496c0276059b","object":"chat.completion.chunk","created":1794832563,"model":"Qwen/Qwen2.5-3B-Instruct","choices":[],"usage":{"prompt_tokens":34,"total_tokens":37,"completion_tokens":3},"system_fingerprint":"vllm-0.28.0-acb8f27e"}
+
+data: [DONE]
+
