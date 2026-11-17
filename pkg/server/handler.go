@@ -215,6 +215,7 @@ func (s *Server) relayRequest(w http.ResponseWriter, r *http.Request, llmPath st
 	if err != nil {
 		s.logError(fmt.Sprintf("Failed to forward request to LLM provider: %v", err))
 		http.Error(w, usermsg.HTTP(err, s.config.PlatformType()), http.StatusBadGateway)
+		s.suspectEngine()
 		return ended(http.StatusBadGateway, relay.EngineUnreachable, false)
 	}
 	defer func() { _ = llmResp.Body.Close() }()

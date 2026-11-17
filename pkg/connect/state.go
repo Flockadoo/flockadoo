@@ -98,6 +98,9 @@ func (c *Client) setState(s State, reason string) {
 	if changed && s.Terminal() {
 		logger.Error("provider connection stopped for good", zap.String("state", s.String()), zap.String("reason", reason))
 	}
+	if changed && c.OnState != nil {
+		c.OnState(s)
+	}
 }
 
 // logWriter sends a library's own log lines (net/http, yamux) to the log

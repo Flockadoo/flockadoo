@@ -37,9 +37,15 @@ type Server struct {
 	gateOnce   sync.Once
 	gate       *admission.Gate
 	onCapacity func()
-	// capacity is the capacity sender, for the drain's final report (plan
-	// item C2; not used yet).
-	capacity         *capacity.Sender
+	// capacity is the capacity sender, for the drain's final report.
+	capacity *capacity.Sender
+	// closeMu guards why the gate is closed: a benchmark, a dead engine,
+	// or a drain (invariant I7). engineProbe asks WatchEngine to look now.
+	closeMu          sync.Mutex
+	benchmarking     bool
+	engineDown       bool
+	draining         bool
+	engineProbe      chan struct{}
 	engineNote       string
 	engineNoteMu     sync.Mutex
 	capabilitiesNote string

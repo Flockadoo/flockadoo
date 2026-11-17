@@ -159,18 +159,23 @@ func TestASecondStopEndsTheDrainAtOnce(t *testing.T) {
 // I7, 6.4: only a connected tunnel may say accepting.
 func TestOnlyAConnectedTunnelSaysAccepting(t *testing.T) {
 	r := newRig(t, 1)
-	if _, _, accepting := r.s.SlotSnapshot(); !accepting {
-		t.Fatal("not accepting while connected")
-	}
+	// The gateway sees the session a moment before the client marks itself
+	// connected, so wait for it.
+	awaitSnapshotAccepting(t, r, true, "not accepting while connected")
 	r.gw.RejectNext(http.StatusServiceUnavailable, "draining")
 	r.gw.Drop()
+	awaitSnapshotAccepting(t, r, false, "still accepting with the tunnel down")
+}
+
+func awaitSnapshotAccepting(t *testing.T, r *rig, want bool, msg string) {
+	t.Helper()
 	deadline := time.Now().Add(2 * time.Second)
 	for {
-		if _, _, accepting := r.s.SlotSnapshot(); !accepting {
-			break
+		if _, _, accepting := r.s.SlotSnapshot(); accepting == want {
+			return
 		}
 		if time.Now().After(deadline) {
-			t.Fatal("still accepting with the tunnel down")
+			t.Fatal(msg)
 		}
 		time.Sleep(5 * time.Millisecond)
 	}

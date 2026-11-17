@@ -158,8 +158,8 @@ func (s *Server) snapshot() StatusSnapshot {
 }
 
 func (s *Server) sessionLabel() string {
-	if !s.admit().Snapshot().Accepting {
-		return "benchmarking"
+	if why := s.closedReason(); why != "" {
+		return why
 	}
 	return "online"
 }

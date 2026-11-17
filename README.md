@@ -121,9 +121,13 @@ The client listens on `127.0.0.1` inside the container. The client dials out to 
 The container always [installs without the wizard](#-install-without-the-wizard), so `PROVIDER_MODEL` is required.
 
 ### Docker Quick Start
+
+On a stop the client finishes the requests it is serving, for up to 60 seconds. Docker's default stop timeout is 10 seconds, so the examples give it 75; with less, Docker kills the client mid-answer.
+
 ```bash
 docker run -d \
   --name inferoute-client \
+  --stop-timeout 75 \
   -e PROVIDER_API_KEY="your-key" \
   -e PROVIDER_TYPE="vllm" \
   -e PROVIDER_MODEL="Qwen/Qwen2.5-7B-Instruct" \
@@ -142,6 +146,7 @@ services:
       - PROVIDER_TYPE=vllm
       - PROVIDER_MODEL=Qwen/Qwen2.5-7B-Instruct
       - LLM_URL=http://host.docker.internal:8000
+    stop_grace_period: 75s
     restart: unless-stopped
 ```
 
@@ -150,6 +155,7 @@ services:
 docker build -t inferoute-client .
 docker run -d \
   --name inferoute-client \
+  --stop-timeout 75 \
   -e PROVIDER_API_KEY="your-key" \
   -e PROVIDER_MODEL="Qwen/Qwen2.5-7B-Instruct" \
   -e LLM_URL="http://host.docker.internal:8000" \

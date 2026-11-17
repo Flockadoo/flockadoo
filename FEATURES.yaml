@@ -47,8 +47,8 @@ features:
 
   - name: Capacity report
     entry: capacity.Sender.Loop, on every slot change and every 20 seconds
-    code: [pkg/capacity/sender.go]
-    tests: [pkg/capacity/sender_test.go]
+    code: [pkg/capacity/sender.go, pkg/server/server.go]
+    tests: [pkg/capacity/sender_test.go, pkg/server/drain_test.go]
     invariants: [I7]
 
   - name: Capability probes
@@ -184,8 +184,8 @@ invariants:
     tests: [TestABenchmarkClosesTheGateInTheNextCapacityReport]
   - id: I7-engine-and-drain
     statement: accepting also needs a connected tunnel, a ready engine and no drain in progress
-    pending: C2
-    notes: findings NET-7 and NET-3
+    tests: [TestADeadEngineIsReportedNotAcceptingUntilItIsBack, TestAStreamInFlightAtStopFinishes, TestOnlyAConnectedTunnelSaysAccepting]
+    notes: findings NET-7 and NET-3, fixed by item C2
   - id: I8
     statement: a capability not verified on this deployment is never reported as supported
     tests: [TestReportRegistersThenRecords, TestBusyEngineIsRetriedNotMarkedUnsupported]
@@ -267,11 +267,11 @@ invariants:
     notes: settles open question U13 on Linux
   - id: 6.4-drain-on-stop
     statement: on stop the client stops taking work, reports not accepting, and lets requests in progress finish for up to 60 seconds
-    pending: C2
-    notes: finding NET-3, decision DC9
+    tests: [TestAStreamInFlightAtStopFinishes, TestTheDrainEndsAtItsLimit, TestASecondStopEndsTheDrainAtOnce]
+    notes: finding NET-3, decision DC9, fixed by item C2; main's signal wiring is not under test
   - id: 6.4-accepting-only-when-connected
     statement: only a connected tunnel may report accepting
-    pending: C2
+    tests: [TestOnlyAConnectedTunnelSaysAccepting]
   - id: 6.4-tunnel-server-limits
     statement: the HTTP server on the tunnel has header and body limits
     tests: [TestAStalledRequestHeaderIsClosed, TestABodyOverTheLimitIsRefusedBeforeTheEngine]
@@ -288,7 +288,7 @@ invariants:
     tests: [TestABodyOverTheLimitIsRefusedBeforeTheEngine]
   - id: 7.3-rejected-not-executed-draining
     statement: a request that arrives during a drain is refused before the engine
-    pending: C2
+    tests: [TestAStreamInFlightAtStopFinishes]
   - id: 7.3-released-once
     statement: every slot is released exactly once
     tests: [TestEverySlotComesBack]

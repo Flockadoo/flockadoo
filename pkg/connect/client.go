@@ -69,6 +69,8 @@ type Client struct {
 	OnConnect func()
 	// Timing paces the reconnects; New sets DefaultTiming.
 	Timing Timing
+	// OnState, if set, is called after every change of State.
+	OnState func(State)
 
 	connected atomic.Bool
 	up        chan error

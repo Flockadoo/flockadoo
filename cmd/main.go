@@ -372,6 +372,22 @@ func main() {
 		}
 	}
 
+	// Drain: take no new work, tell the node, and let what is running finish
+	// for up to 60 s. A second interrupt stops at once (decision DC9).
+	logger.Info("Draining: no new requests; waiting up to 60s for those in progress (interrupt again to stop now)")
+	drainCtx, drainCancel := context.WithCancel(context.Background())
+	go func() {
+		select {
+		case <-quit:
+			drainCancel()
+		case <-drainCtx.Done():
+		}
+	}()
+	if err := srv.Drain(drainCtx, 0); err != nil {
+		logger.Warn("drain ended before every request finished", zap.Error(err))
+	}
+	drainCancel()
+
 	logger.Info("Shutting down gracefully...")
 	cancel()
 	stopCtx, stopCancel := context.WithTimeout(context.Background(), 10*time.Second)
@@ -547,6 +563,9 @@ func startCapacity(ctx context.Context, cfg *config.Config, configPath, llmURL s
 	}
 	sender := capacity.NewSender(cfg.Provider.URL, cfg.Provider.APIKey, srv.SlotSnapshot, llmClient)
 	sender.Active = srv.TunnelActive
+	srv.SetCapacitySender(sender)
+	// A dead engine is reported, not restarted (decision DC5).
+	go srv.WatchEngine(ctx, 0)
 	srv.SetCapacityNotify(sender.Notify)
 	go sender.Loop(ctx)
 

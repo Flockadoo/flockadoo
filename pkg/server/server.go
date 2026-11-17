@@ -13,6 +13,7 @@ import (
 	"github.com/sentnl/inferoute-node/inferoute-client/internal/admission"
 	"github.com/sentnl/inferoute-node/inferoute-client/internal/config"
 	"github.com/sentnl/inferoute-node/inferoute-client/internal/relay"
+	"github.com/sentnl/inferoute-node/inferoute-client/pkg/capacity"
 	"github.com/sentnl/inferoute-node/inferoute-client/pkg/connect"
 	"github.com/sentnl/inferoute-node/inferoute-client/pkg/engine"
 	"github.com/sentnl/inferoute-node/inferoute-client/pkg/gpu"
@@ -86,8 +87,147 @@ func (s *Server) SetMaxInflight(n int32) {
 
 // SetBenchmarking closes the gate while a concurrency benchmark runs.
 func (s *Server) SetBenchmarking(on bool) {
-	s.admit().SetClosed(on)
+	s.setClosed(func() { s.benchmarking = on })
 	s.redrawConsole()
+}
+
+// SetCapacitySender is the sender the drain flushes its final report with.
+func (s *Server) SetCapacitySender(c *capacity.Sender) {
+	s.capacity = c
+}
+
+// setClosed applies change to the reasons the gate is closed, and closes or
+// opens the gate to match: it is closed while a benchmark runs, the engine
+// is down or the client is draining (invariant I7).
+func (s *Server) setClosed(change func()) {
+	s.closeMu.Lock()
+	change()
+	closed := s.benchmarking || s.engineDown || s.draining
+	s.closeMu.Unlock()
+	s.admit().SetClosed(closed)
+}
+
+// closedReason is why the gate is closed, for the dashboard.
+func (s *Server) closedReason() string {
+	s.closeMu.Lock()
+	defer s.closeMu.Unlock()
+	switch {
+	case s.draining:
+		return "draining"
+	case s.engineDown:
+		return "engine down"
+	case s.benchmarking:
+		return "benchmarking"
+	}
+	return ""
+}
+
+// engineProbeInterval is how often WatchEngine looks at the engine.
+const engineProbeInterval = 5 * time.Second
+
+// WatchEngine looks at the engine every interval until ctx ends: two
+// failures in a row close the gate as "engine down", one success opens it
+// again (finding NET-7). It reports the engine down; it does not restart it
+// (decision DC5). A request that cannot reach the engine asks for a look at
+// once.
+func (s *Server) WatchEngine(ctx context.Context, interval time.Duration) {
+	if interval <= 0 {
+		interval = engineProbeInterval
+	}
+	s.closeMu.Lock()
+	if s.engineProbe == nil {
+		s.engineProbe = make(chan struct{}, 1)
+	}
+	probeNow := s.engineProbe
+	s.closeMu.Unlock()
+	tick := time.NewTicker(interval)
+	defer tick.Stop()
+	failures := 0
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		case <-tick.C:
+		case <-probeNow:
+		}
+		pctx, cancel := context.WithTimeout(ctx, 2*time.Second)
+		_, err := s.llmClient.ListModels(pctx)
+		cancel()
+		switch {
+		case err == nil:
+			failures = 0
+			s.setEngineDown(false)
+		case ctx.Err() == nil:
+			if failures++; failures >= 2 {
+				s.setEngineDown(true)
+			}
+		}
+	}
+}
+
+func (s *Server) setEngineDown(down bool) {
+	s.closeMu.Lock()
+	was := s.engineDown
+	s.closeMu.Unlock()
+	if was == down {
+		return
+	}
+	if down {
+		logger.Error("the engine does not answer; not accepting requests until it does")
+	} else {
+		logger.Info("the engine answers again; accepting requests")
+	}
+	s.setClosed(func() { s.engineDown = down })
+}
+
+// suspectEngine asks WatchEngine to look at the engine now.
+func (s *Server) suspectEngine() {
+	s.closeMu.Lock()
+	ch := s.engineProbe
+	s.closeMu.Unlock()
+	if ch != nil {
+		select {
+		case ch <- struct{}{}:
+		default:
+		}
+	}
+}
+
+// defaultDrainLimit is how long a drain waits for requests in progress: the
+// gateway's own drain time (decision DC9).
+const defaultDrainLimit = 60 * time.Second
+
+// Drain stops taking work and lets the work in progress finish: it closes
+// the gate, sends a final "not accepting" report and waits for it, then
+// waits for requests in flight, for up to limit or until ctx ends (a second
+// stop request). What still runs then is cut by Stop (finding NET-3).
+func (s *Server) Drain(ctx context.Context, limit time.Duration) error {
+	if limit <= 0 {
+		limit = defaultDrainLimit
+	}
+	// The console redraws itself every second; the new state shows there.
+	s.setClosed(func() { s.draining = true })
+	if s.capacity != nil {
+		fctx, cancel := context.WithTimeout(ctx, 5*time.Second)
+		if err := s.capacity.Flush(fctx); err != nil {
+			logger.Warn("the final capacity report failed", zap.Error(err))
+		}
+		cancel()
+	}
+	deadline := time.NewTimer(limit)
+	defer deadline.Stop()
+	tick := time.NewTicker(20 * time.Millisecond)
+	defer tick.Stop()
+	for s.admit().Snapshot().Inflight > 0 {
+		select {
+		case <-ctx.Done():
+			return ctx.Err()
+		case <-deadline.C:
+			return fmt.Errorf("%d requests still running after %v", s.admit().Snapshot().Inflight, limit)
+		case <-tick.C:
+		}
+	}
+	return nil
 }
 
 // SetEngineNote is the local dashboard line for benchmark progress.
@@ -110,7 +250,10 @@ func (s *Server) SetCapabilities(note string) {
 // SlotSnapshot is what the capacity sender reports.
 func (s *Server) SlotSnapshot() (inflight, maxInflight int32, accepting bool) {
 	snap := s.admit().Snapshot()
-	return snap.Inflight, snap.Limit, snap.Accepting
+	// Accepting only with an open gate and a connected tunnel (invariant
+	// I7). A worker has no tunnel of its own.
+	c := s.tunnel()
+	return snap.Inflight, snap.Limit, snap.Accepting && (c == nil || c.Connected())
 }
 
 // SetConsoleUI enables or disables the ANSI terminal dashboard.
@@ -135,6 +278,7 @@ func (s *Server) Start() error {
 	var connector *connect.Client
 	if !s.config.EnrolledWorker() {
 		connector = connect.New(s.config.Provider.URL, s.config.Provider.APIKey, s.inferenceMux(), s.onConnect)
+		connector.OnState = func(connect.State) { s.notifyCapacityChange() }
 		s.connector = connector
 	}
 	s.lifeMu.Unlock()
@@ -485,9 +629,3 @@ func (s *Server) verifyModel(ctx context.Context, model string) error {
 	}
 	return s.verifier.CheckInference(ctx, s.llmClient, model)
 }
-
-// WatchEngine is not written yet: plan item C2, tests first.
-func (s *Server) WatchEngine(ctx context.Context, interval time.Duration) {}
-
-// Drain is not written yet: plan item C2, tests first.
-func (s *Server) Drain(ctx context.Context, limit time.Duration) error { return nil }

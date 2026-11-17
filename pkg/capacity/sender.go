@@ -92,8 +92,14 @@ type payload struct {
 }
 
 func (s *Sender) send(ctx context.Context) {
+	if err := s.post(ctx); err != nil {
+		logger.Debug("capacity post failed", zap.Error(err))
+	}
+}
+
+func (s *Sender) post(ctx context.Context) error {
 	if s.slots == nil || (s.Active != nil && !s.Active()) {
-		return
+		return nil
 	}
 	inflight, maxInflight, accepting := s.slots()
 	body := payload{
@@ -116,26 +122,29 @@ func (s *Sender) send(ctx context.Context) {
 	}
 	raw, err := json.Marshal(body)
 	if err != nil {
-		return
+		return err
 	}
 	reqCtx, cancel := context.WithTimeout(ctx, postTimeout)
 	defer cancel()
 	req, err := http.NewRequestWithContext(reqCtx, http.MethodPost, s.url+"/api/provider/capacity", bytes.NewReader(raw))
 	if err != nil {
-		return
+		return err
 	}
 	req.Header.Set("Content-Type", "application/json")
 	req.Header.Set("Authorization", "Bearer "+s.apiKey)
 	resp, err := s.client.Do(req)
 	if err != nil {
-		logger.Debug("capacity post failed", zap.Error(err))
-		return
+		return err
 	}
-	resp.Body.Close()
+	_ = resp.Body.Close()
 	if resp.StatusCode != http.StatusNoContent && resp.StatusCode != http.StatusOK {
-		logger.Debug("capacity post rejected", zap.Int("status", resp.StatusCode), zap.String("detail", fmt.Sprint(resp.Status)))
+		return fmt.Errorf("capacity post rejected: %s", resp.Status)
 	}
+	return nil
 }
 
-// Flush is not written yet: plan item C2, tests first.
-func (s *Sender) Flush(ctx context.Context) error { return nil }
+// Flush sends a report now and waits for it, for the drain's final
+// "not accepting" (decision DC9).
+func (s *Sender) Flush(ctx context.Context) error {
+	return s.post(ctx)
+}
