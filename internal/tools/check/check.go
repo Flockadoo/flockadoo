@@ -153,8 +153,15 @@ func lint(ctx context.Context, o options, w io.Writer) error {
 		}
 		args = append(args, "--new-from-merge-base="+o.lintBase)
 	}
-	return tool(ctx, o, w, nil, o.golangci, append(args, "./...")...)
+	return tool(ctx, o, w, lintGitEnv, o.golangci, append(args, "./...")...)
 }
+
+// lintGitEnv fixes git's diff algorithm for the git commands golangci-lint
+// runs to find the changed lines. Without it a developer's diff.algorithm
+// decides which lines lint judges, and a check that passed locally failed in
+// CI. Histogram follows what the author changed: a function next to new code
+// stays unchanged. It overrides every git config file.
+var lintGitEnv = []string{"GIT_CONFIG_COUNT=1", "GIT_CONFIG_KEY_0=diff.algorithm", "GIT_CONFIG_VALUE_0=histogram"}
 
 // tests runs the race-enabled suite with HOME and every per-user directory
 // pointed at a new, empty temporary directory, so no test can read or write
