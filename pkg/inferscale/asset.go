@@ -1,6 +1,7 @@
 package inferscale
 
 import (
+	"errors"
 	"fmt"
 	"os"
 	"runtime"
@@ -42,3 +43,19 @@ func downloadURL(name string) string {
 func hostAsset() (cli, daemon string, err error) {
 	return Asset(runtime.GOOS, runtime.GOARCH)
 }
+
+// Pin is not written yet: plan item S1, tests first.
+type Pin struct {
+	Version string            `json:"version"`
+	Commit  string            `json:"commit"`
+	SHA256  map[string]string `json:"sha256"`
+}
+
+// ErrNotPinned is not written yet.
+var ErrNotPinned = errors.New("not pinned")
+
+func (p Pin) sum(name string) (string, error) { return p.SHA256[name], nil }
+
+func embeddedPin() (Pin, error) { return Pin{}, nil }
+
+func downloadURLFor(p Pin, name string) string { return downloadURL(name) }
