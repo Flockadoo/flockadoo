@@ -54,7 +54,6 @@ func newRig(t *testing.T, limit int32) *rig {
 	cfg := &config.Config{}
 	cfg.Provider.URL = r.plat.URL
 	cfg.Provider.APIKey = rigKey
-	cfg.Provider.ProviderType = "vllm"
 	cfg.Provider.Engine = "vllm"
 	cfg.Provider.Model = rigModel
 	r.s = &Server{config: cfg, llmClient: llm.NewClient("vllm", r.eng.URL, 30*time.Second), sessionQueueWait: 5 * time.Second}

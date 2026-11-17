@@ -579,18 +579,6 @@ type nodeState struct {
 	Online bool
 }
 
-// Inspect reads the IPv4 address and the Headscale node id.
-func Inspect(ctx context.Context, cli string) (ip, nodeID string, err error) {
-	st, err := readState(ctx, cli)
-	if err != nil {
-		return "", "", err
-	}
-	if st.IP == "" {
-		return "", st.ID, fmt.Errorf("inferscale has no ipv4")
-	}
-	return st.IP, st.ID, nil
-}
-
 func readState(ctx context.Context, cli string) (nodeState, error) {
 	cctx, cancel := context.WithTimeout(ctx, 3*time.Second)
 	defer cancel()
@@ -695,16 +683,6 @@ func ipv4(ctx context.Context, cli string) (string, error) {
 		return "", fmt.Errorf("inferscale has no ipv4")
 	}
 	return ip, nil
-}
-
-// LocalStatus is the tailnet address and a "N online" peer summary.
-// A missing binary is an empty result.
-func LocalStatus() (ip, peers string) {
-	ip, n := Tailnet()
-	if n > 0 {
-		peers = fmt.Sprintf("%d online", n)
-	}
-	return ip, peers
 }
 
 // Tailnet is this machine's tailnet IPv4 and how many other nodes are online.

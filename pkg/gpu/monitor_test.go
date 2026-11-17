@@ -130,25 +130,3 @@ func TestGetGPUInfoSerializesRefresh(t *testing.T) {
 		t.Errorf("queries = %d, want 1 (mutex serializes refresh)", got)
 	}
 }
-
-func TestIsBusyUsesCachedGetGPUInfo(t *testing.T) {
-	var n atomic.Int32
-	m := testMonitor(time.Second, func() (*GPUInfo, error) {
-		n.Add(1)
-		return &GPUInfo{Utilization: 50, IsBusy: true}, nil
-	})
-
-	busy, err := m.IsBusy()
-	if err != nil {
-		t.Fatalf("IsBusy() = _, %v", err)
-	}
-	if !busy {
-		t.Fatal("IsBusy() = false, want true")
-	}
-	if _, err := m.IsBusy(); err != nil {
-		t.Fatalf("IsBusy() cached: %v", err)
-	}
-	if got := n.Load(); got != 1 {
-		t.Errorf("queries = %d, want 1", got)
-	}
-}

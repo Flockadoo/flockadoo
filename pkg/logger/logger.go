@@ -187,16 +187,3 @@ func Error(msg string, fields ...zapcore.Field) {
 func Fatal(msg string, fields ...zapcore.Field) {
 	GetDefaultLogger().Fatal(msg, fields...)
 }
-
-// With creates a child logger with the given fields
-func With(fields ...zapcore.Field) *Logger {
-	return &Logger{
-		Logger: GetDefaultLogger().With(fields...),
-		level:  GetDefaultLogger().level,
-	}
-}
-
-// IsDebugEnabled returns true if debug logging is enabled
-func IsDebugEnabled() bool {
-	return GetDefaultLogger().level <= zapcore.DebugLevel
-}

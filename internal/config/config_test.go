@@ -59,7 +59,10 @@ func TestLoadHostFromYAML(t *testing.T) {
 	}
 }
 
-func TestLoadEngineDefaultsFromProviderType(t *testing.T) {
+// Rewritten for decision DC11 (plan item Q2): the engine, and the provider
+// type derived from it, come from engine alone; provider_type is not a
+// setting any more, and a line of it changes nothing.
+func TestLoadTakesTheEngineFromEngine(t *testing.T) {
 	t.Parallel()
 
 	tests := []struct {
@@ -70,21 +73,21 @@ func TestLoadEngineDefaultsFromProviderType(t *testing.T) {
 		wantAuto   bool
 	}{
 		{
-			name:       "empty provider type defaults to vllm",
-			yaml:       "provider:\n  provider_type: \"\"\n",
+			name:       "no engine defaults to vllm",
+			yaml:       "provider:\n  model: Qwen/Qwen2.5-7B-Instruct\n",
 			wantEngine: "vllm",
 			wantType:   "vllm",
 		},
 		{
-			name:       "unknown provider type defaults to vllm",
-			yaml:       "provider:\n  provider_type: custom\n",
+			name:       "a provider_type line alone changes nothing",
+			yaml:       "provider:\n  provider_type: llama_cpp\n",
 			wantEngine: "vllm",
 			wantType:   "vllm",
 		},
 		{
-			name:       "vllm implied",
-			yaml:       "provider:\n  provider_type: vllm\n",
-			wantEngine: "vllm",
+			name:       "vllm-metal is a vllm provider",
+			yaml:       "provider:\n  engine: vllm-metal\n",
+			wantEngine: "vllm-metal",
 			wantType:   "vllm",
 		},
 		{
@@ -109,8 +112,8 @@ func TestLoadEngineDefaultsFromProviderType(t *testing.T) {
 			if cfg.Provider.Engine != tt.wantEngine {
 				t.Errorf("Engine = %q, want %q", cfg.Provider.Engine, tt.wantEngine)
 			}
-			if cfg.Provider.ProviderType != tt.wantType {
-				t.Errorf("ProviderType = %q, want %q", cfg.Provider.ProviderType, tt.wantType)
+			if cfg.PlatformType() != tt.wantType {
+				t.Errorf("PlatformType() = %q, want %q", cfg.PlatformType(), tt.wantType)
 			}
 			if cfg.Provider.AutoStart != tt.wantAuto {
 				t.Errorf("AutoStart = %v, want %v", cfg.Provider.AutoStart, tt.wantAuto)
@@ -129,7 +132,6 @@ func TestSaveRoundTrip(t *testing.T) {
 	in.Provider.APIKey = "test-key"
 	in.Provider.URL = "https://core.inferoute.com"
 	in.Provider.Engine = "llama_cpp"
-	in.Provider.ProviderType = "llama_cpp"
 	in.Provider.LLMURL = "http://127.0.0.1:8081"
 	in.Provider.Model = "Qwen/Qwen2.5-7B-Instruct"
 	in.Provider.AutoStart = true
@@ -148,8 +150,8 @@ func TestSaveRoundTrip(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Load: %v", err)
 	}
-	if out.Provider.Engine != "llama_cpp" || out.Provider.ProviderType != "llama_cpp" {
-		t.Errorf("engine/type = %q/%q", out.Provider.Engine, out.Provider.ProviderType)
+	if out.Provider.Engine != "llama_cpp" || out.PlatformType() != "llama_cpp" {
+		t.Errorf("engine/type = %q/%q", out.Provider.Engine, out.PlatformType())
 	}
 	if !out.Provider.AutoStart || out.Provider.Model != "Qwen/Qwen2.5-7B-Instruct" {
 		t.Errorf("auto_start/model = %v/%q", out.Provider.AutoStart, out.Provider.Model)
@@ -194,19 +196,13 @@ func TestTimeoutFloors(t *testing.T) {
 	}
 }
 
-func TestPlatformTypeAndDefaultURL(t *testing.T) {
+func TestPlatformType(t *testing.T) {
 	t.Parallel()
 	if got := PlatformType("custom"); got != "vllm" {
 		t.Errorf("PlatformType(custom) = %q", got)
 	}
-	if got := DefaultLLMURL("vllm"); got != "http://127.0.0.1:8000" {
-		t.Errorf("DefaultLLMURL(vllm) = %q", got)
-	}
 	if got := PlatformType("llama_cpp"); got != "llama_cpp" {
 		t.Errorf("PlatformType(llama_cpp) = %q", got)
-	}
-	if got := DefaultLLMURL("llama_cpp"); got != "http://127.0.0.1:8081" {
-		t.Errorf("DefaultLLMURL(llama_cpp) = %q", got)
 	}
 }
 
@@ -218,8 +214,9 @@ func TestResolvePlatformURL(t *testing.T) {
 	if got := ResolvePlatformURL("https://flag.example/", "https://cfg.example"); got != "https://flag.example" {
 		t.Errorf("flag = %q", got)
 	}
-	if got := ResolvePlatformURL("", "http://localhost:80"); got != DefaultPlatformURL {
-		t.Errorf("placeholder config = %q", got)
+	// Rewritten for DC11: the old localhost:80 placeholder is used as written.
+	if got := ResolvePlatformURL("", "http://localhost:80"); got != "http://localhost:80" {
+		t.Errorf("localhost config = %q", got)
 	}
 	t.Setenv(EnvPlatformURL, "https://env.example/")
 	if got := ResolvePlatformURL("", "https://cfg.example"); got != "https://env.example" {

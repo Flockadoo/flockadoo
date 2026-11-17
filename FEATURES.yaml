@@ -33,7 +33,7 @@ features:
   - name: Model verification
     entry: Verifier.CheckInference on the request path; ApplyToModels for the health report
     code: [pkg/verify/verifier.go, pkg/verify/measure.go, pkg/verify/fingerprint.go, pkg/verify/server.go, pkg/verify/context_gate.go, pkg/verify/hfresolve.go, pkg/verify/llamacache.go]
-    tests: [pkg/verify/verifier_test.go, pkg/verify/measure_test.go, pkg/verify/fingerprint_test.go, pkg/verify/context_gate_test.go, pkg/verify/hfresolve_test.go, pkg/verify/llamacache_test.go]
+    tests: [pkg/verify/verifier_test.go, pkg/verify/measure_test.go, pkg/verify/filehash_test.go, pkg/verify/context_gate_test.go, pkg/verify/hfresolve_test.go, pkg/verify/llamacache_test.go]
     invariants: [I13, I14]
     notes: >-
       Verification identifies a model, it does not prove one (finding SEC-2). Safetensors are
@@ -47,8 +47,8 @@ features:
 
   - name: Health report
     entry: Reporter.SendHealthReport, every 3 minutes and after each connect; node health for a cluster worker
-    code: [pkg/health/reporter.go, pkg/health/display.go]
-    tests: [pkg/health/reporter_test.go, pkg/health/advertise_test.go, pkg/contract/shape_test.go]
+    code: [pkg/health/reporter.go]
+    tests: [pkg/health/reporter_test.go, pkg/health/advertise_test.go, pkg/health/provider_type_test.go, pkg/contract/shape_test.go]
 
   - name: Capacity report
     entry: capacity.Sender.Loop, on every slot change and every 20 seconds
@@ -116,7 +116,7 @@ features:
   - name: Configuration
     entry: config.Load and Save; ~/.config/inferoute/config.yaml
     code: [internal/config/config.go]
-    tests: [internal/config/config_test.go]
+    tests: [internal/config/config_test.go, pkg/setup/defaults_test.go]
 
   - name: Check command
     entry: go run ./internal/tools/check, which CI runs on Linux, macOS and Windows

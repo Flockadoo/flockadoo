@@ -28,10 +28,6 @@ func (s stubLLM) ListModels(context.Context) (*llm.ListModelsResponse, error) {
 	return s.models, s.err
 }
 
-func (s stubLLM) Chat(context.Context, *llm.ChatRequest) (*llm.ChatResponse, error) {
-	return nil, errors.New("unused")
-}
-
 func (s stubLLM) ForwardRequest(context.Context, string, []byte) (*http.Response, error) {
 	return nil, errors.New("unused")
 }

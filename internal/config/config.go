@@ -32,17 +32,18 @@ type Config struct {
 		SessionQueueWaitSeconds int `yaml:"session_queue_wait_seconds"`
 		// RequestTimeoutSeconds sets the HTTP server read/write timeouts.
 		// Must cover the session queue wait plus inference so the
-		// orchestrator's sticky timeout (default 120s) is usable. Default 240.
+		// platform's non-streaming deadline is usable. Default and minimum
+		// 420; a lower value is raised to it.
 		RequestTimeoutSeconds int `yaml:"request_timeout_seconds"`
 	} `yaml:"server"`
 
 	// Provider configuration
 	Provider struct {
-		APIKey       string `yaml:"api_key"`
-		URL          string `yaml:"url"`
-		ProviderType string `yaml:"provider_type"`
+		APIKey string `yaml:"api_key"`
+		URL    string `yaml:"url"`
 		// Engine is the local inference binary: vllm, vllm-metal, llama_cpp.
-		// Empty defaults from ProviderType so existing configs keep working.
+		// Empty means vllm. It is the one engine setting: the provider type
+		// the node is told is derived from it (PlatformType).
 		Engine string `yaml:"engine,omitempty"`
 		// EngineBin is an absolute path when the binary is not on PATH.
 		EngineBin string `yaml:"engine_bin,omitempty"`
@@ -53,9 +54,9 @@ type Config struct {
 		AutoStart  bool   `yaml:"auto_start"`
 		HFHubCache string `yaml:"hf_hub_cache,omitempty"` // optional; default ~/.cache/huggingface/hub
 		ModelPath  string `yaml:"model_path,omitempty"`   // optional flat dir override (hf download --local-dir)
-		// LLMTimeoutSeconds is the timeout for requests forwarded to the
-		// local vLLM, vLLM Metal, or llama.cpp instance. Default 120, aligned with the
-		// orchestrator's sticky inference timeout.
+		// LLMTimeoutSeconds is the timeout for non-streaming requests
+		// forwarded to the local vLLM, vLLM Metal, or llama.cpp instance.
+		// Default and minimum 330; a lower value is raised to it.
 		LLMTimeoutSeconds int `yaml:"llm_timeout_seconds"`
 		// Catalog serve flags (SNTNL-119). Persisted from approved-builds so
 		// auto-start can rebuild the same argv without a catalog fetch.
@@ -85,30 +86,32 @@ type Config struct {
 	Logging logger.Config `yaml:"logging"`
 }
 
-// Load loads the configuration from a YAML file
-func Load(path string) (*Config, error) {
-	// Create default configuration
+// Defaults is the configuration before a file is read. Load starts from it,
+// and so does the setup wizard when there is no file yet.
+func Defaults() *Config {
 	cfg := &Config{}
-
-	// Set default values
 	cfg.Server.Port = 8080
 	cfg.Server.Host = "127.0.0.1"
 	cfg.Server.SessionQueueWaitSeconds = 90
-	cfg.Server.RequestTimeoutSeconds = 240
+	cfg.Server.RequestTimeoutSeconds = minRequestTimeoutSeconds
 	cfg.Provider.URL = DefaultPlatformURL
-	cfg.Provider.ProviderType = "vllm"
+	cfg.Provider.Engine = "vllm"
 	cfg.Provider.LLMURL = "http://127.0.0.1:8000"
-	cfg.Provider.LLMTimeoutSeconds = 120
-
-	// Set default logging configuration
-	homeDir, err := os.UserHomeDir()
-	if err == nil {
+	cfg.Provider.LLMTimeoutSeconds = minLLMTimeoutSeconds
+	if homeDir, err := os.UserHomeDir(); err == nil {
 		cfg.Logging.LogDir = filepath.Join(homeDir, ".local", "state", "inferoute", "log")
 	}
 	cfg.Logging.Level = "info"
 	cfg.Logging.MaxSize = 100
 	cfg.Logging.MaxBackups = 5
 	cfg.Logging.MaxAge = 30
+	return cfg
+}
+
+// Load loads the configuration from a YAML file. A provider_type line left
+// in an old file is ignored: engine is the one setting (decision DC11).
+func Load(path string) (*Config, error) {
+	cfg := Defaults()
 
 	// Read configuration file
 	data, err := os.ReadFile(path)
@@ -131,7 +134,6 @@ func Load(path string) (*Config, error) {
 }
 
 func (c *Config) normalize() {
-	c.Provider.ProviderType = strings.ToLower(strings.TrimSpace(c.Provider.ProviderType))
 	c.Provider.Engine = strings.ToLower(strings.TrimSpace(c.Provider.Engine))
 	c.Provider.EngineBin = strings.TrimSpace(c.Provider.EngineBin)
 	c.Provider.Model = strings.TrimSpace(c.Provider.Model)
@@ -144,7 +146,12 @@ func (c *Config) normalize() {
 	if c.Provider.Engine == "" {
 		c.Provider.Engine = "vllm"
 	}
-	c.Provider.ProviderType = PlatformType(c.Provider.Engine)
+}
+
+// PlatformType is the provider type the node is told for this config's
+// engine: llama_cpp, or vllm for vLLM and vLLM Metal.
+func (c *Config) PlatformType() string {
+	return PlatformType(c.Provider.Engine)
 }
 
 // ExplicitConcurrency reports a limit the provider wrote into config.
@@ -162,16 +169,6 @@ func PlatformType(engine string) string {
 		return "llama_cpp"
 	}
 	return "vllm"
-}
-
-// DefaultLLMURL is the loopback URL for an engine.
-func DefaultLLMURL(engine string) string {
-	switch strings.ToLower(strings.TrimSpace(engine)) {
-	case "llama_cpp":
-		return "http://127.0.0.1:8081"
-	default:
-		return "http://127.0.0.1:8000"
-	}
 }
 
 // DefaultPath is ~/.config/inferoute/config.yaml.
@@ -256,7 +253,7 @@ func PlatformURLFromEnv() string {
 }
 
 // ResolvePlatformURL picks the Inferoute API base.
-// Order: explicit flag, INFEROUTE_URL, existing config, production default.
+// Order: explicit flag, INFEROUTE_URL, existing config (as written), production default.
 func ResolvePlatformURL(explicit, fromConfig string) string {
 	if v := strings.TrimRight(strings.TrimSpace(explicit), "/"); v != "" {
 		return v
@@ -264,8 +261,7 @@ func ResolvePlatformURL(explicit, fromConfig string) string {
 	if v := PlatformURLFromEnv(); v != "" {
 		return v
 	}
-	v := strings.TrimRight(strings.TrimSpace(fromConfig), "/")
-	if v != "" && v != "http://localhost:80" {
+	if v := strings.TrimRight(strings.TrimSpace(fromConfig), "/"); v != "" {
 		return v
 	}
 	return DefaultPlatformURL

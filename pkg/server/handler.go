@@ -52,7 +52,7 @@ func (s *Server) handleHealth(w http.ResponseWriter, r *http.Request) {
 	report, err := s.healthReporter.GetHealthReport(r.Context())
 	if err != nil {
 		s.logError(fmt.Sprintf("Failed to get health report: %v", err))
-		http.Error(w, usermsg.HTTP(err, s.config.Provider.ProviderType), http.StatusInternalServerError)
+		http.Error(w, usermsg.HTTP(err, s.config.PlatformType()), http.StatusInternalServerError)
 		return
 	}
 
@@ -62,15 +62,8 @@ func (s *Server) handleHealth(w http.ResponseWriter, r *http.Request) {
 
 // handleBusy handles the /api/busy endpoint
 func (s *Server) handleBusy(w http.ResponseWriter, r *http.Request) {
-	isBusy, err := s.isBusy()
-	if err != nil {
-		s.logError(fmt.Sprintf("Error checking if GPU is busy: %v", err))
-		http.Error(w, fmt.Sprintf("Failed to check if GPU is busy: %v", err), http.StatusInternalServerError)
-		return
-	}
-
 	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(BusyResponse{Busy: isBusy})
+	_ = json.NewEncoder(w).Encode(BusyResponse{Busy: s.slotsBusy()})
 }
 
 func (s *Server) writeBusy(w http.ResponseWriter, r *http.Request, startTime time.Time) {
@@ -132,18 +125,9 @@ func (s *Server) handleInference(w http.ResponseWriter, r *http.Request, llmPath
 	sessionKey := r.Header.Get("X-Session-Key")
 	sameSession := sessionKey != "" && s.isActiveSession(sessionKey)
 
-	if !sameSession {
-		isBusy, err := s.isBusy()
-		if err != nil {
-			s.logError(fmt.Sprintf("Error checking if GPU is busy: %v", err))
-			http.Error(w, fmt.Sprintf("Failed to check if GPU is busy: %v", err), http.StatusInternalServerError)
-			s.logRequest(r.Method, r.URL.Path, http.StatusInternalServerError, startTime)
-			return
-		}
-		if isBusy {
-			s.writeBusy(w, r, startTime)
-			return
-		}
+	if !sameSession && s.slotsBusy() {
+		s.writeBusy(w, r, startTime)
+		return
 	}
 
 	body, err := io.ReadAll(r.Body)
@@ -192,7 +176,7 @@ func (s *Server) handleInference(w http.ResponseWriter, r *http.Request, llmPath
 	llmResp, err := s.forwardToLLM(r.Context(), llmPath, body)
 	if err != nil {
 		s.logError(fmt.Sprintf("Failed to forward request to LLM provider: %v", err))
-		http.Error(w, usermsg.HTTP(err, s.config.Provider.ProviderType), http.StatusBadGateway)
+		http.Error(w, usermsg.HTTP(err, s.config.PlatformType()), http.StatusBadGateway)
 		s.logRequest(r.Method, r.URL.Path, http.StatusBadGateway, startTime)
 		return
 	}

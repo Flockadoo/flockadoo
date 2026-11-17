@@ -100,7 +100,6 @@ func TestTheDefaultLoggerWritesNothingUntilOneIsInstalled(t *testing.T) {
 	Info("info")
 	Warn("warn")
 	Error("error")
-	With().Info("with")
 	_ = GetDefaultLogger().Sync()
 
 	entries, err := os.ReadDir(home)

@@ -36,33 +36,25 @@ type StatusModel struct {
 
 // StatusSnapshot is the local console view, as JSON for the browser dashboard.
 type StatusSnapshot struct {
-	LastHealthUpdate string             `json:"last_health_update"`
-	SessionStatus    string             `json:"session_status"`
-	ProviderType     string             `json:"provider_type"`
-	ProviderAPIKey   string             `json:"provider_api_key"`
-	ProviderURL      string             `json:"provider_url"`
-	LLMURL           string             `json:"llm_url"`
-	Connected        bool               `json:"connected"`
-	Models           []StatusModel      `json:"models"`
-	GPU              *gpu.GPUInfo       `json:"gpu"`
-	RecentRequests   []RequestLog       `json:"recent_requests"`
-	ClientVersion    string             `json:"client_version"`
-	LatestVersion    string             `json:"latest_version,omitempty"`
-	UpdateStatus     string             `json:"update_status"`
-	TailnetIP        string             `json:"tailnet_ip,omitempty"`
-	Peers            string             `json:"peers,omitempty"`
-	Cluster          string             `json:"cluster,omitempty"`
-	Nodes            string             `json:"nodes,omitempty"`
-	EngineNote       string             `json:"engine_note,omitempty"`
-	Capabilities     []CapabilityStatus `json:"capabilities,omitempty"`
-	CapabilityLine   string             `json:"capability_line,omitempty"`
-}
-
-// CapabilityStatus is one probe shown on the local status page.
-type CapabilityStatus struct {
-	Name   string `json:"name"`
-	State  string `json:"state"`
-	Detail string `json:"detail,omitempty"`
+	LastHealthUpdate string        `json:"last_health_update"`
+	SessionStatus    string        `json:"session_status"`
+	ProviderType     string        `json:"provider_type"`
+	ProviderAPIKey   string        `json:"provider_api_key"`
+	ProviderURL      string        `json:"provider_url"`
+	LLMURL           string        `json:"llm_url"`
+	Connected        bool          `json:"connected"`
+	Models           []StatusModel `json:"models"`
+	GPU              *gpu.GPUInfo  `json:"gpu"`
+	RecentRequests   []RequestLog  `json:"recent_requests"`
+	ClientVersion    string        `json:"client_version"`
+	LatestVersion    string        `json:"latest_version,omitempty"`
+	UpdateStatus     string        `json:"update_status"`
+	TailnetIP        string        `json:"tailnet_ip,omitempty"`
+	Peers            string        `json:"peers,omitempty"`
+	Cluster          string        `json:"cluster,omitempty"`
+	Nodes            string        `json:"nodes,omitempty"`
+	EngineNote       string        `json:"engine_note,omitempty"`
+	CapabilityLine   string        `json:"capability_line,omitempty"`
 }
 
 func (s *Server) snapshot() StatusSnapshot {
@@ -103,7 +95,7 @@ func (s *Server) snapshot() StatusSnapshot {
 	providerURL := ""
 	llmURL := ""
 	if s.config != nil {
-		providerType = s.config.Provider.ProviderType
+		providerType = s.config.PlatformType()
 		apiKey = maskStringHelper(s.config.Provider.APIKey)
 		providerURL = s.config.Provider.URL
 		llmURL = s.config.Provider.LLMURL
@@ -153,7 +145,6 @@ func (s *Server) snapshot() StatusSnapshot {
 		Cluster:          cluster,
 		Nodes:            nodes,
 		EngineNote:       s.engineNoteText(),
-		Capabilities:     s.copiedCapabilities(),
 		CapabilityLine:   s.capabilitiesText(),
 	}
 }
@@ -175,12 +166,6 @@ func (s *Server) capabilitiesText() string {
 	s.engineNoteMu.Lock()
 	defer s.engineNoteMu.Unlock()
 	return s.capabilitiesNote
-}
-
-func (s *Server) copiedCapabilities() []CapabilityStatus {
-	s.engineNoteMu.Lock()
-	defer s.engineNoteMu.Unlock()
-	return append([]CapabilityStatus(nil), s.capabilityItems...)
 }
 
 func (s *Server) handleDashboard(w http.ResponseWriter, r *http.Request) {

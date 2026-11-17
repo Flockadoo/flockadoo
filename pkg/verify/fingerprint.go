@@ -7,9 +7,6 @@ import (
 	"fmt"
 	"io"
 	"os"
-	"path/filepath"
-	"sort"
-	"strings"
 )
 
 // FileHash computes the per-file hash using the manifest hash_method.
@@ -59,31 +56,5 @@ func safetensorsHeaderSHA256(path string) (string, error) {
 
 	payload := append(lenBuf[:], header...)
 	sum := sha256.Sum256(payload)
-	return hex.EncodeToString(sum[:]), nil
-}
-
-// WeightFingerprint aggregates per-file hashes into the platform fingerprint.
-// Lines are sorted "name:hash\n" then SHA-256 of the concatenation.
-func WeightFingerprint(root string, manifest []ManifestEntry) (string, error) {
-	if len(manifest) == 0 {
-		return "", fmt.Errorf("empty manifest")
-	}
-
-	lines := make([]string, 0, len(manifest))
-	for _, entry := range manifest {
-		path := filepath.Join(root, entry.Name)
-		hash, err := FileHash(path, entry.HashMethod)
-		if err != nil {
-			return "", fmt.Errorf("hash %s: %w", entry.Name, err)
-		}
-		lines = append(lines, fmt.Sprintf("%s:%s", entry.Name, hash))
-	}
-	sort.Strings(lines)
-
-	joined := strings.Join(lines, "\n")
-	if len(lines) > 0 {
-		joined += "\n"
-	}
-	sum := sha256.Sum256([]byte(joined))
 	return hex.EncodeToString(sum[:]), nil
 }

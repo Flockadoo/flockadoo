@@ -223,9 +223,9 @@ func main() {
 			llmURL = u
 		}
 	}
-	llmClient := llm.NewClient(cfg.Provider.ProviderType, llmURL, cfg.LLMTimeout())
+	llmClient := llm.NewClient(cfg.PlatformType(), llmURL, cfg.LLMTimeout())
 
-	catalog := verify.NewCatalog(cfg.Provider.URL, cfg.Provider.ProviderType)
+	catalog := verify.NewCatalog(cfg.Provider.URL, cfg.PlatformType())
 	var modelVerifier *verify.Verifier
 	if !cfg.EnrolledWorker() {
 		if err := catalog.Refresh(ctx); err != nil {
@@ -235,7 +235,7 @@ func main() {
 				zap.Strings("aliases", catalog.Aliases()))
 		}
 		serverClient := verify.NewServerClient(cfg.Provider.URL, cfg.Provider.APIKey)
-		modelVerifier = verify.NewVerifier(catalog, serverClient, cfg.Provider.ProviderType, cfg.Provider.HFHubCache, cfg.Provider.ModelPath)
+		modelVerifier = verify.NewVerifier(catalog, serverClient, cfg.PlatformType(), cfg.Provider.HFHubCache, cfg.Provider.ModelPath)
 	}
 
 	healthReporter := health.NewReporter(cfg, gpuMonitor, llmClient)
@@ -306,9 +306,9 @@ func main() {
 	quit := make(chan os.Signal, 1)
 	signal.Notify(quit, syscall.SIGINT, syscall.SIGTERM)
 
-	// Start() blocks in ListenAndServe after ~10s of tunnel startup. A 100ms
-	// wait returned long before tunnel/listen failures, so the process sat in
-	// the tray with a dead server while health still advertised the tunnel.
+	// Start() waits up to 15s for the first gateway dial, then blocks in
+	// ListenAndServe. A fatal start-up error (a rejected key, a port in use)
+	// arrives on serverErr and must end the process, not leave it in the tray.
 	var (
 		exitMu  sync.Mutex
 		exitErr error
@@ -325,8 +325,8 @@ func main() {
 	}
 
 	if useTray {
-		// RequestTunnel can fail in tens of ms, before tray.Run has an event
-		// loop. systray.Quit is a no-op until then, so drain first and fatal
+		// Start can fail in tens of ms, before tray.Run has an event loop.
+		// systray.Quit is a no-op until then, so drain first and fatal
 		// without entering the tray. Slow failures wait for Started.
 		select {
 		case err := <-serverErr:

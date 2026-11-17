@@ -1,9 +1,7 @@
 package engine
 
 import (
-	"context"
 	"fmt"
-	"io"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -11,7 +9,7 @@ import (
 )
 
 const (
-	// DefaultStartTimeout is how long EnsureReady waits when weights should already be local.
+	// DefaultStartTimeout is how long StartAndWait waits when weights should already be local.
 	DefaultStartTimeout = 10 * time.Minute
 	// DefaultDownloadTimeout is how long setup waits for first-run HuggingFace fetch + load.
 	DefaultDownloadTimeout = 2 * time.Hour
@@ -61,18 +59,4 @@ func StartDetached(spec Spec, logPath string) (<-chan error, error) {
 	exited := make(chan error, 1)
 	go func() { exited <- cmd.Wait() }()
 	return exited, nil
-}
-
-// Run runs spec in the foreground, streaming output to w.
-func Run(ctx context.Context, spec Spec, w io.Writer) error {
-	if spec.Bin == "" {
-		return fmt.Errorf("engine binary is empty")
-	}
-	cmd := exec.CommandContext(ctx, spec.Bin, spec.Args...)
-	cmd.Stdout = w
-	cmd.Stderr = w
-	if len(spec.Env) > 0 {
-		cmd.Env = append(os.Environ(), spec.Env...)
-	}
-	return cmd.Run()
 }

@@ -311,16 +311,6 @@ func (v *Verifier) RefreshCatalog(ctx context.Context) error {
 	return nil
 }
 
-func VerifiedModelIDs(models []llm.Model) []string {
-	var ids []string
-	for _, m := range models {
-		if m.VerificationStatus == string(StatusVerified) {
-			ids = append(ids, m.ID)
-		}
-	}
-	return ids
-}
-
 func (v *Verifier) CheckInference(ctx context.Context, llmClient llm.Client, modelName string) error {
 	models := v.ApplyToModels(ctx, llmClient, []llm.Model{{ID: modelName, Object: "model", OwnedBy: v.serviceType}})
 	if len(models) == 0 {

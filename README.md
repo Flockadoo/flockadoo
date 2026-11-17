@@ -116,7 +116,7 @@ The official Inferoute Docker image inferoute/inferoute-client is available on D
 
 If the inference engine runs on the Docker host, bind it to `0.0.0.0` so the container can reach it. Set `LLM_URL` to `http://host.docker.internal:8000` (vLLM) or `:8081` (llama.cpp). `host.docker.internal` resolves to the Docker host.
 
-The client listens on `127.0.0.1` inside the container. The Cloudflare tunnel does **not** need a published port. To open the local dashboard from the host, set `server.host` to `0.0.0.0` in the container config and publish the port (for example `-p 127.0.0.1:8080:8080`).
+The client listens on `127.0.0.1` inside the container. The client dials out to Inferoute, so it needs **no** published port. To open the local dashboard from the host, set `server.host` to `0.0.0.0` in the container config and publish the port (for example `-p 127.0.0.1:8080:8080`).
 
 The container always [installs without the wizard](#-install-without-the-wizard), so `PROVIDER_MODEL` is required.
 
@@ -164,7 +164,7 @@ Please remember to visit inferoute.com and change the costs to your preference.
 
 ## 🎓 REST API 
 
-Local-only (loopback). Not reachable through the Cloudflare tunnel.
+Local-only (loopback). Not reachable through the connection to Inferoute.
 
 - **GET /**: Local status dashboard (same information as the terminal UI). Auto-refreshes in the browser.
 - **GET /api/status**: JSON snapshot of that dashboard (session, models, GPU, recent requests).

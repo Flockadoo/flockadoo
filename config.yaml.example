@@ -12,9 +12,8 @@ provider:
   api_key: "your_api_key_here"
   # URL of the central Inferoute system.
   url: "https://core.inferoute.com"
-  provider_type: "vllm"
-  # Local engine: vllm, vllm-metal, or llama_cpp.
-  # Empty defaults from provider_type. Re-run `inferoute-client setup` to change this.
+  # Local engine: vllm, vllm-metal, or llama_cpp (empty means vllm).
+  # Re-run `inferoute-client setup` to change this.
   # engine: "vllm"
   # engine_bin: ""  # absolute path when the binary is not on PATH
   llm_url: "http://127.0.0.1:8000"

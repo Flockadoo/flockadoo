@@ -254,7 +254,7 @@ func (r *Reporter) GetHealthReport(ctx context.Context) (*HealthReport, error) {
 		Object:       "list",
 		Data:         enriched,
 		GPU:          gpuInfo,
-		ProviderType: r.config.Provider.ProviderType,
+		ProviderType: r.config.PlatformType(),
 		Benchmark:    bench,
 	}
 	report.Engine, report.EngineVersion = r.runningEngine(ctx)
@@ -303,18 +303,6 @@ func (r *Reporter) GetLastUpdateTime() time.Time {
 	r.lastUpdateMutex.Lock()
 	defer r.lastUpdateMutex.Unlock()
 	return r.lastUpdateTime
-}
-
-// RefreshModelsForDisplay polls the local LLM and returns models with verification status.
-// Used by the console UI to reflect local model changes between health reports.
-func (r *Reporter) RefreshModelsForDisplay(ctx context.Context) ([]llm.Model, error) {
-	models, err := r.llmClient.ListModels(ctx)
-	if err != nil {
-		return nil, fmt.Errorf("failed to list models: %w", err)
-	}
-	enriched := r.enrichModels(ctx, models.Models)
-	r.setDisplayedModels(enriched)
-	return enriched, nil
 }
 
 // GetDisplayedModels returns the last cached model status snapshot.

@@ -201,8 +201,8 @@ func TestExecuteYesWritesConfig(t *testing.T) {
 		t.Errorf("api_key = %q", cfg.Provider.APIKey)
 	}
 	want := engine.RuntimeKind(runtime.GOOS, engine.KindVLLM)
-	if cfg.Provider.Engine != string(want) || cfg.Provider.ProviderType != engine.PlatformType(want) {
-		t.Errorf("engine/type = %q/%q, want %s/%s", cfg.Provider.Engine, cfg.Provider.ProviderType, want, engine.PlatformType(want))
+	if cfg.Provider.Engine != string(want) || cfg.PlatformType() != engine.PlatformType(want) {
+		t.Errorf("engine/type = %q/%q, want %s/%s", cfg.Provider.Engine, cfg.PlatformType(), want, engine.PlatformType(want))
 	}
 	if cfg.Provider.Model != "Qwen/Qwen3-0.6B" {
 		t.Errorf("model = %q", cfg.Provider.Model)
@@ -290,8 +290,8 @@ func TestExecuteYesVLLM(t *testing.T) {
 		t.Fatal(err)
 	}
 	want := engine.RuntimeKind(runtime.GOOS, engine.KindVLLM)
-	if cfg.Provider.Engine != string(want) || cfg.Provider.ProviderType != engine.PlatformType(want) {
-		t.Errorf("engine/type = %q/%q, want %s/%s", cfg.Provider.Engine, cfg.Provider.ProviderType, want, engine.PlatformType(want))
+	if cfg.Provider.Engine != string(want) || cfg.PlatformType() != engine.PlatformType(want) {
+		t.Errorf("engine/type = %q/%q, want %s/%s", cfg.Provider.Engine, cfg.PlatformType(), want, engine.PlatformType(want))
 	}
 	if cfg.Provider.LLMURL != engine.DefaultURL(want) {
 		t.Errorf("llm_url = %q, want %s", cfg.Provider.LLMURL, engine.DefaultURL(want))
@@ -319,8 +319,8 @@ func TestExecuteYesFreeToken(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if cfg.Provider.Engine != "llama_cpp" || cfg.Provider.ProviderType != "llama_cpp" {
-		t.Errorf("engine/type = %q/%q", cfg.Provider.Engine, cfg.Provider.ProviderType)
+	if cfg.Provider.Engine != "llama_cpp" || cfg.PlatformType() != "llama_cpp" {
+		t.Errorf("engine/type = %q/%q", cfg.Provider.Engine, cfg.PlatformType())
 	}
 	if cfg.Provider.LLMURL != "http://127.0.0.1:8081" {
 		t.Errorf("llm_url = %q", cfg.Provider.LLMURL)
@@ -381,8 +381,8 @@ func TestExecuteYesVLLMWindowsUsesFreeToken(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if cfg.Provider.Engine != "llama_cpp" || cfg.Provider.ProviderType != "llama_cpp" {
-		t.Errorf("engine/type = %q/%q, want llama_cpp/llama_cpp", cfg.Provider.Engine, cfg.Provider.ProviderType)
+	if cfg.Provider.Engine != "llama_cpp" || cfg.PlatformType() != "llama_cpp" {
+		t.Errorf("engine/type = %q/%q, want llama_cpp/llama_cpp", cfg.Provider.Engine, cfg.PlatformType())
 	}
 	if cfg.Provider.LLMURL != "http://127.0.0.1:8081" {
 		t.Errorf("llm_url = %q, want :8081", cfg.Provider.LLMURL)

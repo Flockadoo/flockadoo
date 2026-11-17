@@ -36,9 +36,6 @@ type fakeLLM struct {
 }
 
 func (f *fakeLLM) ListModels(ctx context.Context) (*llm.ListModelsResponse, error) { return nil, nil }
-func (f *fakeLLM) Chat(ctx context.Context, r *llm.ChatRequest) (*llm.ChatResponse, error) {
-	return nil, nil
-}
 func (f *fakeLLM) ForwardRequest(ctx context.Context, path string, body []byte) (*http.Response, error) {
 	f.gotPath, f.gotBody = path, body
 	if f.forwardErr != nil {
@@ -71,7 +68,7 @@ func newTestServer(nodeURL string, llmClient llm.Client) *Server {
 	cfg := &config.Config{}
 	cfg.Provider.URL = nodeURL
 	cfg.Provider.APIKey = "test-key"
-	cfg.Provider.ProviderType = "vllm"
+	cfg.Provider.Engine = "vllm"
 	s := &Server{config: cfg, llmClient: llmClient}
 	s.maxInflight.Store(1)
 	return s
@@ -155,9 +152,6 @@ type statusLLM struct {
 }
 
 func (s *statusLLM) ListModels(context.Context) (*llm.ListModelsResponse, error) { return nil, nil }
-func (s *statusLLM) Chat(context.Context, *llm.ChatRequest) (*llm.ChatResponse, error) {
-	return nil, nil
-}
 func (s *statusLLM) ForwardRequest(context.Context, string, []byte) (*http.Response, error) {
 	h := make(http.Header)
 	h.Set("Content-Type", "application/json")
@@ -189,9 +183,6 @@ func TestHandleChatCompletionsStreamsSSE(t *testing.T) {
 type sseLLM struct{ body string }
 
 func (s *sseLLM) ListModels(ctx context.Context) (*llm.ListModelsResponse, error) {
-	return nil, nil
-}
-func (s *sseLLM) Chat(ctx context.Context, r *llm.ChatRequest) (*llm.ChatResponse, error) {
 	return nil, nil
 }
 func (s *sseLLM) ForwardRequest(ctx context.Context, path string, body []byte) (*http.Response, error) {
@@ -304,9 +295,6 @@ type blockingLLM struct {
 
 func (b *blockingLLM) ListModels(ctx context.Context) (*llm.ListModelsResponse, error) {
 	return b.inner.ListModels(ctx)
-}
-func (b *blockingLLM) Chat(ctx context.Context, r *llm.ChatRequest) (*llm.ChatResponse, error) {
-	return b.inner.Chat(ctx, r)
 }
 func (b *blockingLLM) ForwardRequest(ctx context.Context, path string, body []byte) (*http.Response, error) {
 	select {
@@ -579,16 +567,14 @@ func TestSameSessionQueueTimesOut(t *testing.T) {
 func TestIsBusyIsSlotOnly(t *testing.T) {
 	s := &Server{}
 	s.maxInflight.Store(1)
-	busy, err := s.isBusy()
-	if err != nil || busy {
-		t.Fatalf("free slot: busy=%v err=%v", busy, err)
+	if s.slotsBusy() {
+		t.Fatal("free slot reported busy")
 	}
 	if !s.tryAcquireInference() {
 		t.Fatal("acquire")
 	}
-	busy, err = s.isBusy()
-	if err != nil || !busy {
-		t.Fatalf("held slot: busy=%v err=%v", busy, err)
+	if !s.slotsBusy() {
+		t.Fatal("held slot reported free")
 	}
 }
 

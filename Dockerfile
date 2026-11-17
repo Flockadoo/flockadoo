@@ -2,20 +2,6 @@
 FROM --platform=linux/amd64 alpine:3.19.1 AS base-amd64
 FROM --platform=linux/arm64 alpine:3.19.1 AS base-arm64
 
-# Architecture-specific cloudflared stage
-FROM base-${TARGETARCH} AS cloudflared-base
-RUN apk add --no-cache curl
-
-# Install cloudflared based on architecture
-RUN ARCH="$(uname -m)"; \
-    case "${ARCH}" in \
-        x86_64) ARCH_TYPE=amd64 ;; \
-        aarch64|arm64) ARCH_TYPE=arm64 ;; \
-        *) echo "Unsupported architecture: ${ARCH}" && exit 1 ;; \
-    esac && \
-    curl -Lo /usr/local/bin/cloudflared "https://github.com/cloudflare/cloudflared/releases/latest/download/cloudflared-linux-${ARCH_TYPE}" && \
-    chmod +x /usr/local/bin/cloudflared
-
 # Architecture-specific inferoute-client stage
 FROM base-${TARGETARCH} AS client-base
 RUN apk add --no-cache curl unzip
@@ -43,7 +29,6 @@ RUN ARCH="$(uname -m)"; \
 
 # Combine binaries into an intermediate archive stage
 FROM scratch AS archive
-COPY --from=cloudflared-base /usr/local/bin/cloudflared /bin/cloudflared
 COPY --from=client-base /usr/local/bin/inferoute-client /bin/inferoute-client
 
 # Final minimal runtime stage
@@ -57,7 +42,7 @@ RUN apt-get clean && rm -rf /var/lib/apt/lists/*
 
 # Copy binaries from archive stage
 COPY --from=archive /bin /usr/local/bin
-RUN chmod +x /usr/local/bin/cloudflared /usr/local/bin/inferoute-client
+RUN chmod +x /usr/local/bin/inferoute-client
 
 # Create required directories
 RUN mkdir -p /root/.config/inferoute /root/.local/state/inferoute/log

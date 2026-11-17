@@ -9,14 +9,9 @@ import (
 // the inference slot. The queue has depth 1 in practice, so polling is fine.
 const slotAcquirePollInterval = 100 * time.Millisecond
 
-// isBusy is true when every inference slot is taken.
-// nvidia-smi utilization is not an admission check: it is a trailing window
-// and stays high for about a second after this process's own forward.
-func (s *Server) isBusy() (bool, error) {
-	return s.slotsBusy(), nil
-}
-
-// slotsBusy reports whether all inference slots are taken.
+// slotsBusy reports whether all inference slots are taken. nvidia-smi
+// utilization is not an admission check: it is a trailing window and stays
+// high for about a second after this process's own forward.
 func (s *Server) slotsBusy() bool {
 	max := s.maxInflight.Load()
 	return max > 0 && s.inflight.Load() >= max

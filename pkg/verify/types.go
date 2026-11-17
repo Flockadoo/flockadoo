@@ -57,14 +57,6 @@ type FileMeasurement struct {
 	Size       int64  `json:"size"`
 }
 
-// ManifestEntry is used by local fingerprint helpers and tests (not returned by the public API).
-type ManifestEntry struct {
-	Name       string `json:"name"`
-	SHA256     string `json:"sha256"`
-	HashMethod string `json:"hash_method"`
-	Size       int64  `json:"size"`
-}
-
 // verifyModelRequest is POST /api/provider/verify-model.
 type verifyModelRequest struct {
 	Alias       string            `json:"alias"`

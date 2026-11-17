@@ -26,11 +26,6 @@ import (
 	"go.uber.org/zap"
 )
 
-// rename this file to server.go since it contains the same methods
-// the original server.go file seems to have been renamed to service.go
-// but there are still references to server.go in the codebase
-// this is causing duplicate method declarations
-
 // maskString Helper function to mask sensitive strings
 func maskStringHelper(s string) string {
 	if len(s) <= 8 {
@@ -41,7 +36,7 @@ func maskStringHelper(s string) string {
 
 // Creates a new server
 func CreateServer(cfg *config.Config, gpuMonitor *gpu.Monitor, healthReporter *health.Reporter, verifier *verify.Verifier) *Server {
-	llmClient := llm.NewClient(cfg.Provider.ProviderType, cfg.Provider.LLMURL, cfg.LLMTimeout())
+	llmClient := llm.NewClient(cfg.PlatformType(), cfg.Provider.LLMURL, cfg.LLMTimeout())
 
 	s := &Server{
 		config:           cfg,
@@ -93,13 +88,6 @@ func (s *Server) SetEngineNote(note string) {
 func (s *Server) SetCapabilities(note string) {
 	s.engineNoteMu.Lock()
 	s.capabilitiesNote = note
-	s.engineNoteMu.Unlock()
-	s.redrawConsole()
-}
-
-func (s *Server) SetCapabilityItems(items []CapabilityStatus) {
-	s.engineNoteMu.Lock()
-	s.capabilityItems = append([]CapabilityStatus(nil), items...)
 	s.engineNoteMu.Unlock()
 	s.redrawConsole()
 }
@@ -166,7 +154,7 @@ func (s *Server) Start() error {
 	// Log server start
 	logger.Info("Starting HTTP server",
 		zap.String("address", s.server.Addr),
-		zap.String("provider_type", s.config.Provider.ProviderType),
+		zap.String("provider_type", s.config.PlatformType()),
 		zap.String("llm_url", s.config.Provider.LLMURL))
 
 	// Start server
@@ -247,9 +235,6 @@ func (s *Server) redrawConsole() {
 	}
 	if snap.CapabilityLine != "" {
 		buf.WriteString(fmt.Sprintf("\033[1;35mCapabilities                  \033[0m%s\n", snap.CapabilityLine))
-	}
-	for _, cap := range snap.Capabilities {
-		buf.WriteString(fmt.Sprintf("  %-30s%s\n", cap.Name, cap.State))
 	}
 	switch snap.UpdateStatus {
 	case "required":
