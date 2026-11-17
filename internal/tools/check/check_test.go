@@ -3,6 +3,7 @@ package main
 import (
 	"bytes"
 	"context"
+	"fmt"
 	"io/fs"
 	"os"
 	"os/exec"
@@ -186,8 +187,8 @@ func copyFixture(t *testing.T, name string) string {
 // The race detector needs cgo; make the failure say so instead of failing a
 // fixture for an unrelated reason.
 func TestMain(m *testing.M) {
-	if out, err := exec.Command("go", "env", "CGO_ENABLED").Output(); err == nil && strings.TrimSpace(string(out)) != "1" {
-		os.Stderr.WriteString("these tests run go test -race, which needs CGO_ENABLED=1 and a C compiler\n")
+	if out, err := exec.CommandContext(context.Background(), "go", "env", "CGO_ENABLED").Output(); err == nil && strings.TrimSpace(string(out)) != "1" {
+		_, _ = fmt.Fprintln(os.Stderr, "these tests run go test -race, which needs CGO_ENABLED=1 and a C compiler")
 		os.Exit(1)
 	}
 	os.Exit(m.Run())

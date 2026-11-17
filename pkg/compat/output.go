@@ -179,4 +179,3 @@ func shortAlias(alias string) string {
 	}
 	return alias[:45] + "..."
 }
-
