@@ -135,7 +135,7 @@ func (c *Client) Run(ctx context.Context) error {
 			return ctx.Err()
 		}
 		c.setState(Dialing, reason)
-		connected, err := c.session(ctx, wsURL, timing)
+		connected, up, err := c.session(ctx, wsURL, timing)
 		c.connected.Store(false)
 		var terminal State
 		switch {
@@ -165,9 +165,9 @@ func (c *Client) Run(ctx context.Context) error {
 		// cannot replace each other at full speed (findings NET-1, NET-4), and
 		// several in a row name that as the likely cause.
 		switch {
-		case connected >= timing.Stable:
+		case up && connected >= timing.Stable:
 			backoff, short, reason = timing.BaseDelay, 0, ""
-		case connected > 0:
+		case up:
 			if short++; short >= shortSessionsBeforeWarning {
 				reason = "the connection keeps ending within a minute: another client may be using this API key"
 			}
@@ -200,8 +200,10 @@ func (c *Client) Ready(ctx context.Context) error {
 }
 
 // session dials once and serves the session until it ends. It returns how
-// long the session was connected (zero if it never was).
-func (c *Client) session(ctx context.Context, wsURL string, timing Timing) (time.Duration, error) {
+// long the session was connected, and whether it connected at all: on
+// Windows the monotonic clock moves only on the timer tick, so a session the
+// gateway ends at once can last zero (seen in CI).
+func (c *Client) session(ctx context.Context, wsURL string, timing Timing) (lasted time.Duration, up bool, err error) {
 	dialCtx, cancel := context.WithTimeout(ctx, 15*time.Second)
 	defer cancel()
 	header := http.Header{}
@@ -211,13 +213,13 @@ func (c *Client) session(ctx context.Context, wsURL string, timing Timing) (time
 	if resp != nil {
 		switch resp.StatusCode {
 		case http.StatusUnauthorized:
-			return 0, ErrInvalidAPIKey
+			return 0, false, ErrInvalidAPIKey
 		case http.StatusUpgradeRequired:
-			return 0, ErrUpgradeRequired
+			return 0, false, ErrUpgradeRequired
 		}
 	}
 	if err != nil {
-		return 0, err
+		return 0, false, err
 	}
 	netConn := &closeCatcher{Conn: websocket.NetConn(ctx, conn, websocket.MessageBinary)}
 	cfg := yamux.DefaultConfig()
@@ -228,7 +230,7 @@ func (c *Client) session(ctx context.Context, wsURL string, timing Timing) (time
 	session, err := yamux.Server(netConn, cfg)
 	if err != nil {
 		_ = conn.Close(websocket.StatusInternalError, "yamux")
-		return 0, err
+		return 0, false, err
 	}
 	c.connected.Store(true)
 	c.setState(Connected, c.Reason())
@@ -246,9 +248,9 @@ func (c *Client) session(ctx context.Context, wsURL string, timing Timing) (time
 	c.connected.Store(false)
 	_ = session.Close()
 	if websocket.CloseStatus(netConn.err()) == CloseReplaced {
-		return time.Since(start), ErrReplaced
+		return time.Since(start), true, ErrReplaced
 	}
-	return time.Since(start), err
+	return time.Since(start), true, err
 }
 
 // closeCatcher remembers the first read error of the connection under the
