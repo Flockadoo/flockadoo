@@ -9,7 +9,7 @@ features:
   - name: Gateway tunnel
     entry: connect.Client.Run dials wss://<platform>/api/connect/ws and serves the gateway's yamux streams
     code: [pkg/connect/client.go, pkg/server/server.go]
-    tests: [pkg/connect/client_test.go, pkg/connect/backoff_test.go, pkg/server/invariants_test.go]
+    tests: [pkg/connect/client_test.go, pkg/connect/backoff_test.go, pkg/connect/state_test.go, pkg/server/tunnel_state_test.go, pkg/server/invariants_test.go]
     invariants: [I7]
 
   - name: Request relay
@@ -241,26 +241,26 @@ invariants:
     tests: [TestShortSessionsLeaveTheDelayGrowing]
   - id: 6.4-rejected-at-start
     statement: a key rejected on the first dial leaves the client up, showing why
-    pending: C1
-    notes: decision DC8; today the process exits
+    tests: [TestAKeyRejectedAtStartLeavesTheClientUp]
+    notes: decision DC8, fixed by item C1
   - id: 6.4-rejected-later
     statement: a key rejected on a later dial leaves the client up, showing why, and stops reporting
-    pending: C1
-    notes: finding NET-2
+    tests: [TestAKeyRejectedOnALaterDialIsTerminal, TestNothingIsSentWhileTheTunnelIsTerminal]
+    notes: finding NET-2, fixed by item C1; the health loop's stop is wired in cmd and not under test
   - id: 6.4-draining-gateway
     statement: a 503 from a draining gateway is retried, and the next dial is accepted
     tests: [TestRejectNextAnswersOnlyTheNextDial]
   - id: 6.4-upgrade-required
     statement: a 426 on the dial is reported as an upgrade the operator must make
-    pending: C1
+    tests: [TestAnUpgradeRequiredIsTerminal]
   - id: 6.4-half-open
     statement: a peer that stops reading without closing is detected by the keepalive within a bound
-    pending: C1
-    notes: open question U2
+    tests: [TestAHalfOpenGatewayIsFound]
+    notes: open question U2; the bound is KeepAlive plus KeepAliveTimeout (25 s by default)
   - id: 6.4-replaced
     statement: a session replaced by another client with the same key is recognised, and the client says so
-    pending: C1
-    notes: finding NET-4, decision DC8
+    tests: [TestAReplacedSessionIsTerminal, TestShortSessionsInARowNameTheLikelyCause]
+    notes: finding NET-4, decision DC8, item C1; the gateway's close code 4001 is a node change still to make (plan section 22)
   - id: 6.4-in-flight-on-drop
     statement: a request in flight when the session drops has its engine call cancelled and its slot returned
     tests: [TestARequestInFlightWhenTheSessionDropsIsCancelled]
@@ -274,8 +274,8 @@ invariants:
     pending: C2
   - id: 6.4-tunnel-server-limits
     statement: the HTTP server on the tunnel has header and body limits
-    pending: C1
-    notes: finding NET-5
+    tests: [TestAStalledRequestHeaderIsClosed, TestABodyOverTheLimitIsRefusedBeforeTheEngine]
+    notes: finding NET-5, items C1 and B2
 
   - id: 7.3-limit
     statement: concurrency never exceeds the limit

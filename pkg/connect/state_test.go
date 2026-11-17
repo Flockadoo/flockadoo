@@ -1,8 +1,8 @@
 package connect
 
 import (
-	"bufio"
 	"context"
+	"io"
 	"net/http"
 	"strings"
 	"testing"
@@ -147,11 +147,8 @@ func TestAStalledRequestHeaderIsClosed(t *testing.T) {
 	}
 	_ = stream.SetReadDeadline(time.Now().Add(3 * time.Second))
 	start := time.Now()
-	_, err = bufio.NewReader(stream).ReadString('\n')
-	if err == nil {
-		// net/http answers a timed-out header with 408 before closing.
-		_, err = bufio.NewReader(stream).ReadString('\n')
-	}
+	// Read until the client closes the stream (net/http may answer 408 first).
+	_, _ = io.Copy(io.Discard, stream)
 	if time.Since(start) > 2*time.Second {
 		t.Fatalf("the stalled stream was still open after %v", time.Since(start))
 	}

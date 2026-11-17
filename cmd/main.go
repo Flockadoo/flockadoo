@@ -259,6 +259,11 @@ func main() {
 		upgradeLogged := false
 
 		report := func(msg string) bool {
+			// A tunnel stopped for good (rejected key, replaced, upgrade
+			// required) stops the reports too (decision DC8).
+			if !srv.TunnelActive() {
+				return true
+			}
 			err := healthReporter.SendHealthReport(ctx)
 			if setup.NodeRemoved(err) {
 				logger.Error("The owner removed this machine from the cluster. Re-run setup and paste a new join code.", zap.Error(err))
@@ -541,6 +546,7 @@ func startCapacity(ctx context.Context, cfg *config.Config, configPath, llmURL s
 		return
 	}
 	sender := capacity.NewSender(cfg.Provider.URL, cfg.Provider.APIKey, srv.SlotSnapshot, llmClient)
+	sender.Active = srv.TunnelActive
 	srv.SetCapacityNotify(sender.Notify)
 	go sender.Loop(ctx)
 

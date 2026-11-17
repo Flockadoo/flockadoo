@@ -2,6 +2,8 @@
 
 ## [Unreleased]
 
+- A client whose API key is rejected, or that Inferoute asks to update, now stays running and shows why on the dashboard and the console, and stops reporting to Inferoute, instead of exiting at startup or silently going quiet later. It does the same when Inferoute says another client has taken over the key. When the connection keeps ending within a minute, the dashboard says another client may be using the same API key.
+- A connection to Inferoute that stops answering without closing is noticed within about 25 seconds and reopened.
 - When the engine's answer breaks off partway, the client now aborts the stream to Inferoute instead of ending it cleanly, so a cut-off answer can never pass for a complete one. Each request on the dashboard shows how it ended (completed, refused_busy, engine_failed, stalled and so on), and only completed requests count as successes.
 - An engine that stops sending for three minutes in the middle of an answer is cut off and its slot freed, instead of holding the slot until Inferoute gave up.
 - A request body larger than 16 MiB is refused before it reaches the engine. Streaming is read from the request's own `stream` field, not by searching the body.

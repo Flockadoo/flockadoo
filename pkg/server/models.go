@@ -23,10 +23,14 @@ type Server struct {
 	healthReporter *health.Reporter
 	llmClient      llm.Client
 	verifier       *verify.Verifier
-	connector      *connect.Client
-	connectCancel  context.CancelFunc
-	consoleUI      bool
-	consoleMu      sync.Mutex
+	// lifeMu guards the lifecycle fields: Start and Stop may run in
+	// different goroutines (finding NET-6).
+	lifeMu        sync.Mutex
+	stopped       bool
+	connector     *connect.Client
+	connectCancel context.CancelFunc
+	consoleUI     bool
+	consoleMu     sync.Mutex
 	// gate admits requests to the engine; the count lives inside it (plan
 	// item B1). admit creates it on first use.
 	gateOnce         sync.Once

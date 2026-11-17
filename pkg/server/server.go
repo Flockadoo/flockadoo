@@ -121,36 +121,54 @@ func (s *Server) SetConsoleUI(enabled bool) {
 
 // Start starts the local dashboard and the outbound provider connection.
 // An enrolled worker has no provider API key that the gateway will accept.
+// Start and Stop may be called from different goroutines, in either order
+// (finding NET-6): Stop before Start finishes stops it.
 func (s *Server) Start() error {
 	connectCtx, connectCancel := context.WithCancel(context.Background())
+	s.lifeMu.Lock()
+	if s.stopped {
+		s.lifeMu.Unlock()
+		connectCancel()
+		return nil
+	}
 	s.connectCancel = connectCancel
+	var connector *connect.Client
 	if !s.config.EnrolledWorker() {
-		s.connector = connect.New(s.config.Provider.URL, s.config.Provider.APIKey, s.inferenceMux(), s.onConnect)
+		connector = connect.New(s.config.Provider.URL, s.config.Provider.APIKey, s.inferenceMux(), s.onConnect)
+		s.connector = connector
+	}
+	s.lifeMu.Unlock()
+
+	if connector != nil {
 		go func() {
-			if err := s.connector.Run(connectCtx); err != nil && !errors.Is(err, context.Canceled) {
+			if err := connector.Run(connectCtx); err != nil && !errors.Is(err, context.Canceled) {
 				logger.Error("provider connection stopped", zap.Error(err))
 			}
 		}()
-		readyCtx, readyCancel := context.WithTimeout(context.Background(), 15*time.Second)
-		err := s.connector.Ready(readyCtx)
+		// Wait up to 15 s for the first dial. A rejected key does not stop
+		// the client: it stays up and the dashboard shows why (decision DC8).
+		readyCtx, readyCancel := context.WithTimeout(connectCtx, 15*time.Second)
+		_ = connector.Ready(readyCtx)
 		readyCancel()
-		if errors.Is(err, connect.ErrInvalidAPIKey) {
-			connectCancel()
-			return fmt.Errorf("failed to connect: %w", err)
-		}
 	}
-
-	r := s.localMux()
 
 	// Create server. Read/write timeouts must cover the session queue wait
 	// plus inference so the orchestrator's sticky timeout is usable.
-	s.server = &http.Server{
-		Addr:         fmt.Sprintf("%s:%d", s.config.Server.Host, s.config.Server.Port),
-		Handler:      r,
-		ReadTimeout:  s.config.RequestTimeout(),
-		WriteTimeout: s.config.RequestTimeout(),
-		IdleTimeout:  120 * time.Second,
+	srv := &http.Server{
+		Addr:              fmt.Sprintf("%s:%d", s.config.Server.Host, s.config.Server.Port),
+		Handler:           s.localMux(),
+		ReadTimeout:       s.config.RequestTimeout(),
+		WriteTimeout:      s.config.RequestTimeout(),
+		IdleTimeout:       120 * time.Second,
+		ReadHeaderTimeout: 10 * time.Second,
 	}
+	s.lifeMu.Lock()
+	if s.stopped {
+		s.lifeMu.Unlock()
+		return nil
+	}
+	s.server = srv
+	s.lifeMu.Unlock()
 
 	if s.consoleUI {
 		s.printStartupBanner()
@@ -159,25 +177,37 @@ func (s *Server) Start() error {
 
 	// Log server start
 	logger.Info("Starting HTTP server",
-		zap.String("address", s.server.Addr),
+		zap.String("address", srv.Addr),
 		zap.String("provider_type", s.config.PlatformType()),
 		zap.String("llm_url", s.config.Provider.LLMURL))
 
-	// Start server
-	return s.server.ListenAndServe()
+	if err := srv.ListenAndServe(); !errors.Is(err, http.ErrServerClosed) {
+		return err
+	}
+	return nil
 }
 
-// Stop stops the server
+// Stop stops the server. It is safe before, during and after Start.
 func (s *Server) Stop(ctx context.Context) error {
 	logger.Info("Stopping HTTP server")
-	if s.connectCancel != nil {
-		s.connectCancel()
+	s.lifeMu.Lock()
+	s.stopped = true
+	cancel, srv := s.connectCancel, s.server
+	s.lifeMu.Unlock()
+	if cancel != nil {
+		cancel()
 	}
-
-	if s.server == nil {
+	if srv == nil {
 		return nil
 	}
-	return s.server.Shutdown(ctx)
+	return srv.Shutdown(ctx)
+}
+
+// tunnel is the provider connection, or nil (a worker, or before Start).
+func (s *Server) tunnel() *connect.Client {
+	s.lifeMu.Lock()
+	defer s.lifeMu.Unlock()
+	return s.connector
 }
 
 // localMux is the local listener's routes: the dashboard and its APIs. It
@@ -212,7 +242,16 @@ func (s *Server) onConnect() {
 }
 
 func (s *Server) gatewayConnected() bool {
-	return s.connector != nil && s.connector.Connected()
+	c := s.tunnel()
+	return c != nil && c.Connected()
+}
+
+// TunnelActive is false once the tunnel has stopped for good (a rejected
+// key, a replacement, an upgrade required): the client then stops reporting
+// to the node and waits for the operator (decision DC8).
+func (s *Server) TunnelActive() bool {
+	c := s.tunnel()
+	return c == nil || !c.State().Terminal()
 }
 
 // consoleUpdater periodically updates the console with request stats and errors
@@ -265,10 +304,15 @@ func (s *Server) redrawConsole() {
 	buf.WriteString(fmt.Sprintf("\033[1;35mProvider URL                  \033[0m%s\n", snap.ProviderURL))
 	buf.WriteString(fmt.Sprintf("\033[1;35mLLM URL                       \033[0m%s\n", snap.LLMURL))
 	state := "connecting"
-	if s.config.EnrolledWorker() {
+	switch {
+	case s.config.EnrolledWorker():
 		state = "worker"
-	} else if snap.Connected {
+	case snap.ConnectionReason != "" && !s.TunnelActive():
+		state = "\033[1;31m" + snap.Connection + ": " + snap.ConnectionReason + "\033[0m"
+	case snap.Connected:
 		state = "connected"
+	case snap.ConnectionReason != "":
+		state = "connecting (" + snap.ConnectionReason + ")"
 	}
 	buf.WriteString(fmt.Sprintf("\033[1;35mPlatform connection           \033[0m%s\n", state))
 

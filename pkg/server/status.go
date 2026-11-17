@@ -58,7 +58,7 @@ type StatusSnapshot struct {
 	EngineNote       string        `json:"engine_note,omitempty"`
 	CapabilityLine   string        `json:"capability_line,omitempty"`
 	// Connection and ConnectionReason are the tunnel's state and why (plan
-	// item C1; not filled yet).
+	// item C1, decision DC8).
 	Connection       string `json:"connection,omitempty"`
 	ConnectionReason string `json:"connection_reason,omitempty"`
 }
@@ -140,6 +140,8 @@ func (s *Server) snapshot() StatusSnapshot {
 		ProviderURL:      providerURL,
 		LLMURL:           llmURL,
 		Connected:        s.gatewayConnected(),
+		Connection:       s.connectionState(),
+		ConnectionReason: s.connectionReason(),
 		Models:           models,
 		GPU:              gpuInfo,
 		RecentRequests:   reqs,
@@ -195,4 +197,18 @@ func formatDuration(d time.Duration) string {
 		return fmt.Sprintf("%.2fs", d.Seconds())
 	}
 	return fmt.Sprintf("%.2fms", float64(d.Microseconds())/1000)
+}
+
+func (s *Server) connectionState() string {
+	if c := s.tunnel(); c != nil {
+		return c.State().String()
+	}
+	return ""
+}
+
+func (s *Server) connectionReason() string {
+	if c := s.tunnel(); c != nil {
+		return c.Reason()
+	}
+	return ""
 }

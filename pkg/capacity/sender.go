@@ -34,8 +34,8 @@ type Sender struct {
 	slots  Slots
 	engine llm.Client
 	client *http.Client
-	// Active, when set, says whether to report at all (plan item C1; not
-	// used yet).
+	// Active, when set, says whether to report at all: false once the
+	// tunnel has stopped for good (decision DC8).
 	Active func() bool
 
 	instance string
@@ -92,7 +92,7 @@ type payload struct {
 }
 
 func (s *Sender) send(ctx context.Context) {
-	if s.slots == nil {
+	if s.slots == nil || (s.Active != nil && !s.Active()) {
 		return
 	}
 	inflight, maxInflight, accepting := s.slots()
