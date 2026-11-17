@@ -24,6 +24,9 @@ const (
 	stepVet    = "vet"
 	stepLint   = "lint"
 	stepTests  = "tests"
+
+	// stepFeatures is plan item G1; it is not a step yet.
+	stepFeatures = "features"
 )
 
 // golangciVersion is the one version whose findings the configuration is

@@ -1,0 +1,5 @@
+features:
+  - name: Sum
+    entry: x.Sum
+    code: [pkg/x/x.go]
+    tests: [pkg/x/x_test.go]

@@ -119,7 +119,7 @@ func TestReportHome(t *testing.T) {
 }
 
 func allStepNames() []string {
-	return []string{stepFormat, stepTidy, stepVet + " linux/amd64", stepVet + " darwin/arm64", stepVet + " windows/amd64", stepLint, stepTests}
+	return []string{stepFormat, stepTidy, stepVet + " linux/amd64", stepVet + " darwin/arm64", stepVet + " windows/amd64", stepLint, stepTests, stepFeatures}
 }
 
 // runFixture runs the named steps (all of them when none is named) against a
