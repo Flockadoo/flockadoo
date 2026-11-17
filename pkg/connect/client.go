@@ -21,6 +21,19 @@ import (
 // ErrInvalidAPIKey is returned when the platform rejects the provider key.
 var ErrInvalidAPIKey = errors.New("invalid provider API key")
 
+// Timing paces the reconnects.
+type Timing struct {
+	BaseDelay time.Duration // the first reconnect delay
+	MaxDelay  time.Duration // the delay doubles up to this
+	Stable    time.Duration // a session connected this long counts as stable (item Q1)
+}
+
+// DefaultTiming is the production pacing: 1 s doubling to 32 s, plus up to
+// half again in jitter.
+func DefaultTiming() Timing {
+	return Timing{BaseDelay: time.Second, MaxDelay: 32 * time.Second, Stable: 60 * time.Second}
+}
+
 // Client keeps one outbound yamux session to connect-gateway.
 type Client struct {
 	PlatformURL string
@@ -28,6 +41,8 @@ type Client struct {
 	Handler     http.Handler
 	// OnConnect runs after each successful upgrade, including reconnects.
 	OnConnect func()
+	// Timing paces the reconnects; New sets DefaultTiming.
+	Timing Timing
 
 	connected atomic.Bool
 	up        chan error
@@ -39,6 +54,7 @@ func New(platformURL, apiKey string, handler http.Handler, onConnect func()) *Cl
 		APIKey:      apiKey,
 		Handler:     handler,
 		OnConnect:   onConnect,
+		Timing:      DefaultTiming(),
 		up:          make(chan error, 1),
 	}
 }
@@ -74,7 +90,7 @@ func (c *Client) Run(ctx context.Context) error {
 	if err != nil {
 		return err
 	}
-	backoff := time.Second
+	backoff := c.Timing.BaseDelay
 	first := true
 	for {
 		if ctx.Err() != nil {
@@ -98,9 +114,7 @@ func (c *Client) Run(ctx context.Context) error {
 		if !sleep(ctx, wait) {
 			return ctx.Err()
 		}
-		if backoff < 30*time.Second {
-			backoff *= 2
-		}
+		backoff = min(backoff*2, c.Timing.MaxDelay)
 	}
 }
 
