@@ -3,6 +3,7 @@ package config
 import (
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 	"time"
 )
@@ -232,5 +233,89 @@ func TestResolvePlatformURL(t *testing.T) {
 	ApplyEnvOverrides(cfg)
 	if cfg.Provider.URL != "https://env.example" {
 		t.Errorf("ApplyEnvOverrides = %q", cfg.Provider.URL)
+	}
+}
+
+// Plan item Q2, decision DC11: provider_type is no longer a setting in the
+// config file. engine is the one setting; the value sent to the node is
+// derived from it.
+func TestASavedConfigHasNoProviderTypeLine(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "config.yaml")
+	in := &Config{}
+	in.Provider.Engine = "llama_cpp"
+	if err := Save(path, in); err != nil {
+		t.Fatal(err)
+	}
+	raw, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if strings.Contains(string(raw), "provider_type") {
+		t.Fatalf("the saved config still has a provider_type line:\n%s", raw)
+	}
+}
+
+// A provider_type line left in an old file is ignored: the engine comes from
+// engine alone (as it effectively did before, when the loader overwrote it).
+func TestALeftoverProviderTypeLineIsIgnored(t *testing.T) {
+	cases := []struct{ yaml, wantEngine string }{
+		{"provider:\n  provider_type: llama_cpp\n", "vllm"},
+		{"provider:\n  engine: llama_cpp\n  provider_type: vllm\n", "llama_cpp"},
+		{"provider:\n  engine: vllm-metal\n  provider_type: llama_cpp\n", "vllm-metal"},
+	}
+	for _, tc := range cases {
+		path := filepath.Join(t.TempDir(), "config.yaml")
+		if err := os.WriteFile(path, []byte(tc.yaml), 0o600); err != nil {
+			t.Fatal(err)
+		}
+		cfg, err := Load(path)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if cfg.Provider.Engine != tc.wantEngine {
+			t.Errorf("%q: engine = %q, want %q", tc.yaml, cfg.Provider.Engine, tc.wantEngine)
+		}
+	}
+}
+
+// DC11: the platform address in the config is used as written; the old
+// special case that swapped http://localhost:80 for production is gone.
+func TestAConfiguredPlatformAddressIsUsedAsWritten(t *testing.T) {
+	t.Setenv(EnvPlatformURL, "")
+	for _, url := range []string{"http://localhost:80", "http://127.0.0.1:8080", "https://staging.example"} {
+		if got := ResolvePlatformURL("", url); got != url {
+			t.Errorf("ResolvePlatformURL(%q) = %q, want it as written", url, got)
+		}
+	}
+}
+
+// Plan item Q2, finding QUAL-3: the timeouts in effect, pinned before the
+// defaults are tidied so the cleanup cannot change them. A value below the
+// floor is raised to it.
+func TestTheEffectiveTimeouts(t *testing.T) {
+	cases := []struct {
+		name                  string
+		yaml                  string
+		request, llm, session time.Duration
+	}{
+		{"nothing set", "provider:\n  engine: vllm\n", 420 * time.Second, 330 * time.Second, 90 * time.Second},
+		{"below the floors", "server:\n  request_timeout_seconds: 240\n  session_queue_wait_seconds: 30\nprovider:\n  llm_timeout_seconds: 120\n", 420 * time.Second, 330 * time.Second, 30 * time.Second},
+		{"above the floors", "server:\n  request_timeout_seconds: 600\nprovider:\n  llm_timeout_seconds: 400\n", 600 * time.Second, 400 * time.Second, 90 * time.Second},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			path := filepath.Join(t.TempDir(), "config.yaml")
+			if err := os.WriteFile(path, []byte(tc.yaml), 0o600); err != nil {
+				t.Fatal(err)
+			}
+			cfg, err := Load(path)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if cfg.RequestTimeout() != tc.request || cfg.LLMTimeout() != tc.llm || cfg.SessionQueueWait() != tc.session {
+				t.Fatalf("request %v, llm %v, session wait %v; want %v, %v, %v",
+					cfg.RequestTimeout(), cfg.LLMTimeout(), cfg.SessionQueueWait(), tc.request, tc.llm, tc.session)
+			}
+		})
 	}
 }
