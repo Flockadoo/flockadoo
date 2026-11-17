@@ -57,6 +57,17 @@ func TestLintJudgesTheSameLinesWhateverTheDiffAlgorithm(t *testing.T) {
 	for _, algorithm := range []string{"myers", "histogram", "patience", "minimal"} {
 		t.Run(algorithm, func(t *testing.T) {
 			dir := copyFixture(t, "diff-algorithm")
+			// The configuration sits in the module root, as in this
+			// repository: golangci-lint makes paths relative to it, and on
+			// Windows the temporary directory can be on another drive
+			// than the checkout, where no relative path exists.
+			repoCfg, err := os.ReadFile(filepath.Join("..", "..", "..", ".golangci.yml"))
+			if err != nil {
+				t.Fatal(err)
+			}
+			if err := os.WriteFile(filepath.Join(dir, ".golangci.yml"), repoCfg, 0o600); err != nil {
+				t.Fatal(err)
+			}
 			gitconfig := filepath.Join(t.TempDir(), "gitconfig")
 			cfg := "[diff]\n\talgorithm = " + algorithm + "\n[user]\n\tname = check\n\temail = check@example.invalid\n[init]\n\tdefaultBranch = main\n"
 			if err := os.WriteFile(gitconfig, []byte(cfg), 0o600); err != nil {
@@ -100,6 +111,7 @@ func TestLintJudgesTheSameLinesWhateverTheDiffAlgorithm(t *testing.T) {
 			git("commit", "-qam", "head")
 
 			o := fixtureOptions(t, dir, stepLint)
+			o.lintConfig = filepath.Join(dir, ".golangci.yml")
 			o.lintBase = "base"
 			o.env = append(o.env, env...)
 			var buf bytes.Buffer
