@@ -35,6 +35,9 @@ type Server struct {
 	engineNoteMu     sync.Mutex
 	capabilitiesNote string
 	sessionQueueWait time.Duration
+	// sessionQueueLimit is how many returning turns may wait for a slot at
+	// once (plan item B1; not used yet).
+	sessionQueueLimit int
 	// sessions remembers recent X-Session-Key values so a returning
 	// conversation can wait for a slot. There is no per-session lock:
 	// parallel agent calls often share one key, and serialising them

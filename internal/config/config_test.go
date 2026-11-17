@@ -316,3 +316,30 @@ func TestTheEffectiveTimeouts(t *testing.T) {
 		})
 	}
 }
+
+// Plan item B1, decision DC4: there is no "unlimited" concurrency. A limit of
+// 0 or below stops the client at startup with a message that says what to
+// set; leaving the setting out still lets the client decide.
+func TestAConcurrencyLimitBelowOneIsRefused(t *testing.T) {
+	for _, v := range []string{"0", "-1"} {
+		path := filepath.Join(t.TempDir(), "config.yaml")
+		if err := os.WriteFile(path, []byte("server:\n  max_concurrent_inference: "+v+"\n"), 0o600); err != nil {
+			t.Fatal(err)
+		}
+		_, err := Load(path)
+		if err == nil || !strings.Contains(err.Error(), "max_concurrent_inference") {
+			t.Errorf("max_concurrent_inference: %s loaded (err %v), want an error naming the setting", v, err)
+		}
+	}
+	path := filepath.Join(t.TempDir(), "config.yaml")
+	if err := os.WriteFile(path, []byte("server:\n  port: 8080\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	cfg, err := Load(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, explicit := cfg.ExplicitConcurrency(); explicit {
+		t.Fatal("a config without the setting reports an explicit limit")
+	}
+}
