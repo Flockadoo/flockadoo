@@ -2,6 +2,7 @@ package verify
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"path/filepath"
 	"strings"
@@ -23,14 +24,6 @@ type fingerprintCache struct {
 	stats map[string]fileStat
 }
 
-type verifyResultEntry struct {
-	result   Result
-	cachedAt time.Time
-	stats    map[string]fileStat
-}
-
-const verifyResultTTL = 10 * time.Minute
-
 // Verifier measures local models and asks the platform to judge verification status.
 type Verifier struct {
 	catalog           *Catalog
@@ -39,10 +32,11 @@ type Verifier struct {
 	hfHubCache        string
 	modelPathOverride string
 
-	mu          sync.Mutex
-	cache       map[string]*fingerprintCache // alias -> weight fingerprint cache (vLLM)
-	resultCache map[string]*verifyResultEntry
-	resultTTL   time.Duration
+	mu        sync.Mutex
+	cache     map[string]*fingerprintCache // alias -> weight fingerprint cache (vLLM)
+	resultTTL time.Duration                // RefreshAfter
+	grace     time.Duration
+	states    map[string]*modelState
 }
 
 // Verdict is what the relay may do for a model now (plan item B3).
@@ -54,36 +48,189 @@ const (
 	Unavailable                // no usable answer and the node cannot be asked: 503
 )
 
+// errCatalogChanged marks every model due for a refresh.
+var errCatalogChanged = errors.New("the approved catalog changed")
+
+// Default timings (decision DC2): an answer is refreshed after 10 minutes,
+// and a verified one may still be used for 30 minutes more while the node
+// cannot be asked.
+const (
+	DefaultRefreshAfter = 10 * time.Minute
+	DefaultOutageGrace  = 30 * time.Minute
+)
+
+// modelState is the last answer the node gave for one model and the key it
+// belongs to. Only an answer from the node changes status and answered; a
+// failure to ask sets lastErr and nothing else (invariant I14).
+type modelState struct {
+	entryID    string
+	stats      map[string]fileStat
+	status     Status
+	answered   time.Time
+	result     Result
+	lastErr    error
+	refreshing bool
+}
+
 // SetTiming sets how long an answer is fresh and, past that, how long a
 // verified answer may still be used while the node cannot be asked.
-// Plan item B3, tests first: only the freshness is used yet.
 func (v *Verifier) SetTiming(refreshAfter, outageGrace time.Duration) {
 	v.mu.Lock()
 	defer v.mu.Unlock()
-	v.resultTTL = refreshAfter
+	v.resultTTL, v.grace = refreshAfter, outageGrace
 }
 
-// Verdict is not written yet (plan item B3, tests first): today the request
-// path verifies inline, and any failure refuses.
-func (v *Verifier) Verdict(model string) (Verdict, string) {
-	res, err := v.VerifyVLLMModel(context.Background(), model)
-	if err != nil || res.Status != StatusVerified {
-		return Refuse, string(res.Status)
+// currentKey is the catalog entry and the weight files a verdict for model
+// would belong to now.
+func (v *Verifier) currentKey(model string) (entryID, root string, stats map[string]fileStat, err error) {
+	entry, ok := v.catalog.Get(model)
+	if !ok {
+		return "", "", nil, fmt.Errorf("model %s is not in the approved catalog", model)
 	}
-	return Serve, ""
+	if v.serviceType == "llama_cpp" {
+		root, err = v.resolveLlamaRoot(entry)
+	} else {
+		root, err = v.resolveVLLMRoot(entry, model)
+	}
+	if err != nil {
+		return "", "", nil, fmt.Errorf("locate weights for %s: %w", model, err)
+	}
+	stats, err = v.weightStats(model, root)
+	return entry.ID, root, stats, err
 }
 
-// Status is not written yet (plan item B3, tests first): today the health
-// report's status comes from an inline verification.
+// Verdict is the whole policy, read from state with no call to the node
+// (decision DC2):
+//
+//	no answer for this model's current key         -> Unavailable (503)
+//	the last answer was not "verified"             -> Refuse (403)
+//	answered less than RefreshAfter+Grace ago      -> Serve
+//	otherwise                                      -> Unavailable (503)
+//
+// A model outside the catalog, or whose weights are not on disk, is refused.
+func (v *Verifier) Verdict(model string) (Verdict, string) {
+	entryID, _, stats, err := v.currentKey(model)
+	if err != nil {
+		return Refuse, err.Error()
+	}
+	v.mu.Lock()
+	defer v.mu.Unlock()
+	st := v.states[model]
+	if st == nil || st.answered.IsZero() || st.entryID != entryID || !fileStatsEqual(st.stats, stats) {
+		return Unavailable, "model " + model + " is not verified yet"
+	}
+	if st.status != StatusVerified {
+		return Refuse, string(st.status)
+	}
+	if time.Since(st.answered) < v.resultTTL+v.grace {
+		return Serve, ""
+	}
+	return Unavailable, "model verification is temporarily unavailable"
+}
+
+// Status is what the health report says about model: the node's last
+// answer, or nothing once a verified answer's grace has run out (plan item
+// B3, detail 5: an outage is never reported as a failure).
 func (v *Verifier) Status(model string) Status {
-	res, _ := v.VerifyVLLMModel(context.Background(), model)
-	return res.Status
+	v.mu.Lock()
+	defer v.mu.Unlock()
+	st := v.states[model]
+	if st == nil || st.answered.IsZero() {
+		return ""
+	}
+	if st.status == StatusVerified && time.Since(st.answered) >= v.resultTTL+v.grace {
+		return ""
+	}
+	return st.status
 }
 
-// Refresh is not written yet (plan item B3, tests first): one inline
-// verification, as the request path does today.
+// due reports whether model's answer should be refreshed now.
+func (v *Verifier) due(model string) bool {
+	v.mu.Lock()
+	defer v.mu.Unlock()
+	st := v.states[model]
+	return st == nil || st.answered.IsZero() || st.lastErr != nil || time.Since(st.answered) >= v.resultTTL
+}
+
+// Refresh asks the node about model once. Hashing and the call run outside
+// the lock a request takes, and two refreshes of one model never overlap.
+// An answer replaces the state; a failure to ask records why and changes
+// nothing else.
 func (v *Verifier) Refresh(ctx context.Context, model string) {
-	_, _ = v.VerifyVLLMModel(ctx, model)
+	v.mu.Lock()
+	st := v.states[model]
+	if st == nil {
+		st = &modelState{}
+		v.states[model] = st
+	}
+	if st.refreshing {
+		v.mu.Unlock()
+		return
+	}
+	st.refreshing = true
+	v.mu.Unlock()
+	defer func() {
+		v.mu.Lock()
+		st.refreshing = false
+		v.mu.Unlock()
+	}()
+
+	entryID, root, stats, err := v.currentKey(model)
+	if err != nil {
+		v.answer(st, entryID, stats, Result{Alias: model, Status: StatusUnverified})
+		return
+	}
+	files, stale, err := v.measureWithCache(model, root)
+	if err != nil {
+		v.answer(st, entryID, stats, Result{Alias: model, Status: StatusFailed})
+		return
+	}
+	resp, err := v.server.VerifyModel(ctx, verifyModelRequest{Alias: model, ServiceType: v.serviceType, Files: files, Stale: stale})
+	if err != nil {
+		v.mu.Lock()
+		if st.entryID != entryID || !fileStatsEqual(st.stats, stats) {
+			// A new key inherits nothing (decision DC2).
+			*st = modelState{entryID: entryID, stats: stats, refreshing: true}
+		}
+		st.lastErr = err
+		v.mu.Unlock()
+		if unavailable(err) {
+			logger.Warn("model verification unavailable; serving on the last answer while the grace lasts", zap.String("model", model), zap.Error(err))
+			return
+		}
+		v.answer(st, entryID, stats, Result{Alias: model, Status: StatusUnverified})
+		return
+	}
+	res := Result{Alias: model}
+	applyServerResponse(&res, resp)
+	v.answer(st, entryID, stats, res)
+}
+
+func (v *Verifier) answer(st *modelState, entryID string, stats map[string]fileStat, res Result) {
+	v.mu.Lock()
+	defer v.mu.Unlock()
+	st.entryID, st.stats = entryID, stats
+	st.status, st.result, st.answered, st.lastErr = res.Status, res, time.Now(), nil
+}
+
+// RunRefresher refreshes the given models whenever they are due, checking
+// every interval, until ctx ends. It is the only caller of verify-model on
+// a running client besides the health report's first look.
+func (v *Verifier) RunRefresher(ctx context.Context, interval time.Duration, models func() []string) {
+	tick := time.NewTicker(interval)
+	defer tick.Stop()
+	for {
+		for _, m := range models() {
+			if m != "" && v.due(m) {
+				v.Refresh(ctx, m)
+			}
+		}
+		select {
+		case <-ctx.Done():
+			return
+		case <-tick.C:
+		}
+	}
 }
 
 // NewVerifier creates a verifier. Measurements are sent to the server; expected hashes stay in the DB.
@@ -95,8 +242,9 @@ func NewVerifier(catalog *Catalog, server *ServerClient, serviceType, hfHubCache
 		hfHubCache:        strings.TrimSpace(hfHubCache),
 		modelPathOverride: strings.TrimSpace(modelPathOverride),
 		cache:             make(map[string]*fingerprintCache),
-		resultCache:       make(map[string]*verifyResultEntry),
-		resultTTL:         verifyResultTTL,
+		resultTTL:         DefaultRefreshAfter,
+		grace:             DefaultOutageGrace,
+		states:            make(map[string]*modelState),
 	}
 }
 
@@ -122,98 +270,6 @@ func (v *Verifier) resolveVLLMRoot(entry CatalogEntry, alias string) (string, er
 		}
 	}
 	return ResolveHFModelRoot(hub, repo, ref)
-}
-
-// VerifyVLLMModel hashes local weights and asks the server to verify.
-func (v *Verifier) VerifyVLLMModel(ctx context.Context, alias string) (Result, error) {
-	res := Result{Alias: alias}
-
-	entry, ok := v.catalog.Get(alias)
-	if !ok {
-		res.Status = StatusUnverified
-		return res, nil
-	}
-
-	var root string
-	var err error
-	if v.serviceType == "llama_cpp" {
-		root, err = v.resolveLlamaRoot(entry)
-	} else {
-		root, err = v.resolveVLLMRoot(entry, alias)
-	}
-	if err != nil {
-		res.Status = StatusFailed
-		return res, fmt.Errorf("locate weights for %s: %w", alias, err)
-	}
-
-	currentStats, err := v.weightStats(alias, root)
-	if err != nil {
-		res.Status = StatusFailed
-		return res, err
-	}
-
-	if cached, ok := v.cachedVLLMResult(alias, currentStats); ok {
-		return cached, nil
-	}
-
-	files, stale, err := v.measureWithCache(alias, root)
-	if err != nil {
-		res.Status = StatusFailed
-		return res, err
-	}
-
-	resp, err := v.server.VerifyModel(ctx, verifyModelRequest{
-		Alias:       alias,
-		ServiceType: v.serviceType,
-		Files:       files,
-		Stale:       stale,
-	})
-	if err != nil {
-		res.Status = StatusFailed
-		return res, err
-	}
-	applyServerResponse(&res, resp)
-	v.storeVLLMResult(alias, currentStats, res)
-	return res, nil
-}
-
-func (v *Verifier) cachedVLLMResult(alias string, stats map[string]fileStat) (Result, bool) {
-	v.mu.Lock()
-	defer v.mu.Unlock()
-
-	entry, ok := v.resultCache[alias]
-	if !ok || entry == nil || time.Since(entry.cachedAt) >= v.resultTTL {
-		return Result{}, false
-	}
-	if !fileStatsEqual(entry.stats, stats) {
-		return Result{}, false
-	}
-	return entry.result, true
-}
-
-func (v *Verifier) storeVLLMResult(alias string, stats map[string]fileStat, res Result) {
-	v.mu.Lock()
-	defer v.mu.Unlock()
-
-	statsCopy := make(map[string]fileStat, len(stats))
-	for k, val := range stats {
-		statsCopy[k] = val
-	}
-	v.resultCache[alias] = &verifyResultEntry{
-		result:   res,
-		cachedAt: time.Now(),
-		stats:    statsCopy,
-	}
-}
-
-func (v *Verifier) clearVerifyResultCache() {
-	v.mu.Lock()
-	defer v.mu.Unlock()
-	v.resultCache = make(map[string]*verifyResultEntry)
-}
-
-func verifyResultFresh(entry *verifyResultEntry) bool {
-	return entry != nil && time.Since(entry.cachedAt) < verifyResultTTL
 }
 
 func (v *Verifier) measureWithCache(alias, root string) (files []FileMeasurement, stale bool, err error) {
@@ -298,22 +354,28 @@ func applyServerResponse(res *Result, resp verifyModelResponse) {
 	}
 }
 
-// ApplyToModels enriches discovered models with verification fields.
+// ApplyToModels enriches discovered models with verification fields for the
+// health report. It reads the state, refreshing a model that is due first;
+// an outage leaves the last answer in place and is never reported as a
+// failure (invariant I14).
 func (v *Verifier) ApplyToModels(ctx context.Context, llmClient llm.Client, models []llm.Model) []llm.Model {
 	out := make([]llm.Model, len(models))
 	for i, m := range models {
 		out[i] = m
 		switch v.serviceType {
 		case "vllm", "llama_cpp":
-			res, err := v.VerifyVLLMModel(ctx, m.ID)
-			if err != nil {
-				logger.Error("vLLM verification error", zap.String("alias", m.ID), zap.Error(err))
-				out[i].VerificationStatus = string(StatusFailed)
-				continue
+			if v.due(m.ID) {
+				v.Refresh(ctx, m.ID)
 			}
+			v.mu.Lock()
+			var res Result
+			if st := v.states[m.ID]; st != nil {
+				res = st.result
+			}
+			v.mu.Unlock()
+			res.Status = v.Status(m.ID)
 			applyResult(&out[i], res)
-			entry, ok := v.catalog.Get(m.ID)
-			if ok {
+			if entry, ok := v.catalog.Get(m.ID); ok && res.Status == StatusVerified {
 				applyContextGate(ctx, llmClient, &out[i], entry)
 			}
 		default:
@@ -349,22 +411,13 @@ func (v *Verifier) RefreshCatalog(ctx context.Context) error {
 		return err
 	}
 	if v.catalog.fingerprint() != before {
-		v.clearVerifyResultCache()
-	}
-	return nil
-}
-
-func (v *Verifier) CheckInference(ctx context.Context, llmClient llm.Client, modelName string) error {
-	models := v.ApplyToModels(ctx, llmClient, []llm.Model{{ID: modelName, Object: "model", OwnedBy: v.serviceType}})
-	if len(models) == 0 {
-		return fmt.Errorf("model %s not found", modelName)
-	}
-	status := models[0].VerificationStatus
-	if status == "" {
-		status = string(StatusUnverified)
-	}
-	if !IsInferenceAllowed(status) {
-		return fmt.Errorf("model %s is not verified (%s)", modelName, status)
+		// A changed catalog is checked again at the next refresh; the
+		// verdicts stand until then (a changed entry id is a new key).
+		v.mu.Lock()
+		for _, st := range v.states {
+			st.lastErr = errCatalogChanged
+		}
+		v.mu.Unlock()
 	}
 	return nil
 }

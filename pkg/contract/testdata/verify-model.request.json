@@ -4,5 +4,6 @@
   "size_bytes": 100,
   "files": [
     {"name": "model.safetensors", "hash": "abc", "hash_method": "sha256", "size": 100}
-  ]
+  ],
+  "stale": true
 }

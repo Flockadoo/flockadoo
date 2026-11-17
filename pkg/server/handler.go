@@ -14,6 +14,7 @@ import (
 	"github.com/sentnl/inferoute-node/inferoute-client/internal/admission"
 	"github.com/sentnl/inferoute-node/inferoute-client/internal/relay"
 	"github.com/sentnl/inferoute-node/inferoute-client/pkg/usermsg"
+	"github.com/sentnl/inferoute-node/inferoute-client/pkg/verify"
 )
 
 const streamWriteDeadlineGrace = 5 * time.Second
@@ -160,9 +161,12 @@ func (s *Server) relayRequest(w http.ResponseWriter, r *http.Request, llmPath st
 	if s.config != nil && s.config.Provider.Model != "" && env.Model != "" && env.Model != s.config.Provider.Model {
 		return refuse(http.StatusServiceUnavailable, relay.RefusedModel, "model_not_served")
 	}
-	if err := s.verifyModel(r.Context(), env.Model); err != nil {
-		s.logError(fmt.Sprintf("Model verification failed: %v", err))
-		return refuse(http.StatusForbidden, relay.RefusedUnverified, err.Error())
+	switch verdict, why := s.verifyModel(env.Model); verdict {
+	case verify.Serve:
+	case verify.Refuse:
+		return refuse(http.StatusForbidden, relay.RefusedUnverified, "model is not verified: "+why)
+	case verify.Unavailable:
+		return refuse(http.StatusServiceUnavailable, relay.RefusedVerificationUnavailable, why)
 	}
 
 	var slot *admission.Slot

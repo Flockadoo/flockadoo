@@ -26,9 +26,9 @@ features:
     invariants: [I1, I2, I11]
 
   - name: Model verification
-    entry: Verifier.CheckInference on the request path; ApplyToModels for the health report
+    entry: Verifier.Verdict on the request path (reads state, no node call); Verifier.RunRefresher and ApplyToModels ask the node
     code: [pkg/verify/verifier.go, pkg/verify/measure.go, pkg/verify/fingerprint.go, pkg/verify/server.go, pkg/verify/context_gate.go, pkg/verify/hfresolve.go, pkg/verify/llamacache.go]
-    tests: [pkg/verify/verifier_test.go, pkg/verify/measure_test.go, pkg/verify/filehash_test.go, pkg/verify/context_gate_test.go, pkg/verify/hfresolve_test.go, pkg/verify/llamacache_test.go]
+    tests: [pkg/verify/verifier_test.go, pkg/verify/state_test.go, pkg/verify/measure_test.go, pkg/verify/filehash_test.go, pkg/verify/context_gate_test.go, pkg/verify/hfresolve_test.go, pkg/verify/llamacache_test.go, pkg/server/verdict_test.go]
     invariants: [I13, I14]
     notes: >-
       Verification identifies a model, it does not prove one (finding SEC-2). Safetensors are
@@ -162,8 +162,8 @@ invariants:
     notes: findings NET-9 and SEC-4, decisions DC1 and DC3, item B2's first pull request
   - id: I3-verification
     statement: a request refused by model verification, or while verification is unavailable, never reaches the engine
-    pending: B3
-    notes: needs the verifier on the fake platform with a model on disk; B3's tests 2 and 3
+    tests: [TestAVerificationVerdictIsAppliedBeforeTheEngine]
+    notes: item B3
   - id: I4
     statement: a cancelled request releases its engine call and its slot
     tests: [TestACancelledStreamReleasesTheEngineAndTheSlot, TestARequestInFlightWhenTheSessionDropsIsCancelled]
@@ -223,8 +223,8 @@ invariants:
     notes: the cluster code cannot run in the harness until K1 isolates it
   - id: I14
     statement: inference is served only on a verified verdict for this deployment, fresh or inside the 30-minute outage grace; a failure to reach the node is never recorded as a failed verification
-    pending: B3
-    notes: finding ADM-5, decision DC2
+    tests: [TestAShortOutageDoesNotInterruptAVerifiedModel, TestAContinuingOutageEndsInUnavailable, TestAnExplicitRejectionBlocksAtOnce, TestANewOrChangedModelInheritsNoVerdict, TestRecoveryRestoresTheVerdict, TestAnOutageIsNeverRecordedAsFailed, TestNeverVerifiedDuringAnOutageIsUnavailable, TestARefreshInProgressDoesNotDelayARequest, TestRequestsMakeNoVerifyCalls]
+    notes: finding ADM-5, decision DC2, fixed by item B3
 
   - id: 6.4-reconnect-after-drop
     statement: after the network drops the session, the client dials again and gets a new session

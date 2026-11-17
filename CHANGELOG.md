@@ -2,6 +2,7 @@
 
 ## [Unreleased]
 
+- A model stays served through a short Inferoute outage. Verification is refreshed in the background every 10 minutes; when Inferoute cannot be asked, the last "verified" answer is used for up to 30 minutes more, after which requests get 503 ("temporarily unavailable"), never 403. A "not verified" answer still refuses at once, and new or changed weights are never served on an old answer. An outage is no longer reported to Inferoute as a failed verification, and serving a request no longer waits on a verification call.
 - Stopping the client (Ctrl+C, `docker stop`, a service stop) now lets the requests it is serving finish, for up to 60 seconds, after telling Inferoute it takes no more; a second Ctrl+C stops at once. The Docker examples give the container 75 seconds to stop.
 - When the engine stops answering, the client tells Inferoute it is not accepting requests within about ten seconds, and accepts again as soon as the engine answers; the dashboard says "engine down". The client does not restart the engine. The client also reports not accepting while its connection to Inferoute is down.
 - A client whose API key is rejected, or that Inferoute asks to update, now stays running and shows why on the dashboard and the console, and stops reporting to Inferoute, instead of exiting at startup or silently going quiet later. It does the same when Inferoute says another client has taken over the key. When the connection keeps ending within a minute, the dashboard says another client may be using the same API key.

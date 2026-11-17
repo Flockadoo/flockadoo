@@ -17,6 +17,7 @@ import (
 	"github.com/sentnl/inferoute-node/inferoute-client/internal/config"
 	"github.com/sentnl/inferoute-node/inferoute-client/pkg/llm"
 	"github.com/sentnl/inferoute-node/inferoute-client/pkg/logger"
+	"github.com/sentnl/inferoute-node/inferoute-client/pkg/verify"
 	"go.uber.org/zap"
 )
 
@@ -229,8 +230,8 @@ func TestHandleChatCompletionsGuardChain(t *testing.T) {
 
 func TestVerifyModelInRequestNilVerifierPasses(t *testing.T) {
 	s := newTestServer("http://unused", &fakeLLM{})
-	if err := s.verifyModel(context.Background(), "m"); err != nil {
-		t.Fatalf("nil verifier should pass, got %v", err)
+	if verdict, why := s.verifyModel("m"); verdict != verify.Serve {
+		t.Fatalf("nil verifier should pass, got %v (%s)", verdict, why)
 	}
 }
 

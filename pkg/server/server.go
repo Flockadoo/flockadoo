@@ -43,9 +43,12 @@ func CreateServer(cfg *config.Config, gpuMonitor *gpu.Monitor, healthReporter *h
 		gpuMonitor:       gpuMonitor,
 		healthReporter:   healthReporter,
 		llmClient:        llmClient,
-		verifier:         verifier,
 		consoleUI:        true,
 		sessionQueueWait: cfg.SessionQueueWait(),
+	}
+	if verifier != nil {
+		// Not a typed nil inside the interface: a nil verifier serves all.
+		s.verifier = verifier
 	}
 	s.sessionQueueLimit = cfg.Server.SessionQueueLimit
 	kind, _ := engine.ParseKind(cfg.Provider.Engine)
@@ -618,14 +621,15 @@ func (s *Server) logError(errMsg string) {
 	logger.Error(errMsg)
 }
 
-// verifyModel checks the model a request names. With no verifier, every
-// model passes.
-func (s *Server) verifyModel(ctx context.Context, model string) error {
+// verifyModel is the verdict for the model a request names, read from the
+// verifier's state with no call to the node (plan item B3). With no
+// verifier, every model is served.
+func (s *Server) verifyModel(model string) (verify.Verdict, string) {
 	if s.verifier == nil {
-		return nil
+		return verify.Serve, ""
 	}
 	if model == "" {
-		return fmt.Errorf("missing model in request")
+		return verify.Refuse, "missing model in request"
 	}
-	return s.verifier.CheckInference(ctx, s.llmClient, model)
+	return s.verifier.Verdict(model)
 }

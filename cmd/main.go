@@ -240,6 +240,11 @@ func main() {
 
 	healthReporter := health.NewReporter(cfg, gpuMonitor, llmClient)
 	healthReporter.SetVerifier(modelVerifier)
+	// Model verification is refreshed in the background; requests only read
+	// the verdict (plan item B3).
+	if modelVerifier != nil {
+		go modelVerifier.RunRefresher(ctx, 15*time.Second, func() []string { return []string{cfg.Provider.Model} })
+	}
 
 	srv := server.CreateServer(cfg, gpuMonitor, healthReporter, modelVerifier)
 	if useTray {

@@ -23,7 +23,8 @@ type Server struct {
 	gpuMonitor     *gpu.Monitor
 	healthReporter *health.Reporter
 	llmClient      llm.Client
-	verifier       *verify.Verifier
+	// verifier gives the verdict for a model; nil serves every model.
+	verifier verdicts
 	// lifeMu guards the lifecycle fields: Start and Stop may run in
 	// different goroutines (finding NET-6).
 	lifeMu        sync.Mutex
@@ -81,4 +82,10 @@ type BusyResponse struct {
 // ErrorResponse is the standard error response structure
 type ErrorResponse struct {
 	Error string `json:"error"`
+}
+
+// verdicts is what the relay needs from model verification: the verdict for
+// a model now, read from state (plan section 15.3).
+type verdicts interface {
+	Verdict(model string) (verify.Verdict, string)
 }
