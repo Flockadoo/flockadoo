@@ -76,6 +76,7 @@ func New(t testing.TB, apiKey string, opts ...Option) *Platform {
 	srv := httptest.NewServer(http.HandlerFunc(p.serveHTTP))
 	p.URL = srv.URL
 	t.Cleanup(func() {
+		srv.CloseClientConnections() // a Hang whose client never left must not hang the test
 		srv.Close()
 		if errs := p.ContractErrors(); len(errs) > 0 && !p.allowContract {
 			t.Errorf("fakeplatform: the client sent bodies outside their contract golden:\n%s", strings.Join(errs, "\n"))
@@ -190,6 +191,13 @@ func (p *Platform) Requests(method, path string) []Request {
 		}
 	}
 	return out
+}
+
+// AllRequests returns every request the platform received, in order.
+func (p *Platform) AllRequests() []Request {
+	p.mu.Lock()
+	defer p.mu.Unlock()
+	return append([]Request(nil), p.requests...)
 }
 
 // AwaitRequests waits until n requests to method and path have arrived and

@@ -82,3 +82,12 @@ func checkFeatures(_ context.Context, o options, w io.Writer) error {
 	}
 	return nil
 }
+
+// requiredInvariants is not written yet: plan item A3, tests first.
+var requiredInvariants []string
+
+// invariantProblems is not written yet: plan item A3, tests first. It finds
+// nothing, so the tests fail because nothing is reported.
+func invariantProblems(root string, required []string) (problems, pending []string, err error) {
+	return nil, nil, nil
+}

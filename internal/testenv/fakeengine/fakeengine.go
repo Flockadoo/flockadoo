@@ -91,7 +91,12 @@ func start(t testing.TB, f Flavour, version string, opts []Option) *Engine {
 	}
 	e.srv = httptest.NewServer(http.HandlerFunc(e.serveHTTP))
 	e.URL = e.srv.URL
-	t.Cleanup(e.srv.Close)
+	// Cut open connections first: a stalled or hung answer whose client never
+	// left would otherwise keep Close waiting, and a failing test would hang.
+	t.Cleanup(func() {
+		e.srv.CloseClientConnections()
+		e.srv.Close()
+	})
 	return e
 }
 
@@ -162,6 +167,14 @@ func (e *Engine) MaxInFlight() int {
 	e.mu.Lock()
 	defer e.mu.Unlock()
 	return e.maxInFlight
+}
+
+// ResetMaxInFlight starts a new high-water mark from the requests in
+// progress now, for a test that measures a second phase on its own.
+func (e *Engine) ResetMaxInFlight() {
+	e.mu.Lock()
+	defer e.mu.Unlock()
+	e.maxInFlight = e.inFlight
 }
 
 // AwaitIdle waits until no inference request is in progress.
