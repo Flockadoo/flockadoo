@@ -57,16 +57,6 @@ type BusyResponse struct {
 	Busy bool `json:"busy"`
 }
 
-// HMACValidationRequest is the request structure for HMAC validation
-type HMACValidationRequest struct {
-	HMAC string `json:"hmac"`
-}
-
-// HMACValidationResponse is the response structure for HMAC validation
-type HMACValidationResponse struct {
-	Valid bool `json:"valid"`
-}
-
 // ErrorResponse is the standard error response structure
 type ErrorResponse struct {
 	Error string `json:"error"`

@@ -173,11 +173,6 @@ func TestRefusedRequestsNeverReachTheEngine(t *testing.T) {
 		hdr    map[string]string
 		status int
 	}{
-		{"no request id", nil, streamBody, map[string]string{"X-Request-ID": ""}, http.StatusUnauthorized},
-		{"a request id the node does not know", func() func() {
-			r.plat.Next(http.MethodPost, "/api/provider/validate_hmac", fakeplatform.JSON(http.StatusOK, map[string]bool{"valid": false}))
-			return func() {}
-		}, streamBody, nil, http.StatusUnauthorized},
 		{"a model this machine does not serve", nil, `{"model":"other/model","stream":true}`, nil, http.StatusServiceUnavailable},
 		{"the gate is closed for a benchmark", func() func() {
 			r.s.SetBenchmarking(true)

@@ -12,10 +12,6 @@ import (
 	"github.com/sentnl/inferoute-node/inferoute-client/pkg/usermsg"
 )
 
-// maxRequestIDLength is larger than a real HMAC (SHA-256 base64url, ~44 bytes)
-// and small enough that a flood cannot push megabyte tokens at the platform.
-const maxRequestIDLength = 256
-
 const streamWriteDeadlineGrace = 5 * time.Second
 
 // maxStreamDuration is the longest stream deadline the platform's header can
@@ -82,13 +78,6 @@ func (s *Server) writeBusy(w http.ResponseWriter, r *http.Request, startTime tim
 	s.logRequest(r.Method, r.URL.Path, http.StatusServiceUnavailable, startTime)
 }
 
-func (s *Server) writeUnauthorized(w http.ResponseWriter, r *http.Request, startTime time.Time, msg string) {
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(http.StatusUnauthorized)
-	json.NewEncoder(w).Encode(ErrorResponse{Error: msg})
-	s.logRequest(r.Method, r.URL.Path, http.StatusUnauthorized, startTime)
-}
-
 // handleChatCompletions handles the /v1/chat/completions endpoint
 func (s *Server) handleChatCompletions(w http.ResponseWriter, r *http.Request) {
 	s.handleInference(w, r, "/v1/chat/completions")
@@ -107,20 +96,9 @@ func (s *Server) handleEmbeddings(w http.ResponseWriter, r *http.Request) {
 func (s *Server) handleInference(w http.ResponseWriter, r *http.Request, llmPath string) {
 	startTime := time.Now()
 
-	hmac := r.Header.Get("X-Request-Id")
-	switch {
-	case hmac == "":
-		s.writeUnauthorized(w, r, startTime, "Missing HMAC in X-Request-Id header")
-		return
-	case len(hmac) > maxRequestIDLength:
-		s.writeUnauthorized(w, r, startTime, "Invalid HMAC in X-Request-Id header")
-		return
-	}
-	if err := s.validateHMAC(r.Context(), hmac); err != nil {
-		s.logError(fmt.Sprintf("HMAC validation failed: %v", err))
-		s.writeUnauthorized(w, r, startTime, fmt.Sprintf("Invalid HMAC: %v", err))
-		return
-	}
+	// The request arrived on the tunnel this client dialled with its key, so
+	// it comes from Inferoute. It is not checked with the node again
+	// (decision DC1): serving a request makes no call to the node.
 
 	// A benchmark owns the engine. Returning conversations do not skip this:
 	// they skip the slot check below, and would otherwise land mid-benchmark.

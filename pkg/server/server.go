@@ -5,7 +5,6 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"io"
 	"net/http"
 	"time"
 
@@ -20,7 +19,6 @@ import (
 	"github.com/sentnl/inferoute-node/inferoute-client/pkg/inferscale"
 	"github.com/sentnl/inferoute-node/inferoute-client/pkg/llm"
 	"github.com/sentnl/inferoute-node/inferoute-client/pkg/logger"
-	"github.com/sentnl/inferoute-node/inferoute-client/pkg/nodeapi"
 	"github.com/sentnl/inferoute-node/inferoute-client/pkg/usermsg"
 	"github.com/sentnl/inferoute-node/inferoute-client/pkg/verify"
 	"go.uber.org/zap"
@@ -164,16 +162,15 @@ func (s *Server) Stop(ctx context.Context) error {
 	return s.server.Shutdown(ctx)
 }
 
-// localMux is the local listener's routes: the dashboard and its APIs.
+// localMux is the local listener's routes: the dashboard and its APIs. It
+// serves no inference: that arrives only on the tunnel (decision DC3), and a
+// provider who wants their own model locally talks to their engine.
 func (s *Server) localMux() http.Handler {
 	r := mux.NewRouter()
 	r.HandleFunc("/", s.handleDashboard).Methods(http.MethodGet)
 	r.HandleFunc("/api/status", s.handleStatus).Methods(http.MethodGet)
 	r.HandleFunc("/api/health", s.handleHealth).Methods(http.MethodGet)
 	r.HandleFunc("/api/busy", s.handleBusy).Methods(http.MethodGet)
-	r.HandleFunc("/v1/chat/completions", s.handleChatCompletions).Methods(http.MethodPost)
-	r.HandleFunc("/v1/completions", s.handleCompletions).Methods(http.MethodPost)
-	r.HandleFunc("/v1/embeddings", s.handleEmbeddings).Methods(http.MethodPost)
 	return r
 }
 
@@ -411,62 +408,6 @@ func (s *Server) logRequest(method, path string, statusCode int, startTime time.
 // logError writes a request failure to error.log. The terminal and dashboard do not show it.
 func (s *Server) logError(errMsg string) {
 	logger.Error(errMsg)
-}
-
-// validateHMAC validates an HMAC with the central system
-func (s *Server) validateHMAC(ctx context.Context, hmac string) error {
-	// Create request
-	url := fmt.Sprintf("%s/api/provider/validate_hmac", s.config.Provider.URL)
-
-	reqBody, err := json.Marshal(HMACValidationRequest{HMAC: hmac})
-	if err != nil {
-		return fmt.Errorf("failed to marshal request: %w", err)
-	}
-
-	req, err := http.NewRequestWithContext(ctx, http.MethodPost, url, bytes.NewBuffer(reqBody))
-	if err != nil {
-		return fmt.Errorf("failed to create request: %w", err)
-	}
-
-	// Add headers
-	req.Header.Set("Content-Type", "application/json")
-	req.Header.Set("Authorization", fmt.Sprintf("Bearer %s", s.config.Provider.APIKey))
-
-	// Send request
-	client := nodeapi.NewHTTPClient(10 * time.Second)
-	resp, err := client.Do(req)
-	if err != nil {
-		return fmt.Errorf("failed to send request: %w", err)
-	}
-	defer resp.Body.Close()
-
-	// Check response status
-	if resp.StatusCode != http.StatusOK {
-		// Read and log response body for debugging
-		respBody, readErr := io.ReadAll(resp.Body)
-		if readErr == nil {
-			s.logError(fmt.Sprintf("HMAC validation error response: %s", string(respBody)))
-		}
-		return fmt.Errorf("request failed with status code: %d", resp.StatusCode)
-	}
-
-	// Parse response
-	var response HMACValidationResponse
-	respBody, err := io.ReadAll(resp.Body)
-	if err != nil {
-		return fmt.Errorf("failed to read response body: %w", err)
-	}
-
-	if err := json.Unmarshal(respBody, &response); err != nil {
-		return fmt.Errorf("failed to parse response: %w", err)
-	}
-
-	// Check if HMAC is valid
-	if !response.Valid {
-		return fmt.Errorf("invalid HMAC")
-	}
-
-	return nil
 }
 
 func (s *Server) verifyModelInRequest(ctx context.Context, body []byte) error {

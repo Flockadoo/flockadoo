@@ -2,6 +2,8 @@
 
 ## [Unreleased]
 
+- The local web server (`127.0.0.1:8080` by default) no longer answers `/v1/chat/completions`, `/v1/completions` or `/v1/embeddings`. Inference from Inferoute arrives on the client's own connection to Inferoute, as before; to use your model yourself, talk to your engine directly. The dashboard, `/api/status`, `/api/health` and `/api/busy` are unchanged.
+- The client no longer asks Inferoute to confirm each request (the `validate_hmac` call). A request that arrives on the connection the client opened with its key comes from Inferoute; requests are now served even while Inferoute's API is briefly unreachable, and each one is answered without that round trip.
 - The deployment fingerprint reads the engine's version from the running engine instead of running `<engine> --version` once a minute. An engine upgrade now counts as a new deployment, so the concurrency benchmark and the capability checks run again. The fingerprint changes once after this update, which re-runs them once.
 - An engine `/metrics` value that is out of range, NaN or infinite (a KV cache usage above 100%, a negative queue) is now left out of the capacity report instead of being sent. A NaN used to make the whole report fail, so it was never sent.
 - A stream time limit from Inferoute larger than 24 hours is capped at 24 hours. A very large value used to overflow and end every write to that stream at once.

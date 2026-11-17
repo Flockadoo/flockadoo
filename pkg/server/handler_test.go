@@ -11,7 +11,6 @@ import (
 	"os"
 	"strings"
 	"sync"
-	"sync/atomic"
 	"testing"
 	"time"
 
@@ -50,14 +49,12 @@ func (f *fakeLLM) ForwardRequest(ctx context.Context, path string, body []byte) 
 	}, nil
 }
 
-// nodeStub returns an httptest server that answers the HMAC validation endpoint.
-func nodeStub(t *testing.T, valid bool) *httptest.Server {
+// nodeStub is a node the relay must never call: serving a request makes no
+// call to the node (decision DC1).
+func nodeStub(t *testing.T) *httptest.Server {
 	t.Helper()
 	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if r.URL.Path == "/api/provider/validate_hmac" {
-			json.NewEncoder(w).Encode(HMACValidationResponse{Valid: valid})
-			return
-		}
+		t.Errorf("the relay called the node: %s %s", r.Method, r.URL.Path)
 		w.WriteHeader(http.StatusNotFound)
 	}))
 	t.Cleanup(ts.Close)
@@ -85,7 +82,7 @@ func postChat(s *Server, hmac, body string) *httptest.ResponseRecorder {
 }
 
 func TestWriteDeadlineOnRealServer(t *testing.T) {
-	node := nodeStub(t, true)
+	node := nodeStub(t)
 	s := newTestServer(node.URL, &sseLLM{body: "data: [DONE]\n\n"})
 	s.config.Provider.Model = "m"
 	r := mux.NewRouter()
@@ -135,7 +132,7 @@ func TestStreamWriteDeadline(t *testing.T) {
 }
 
 func TestEngineStatusPassedThrough(t *testing.T) {
-	node := nodeStub(t, true)
+	node := nodeStub(t)
 	s := newTestServer(node.URL, &statusLLM{code: http.StatusBadRequest, body: `{"error":"maximum context length"}`})
 	rec := postChat(s, "good-hmac", `{"model":"m","stream":false}`)
 	if rec.Code != http.StatusBadRequest {
@@ -159,7 +156,7 @@ func (s *statusLLM) ForwardRequest(context.Context, string, []byte) (*http.Respo
 }
 
 func TestHandleChatCompletionsStreamsSSE(t *testing.T) {
-	node := nodeStub(t, true)
+	node := nodeStub(t)
 	sse := "data: {\"choices\":[{\"delta\":{\"content\":\"a\"}}]}\n\ndata: [DONE]\n\n"
 	s := newTestServer(node.URL, &sseLLM{body: sse})
 
@@ -196,23 +193,8 @@ func (s *sseLLM) ForwardRequest(ctx context.Context, path string, body []byte) (
 }
 
 func TestHandleChatCompletionsGuardChain(t *testing.T) {
-	t.Run("missing HMAC returns 401", func(t *testing.T) {
-		s := newTestServer("http://unused", &fakeLLM{})
-		if got := postChat(s, "", `{"model":"m"}`).Code; got != http.StatusUnauthorized {
-			t.Fatalf("status = %d, want 401", got)
-		}
-	})
-
-	t.Run("invalid HMAC returns 401", func(t *testing.T) {
-		node := nodeStub(t, false)
-		s := newTestServer(node.URL, &fakeLLM{})
-		if got := postChat(s, "bad-hmac", `{"model":"m"}`).Code; got != http.StatusUnauthorized {
-			t.Fatalf("status = %d, want 401", got)
-		}
-	})
-
-	t.Run("valid HMAC forwards to LLM and returns 200", func(t *testing.T) {
-		node := nodeStub(t, true)
+	t.Run("a request is forwarded to the engine and its answer returned", func(t *testing.T) {
+		node := nodeStub(t)
 		fake := &fakeLLM{forwardResp: []byte(`{"ok":true}`)}
 		s := newTestServer(node.URL, fake)
 
@@ -229,7 +211,7 @@ func TestHandleChatCompletionsGuardChain(t *testing.T) {
 	})
 
 	t.Run("embeddings forwards to /v1/embeddings", func(t *testing.T) {
-		node := nodeStub(t, true)
+		node := nodeStub(t)
 		fake := &fakeLLM{forwardResp: []byte(`{"data":[{"embedding":[0.1,0.2]}]}`)}
 		s := newTestServer(node.URL, fake)
 		req := httptest.NewRequest(http.MethodPost, "/v1/embeddings", strings.NewReader(`{"model":"baai/bge-m3","input":"hi"}`))
@@ -244,40 +226,6 @@ func TestHandleChatCompletionsGuardChain(t *testing.T) {
 		}
 	})
 
-	t.Run("oversized HMAC returns 401 without calling the platform", func(t *testing.T) {
-		var hits atomic.Int32
-		ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			hits.Add(1)
-			json.NewEncoder(w).Encode(HMACValidationResponse{Valid: true})
-		}))
-		t.Cleanup(ts.Close)
-		s := newTestServer(ts.URL, &fakeLLM{})
-		huge := strings.Repeat("a", maxRequestIDLength+1)
-		if got := postChat(s, huge, `{"model":"m"}`).Code; got != http.StatusUnauthorized {
-			t.Fatalf("status = %d, want 401", got)
-		}
-		if got := hits.Load(); got != 0 {
-			t.Fatalf("validate_hmac hits = %d, want 0", got)
-		}
-	})
-
-	t.Run("HMAC at max length is forwarded to the platform", func(t *testing.T) {
-		var hits atomic.Int32
-		ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			hits.Add(1)
-			json.NewEncoder(w).Encode(HMACValidationResponse{Valid: true})
-		}))
-		t.Cleanup(ts.Close)
-		fake := &fakeLLM{forwardResp: []byte(`{"ok":true}`)}
-		s := newTestServer(ts.URL, fake)
-		id := strings.Repeat("a", maxRequestIDLength)
-		if got := postChat(s, id, `{"model":"m"}`).Code; got != http.StatusOK {
-			t.Fatalf("status = %d, want 200", got)
-		}
-		if got := hits.Load(); got != 1 {
-			t.Fatalf("validate_hmac hits = %d, want 1", got)
-		}
-	})
 }
 
 func TestVerifyModelInRequestNilVerifierPasses(t *testing.T) {
@@ -306,7 +254,7 @@ func (b *blockingLLM) ForwardRequest(ctx context.Context, path string, body []by
 }
 
 func TestInflightCapRejectsConcurrentInference(t *testing.T) {
-	node := nodeStub(t, true)
+	node := nodeStub(t)
 	block := &blockingLLM{
 		started: make(chan struct{}, 1),
 		release: make(chan struct{}),
@@ -357,49 +305,8 @@ func TestInflightCapRejectsConcurrentInference(t *testing.T) {
 	}
 }
 
-func TestHandleChatCompletionsAuthBeforeBusy(t *testing.T) {
-	node := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		var req HMACValidationRequest
-		json.NewDecoder(r.Body).Decode(&req)
-		json.NewEncoder(w).Encode(HMACValidationResponse{Valid: req.HMAC == "hmac"})
-	}))
-	t.Cleanup(node.Close)
-
-	block := &blockingLLM{
-		started: make(chan struct{}, 1),
-		release: make(chan struct{}),
-		inner:   fakeLLM{forwardResp: []byte(`{"ok":true}`)},
-	}
-	s := newTestServer(node.URL, block)
-
-	done := make(chan int, 1)
-	go func() { done <- postChat(s, "hmac", `{"model":"m"}`).Code }()
-	select {
-	case <-block.started:
-	case <-time.After(2 * time.Second):
-		t.Fatal("first request never reached LLM")
-	}
-
-	if got := postChat(s, "", `{"model":"m"}`).Code; got != http.StatusUnauthorized {
-		t.Fatalf("missing HMAC while busy status = %d, want 401", got)
-	}
-	if got := postChat(s, "bad-hmac", `{"model":"m"}`).Code; got != http.StatusUnauthorized {
-		t.Fatalf("invalid HMAC while busy status = %d, want 401", got)
-	}
-	if got := postChat(s, "hmac", `{"model":"m"}`).Code; got != http.StatusServiceUnavailable {
-		t.Fatalf("valid HMAC while busy status = %d, want 503", got)
-	}
-
-	close(block.release)
-	select {
-	case <-done:
-	case <-time.After(2 * time.Second):
-		t.Fatal("first request did not finish")
-	}
-}
-
 func TestSameSessionRequestQueuesInsteadOf503(t *testing.T) {
-	node := nodeStub(t, true)
+	node := nodeStub(t)
 	block := &blockingLLM{
 		started: make(chan struct{}, 1),
 		release: make(chan struct{}),
@@ -457,7 +364,7 @@ func TestSameSessionRequestQueuesInsteadOf503(t *testing.T) {
 }
 
 func TestBenchmarkingRejectsAfterAcquire(t *testing.T) {
-	node := nodeStub(t, true)
+	node := nodeStub(t)
 	block := &blockingLLM{
 		started: make(chan struct{}, 1),
 		release: make(chan struct{}),
@@ -512,7 +419,7 @@ func TestBenchmarkingRejectsAfterAcquire(t *testing.T) {
 }
 
 func TestBenchmarkingRejectsNewInference(t *testing.T) {
-	node := nodeStub(t, true)
+	node := nodeStub(t)
 	s := newTestServer(node.URL, &fakeLLM{forwardResp: []byte(`{"ok":true}`)})
 	s.SetBenchmarking(true)
 	if got := postChat(s, "hmac", `{"model":"m"}`).Code; got != http.StatusServiceUnavailable {
@@ -524,7 +431,7 @@ func TestBenchmarkingRejectsNewInference(t *testing.T) {
 }
 
 func TestSameSessionQueueTimesOut(t *testing.T) {
-	node := nodeStub(t, true)
+	node := nodeStub(t)
 	block := &blockingLLM{
 		started: make(chan struct{}, 1),
 		release: make(chan struct{}),
