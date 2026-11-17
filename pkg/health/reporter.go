@@ -202,7 +202,7 @@ func (r *Reporter) sendNodeHealth(ctx context.Context, status string, gpuInfo *g
 		Status        string       `json:"status"`
 		GPU           *gpu.GPUInfo `json:"gpu,omitempty"`
 		EngineVersion string       `json:"engine_version,omitempty"`
-	}{Status: status, GPU: gpuInfo, EngineVersion: installedEngineVersion(r)})
+	}{Status: status, GPU: gpuInfo, EngineVersion: installedEngineVersion(ctx, r)})
 	url := fmt.Sprintf("%s/api/provider/network/node/health", r.config.Provider.URL)
 	req, err := http.NewRequestWithContext(ctx, http.MethodPost, url, bytes.NewReader(body))
 	if err != nil {
@@ -225,12 +225,14 @@ func (r *Reporter) sendNodeHealth(ctx context.Context, status string, gpuInfo *g
 	return nil
 }
 
-func installedEngineVersion(r *Reporter) string {
+// installedEngineVersion is a cluster worker's engine version. A worker's
+// headless rank serves no HTTP, so the binary is asked, with a deadline.
+func installedEngineVersion(ctx context.Context, r *Reporter) string {
 	kind, ok := engine.ParseKind(r.config.Provider.Engine)
 	if !ok || kind != engine.KindVLLM {
 		return ""
 	}
-	return engine.InstalledVersion(engine.BinPath(kind, r.config.Provider.EngineBin))
+	return engine.InstalledVersion(ctx, engine.BinPath(kind, r.config.Provider.EngineBin))
 }
 
 // GetHealthReport gets the current health report

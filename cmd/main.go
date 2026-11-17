@@ -637,7 +637,7 @@ func startCapacity(ctx context.Context, cfg *config.Config, configPath, llmURL s
 // the engine does not answer, so a half-started engine is not mistaken for a
 // different deployment.
 func deploymentFingerprint(ctx context.Context, cfg *config.Config, llmClient llm.Client, gpuMonitor *gpu.Monitor) string {
-	fp := cfg.Provider.Model + "|" + cfg.Provider.Engine + "|" + engine.InstalledVersion(cfg.Provider.EngineBin)
+	fp := cfg.Provider.Model + "|" + cfg.Provider.Engine + "|" + engine.InstalledVersion(ctx, cfg.Provider.EngineBin)
 	probe, cancel := context.WithTimeout(ctx, 2*time.Second)
 	defer cancel()
 	listed, err := llmClient.ListModels(probe)

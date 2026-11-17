@@ -116,7 +116,7 @@ func Execute(opts Options, io Streams) error {
 		return fmt.Errorf("this cluster has no vLLM version yet. Run setup on the master first")
 	}
 	if detected.Found && pinned != "" && !(external && plan.Role != "worker") {
-		have := engine.InstalledVersion(detected.Bin)
+		have := engine.InstalledVersion(context.Background(), detected.Bin) //nolint:forbidigo // the wizard has no caller context yet (CLU-4, item K1); InstalledVersion bounds the call itself
 		if have != "" && have != pinned {
 			reinstall := opts.Yes || plan.Role == "worker"
 			if !reinstall {

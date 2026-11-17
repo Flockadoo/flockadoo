@@ -129,7 +129,7 @@ func resumeWorker(cfg *config.Config, spec *engine.Spec) error {
 	if err != nil {
 		return err
 	}
-	if err := inferscale.ReportIP(cfg.Provider.URL, token, true, ip, nodeID, localGPU(), engine.InstalledVersion(spec.Bin)); err != nil {
+	if err := inferscale.ReportIP(cfg.Provider.URL, token, true, ip, nodeID, localGPU(), engine.InstalledVersion(context.Background(), spec.Bin)); err != nil { //nolint:forbidigo // the wizard has no caller context yet (CLU-4, item K1); InstalledVersion bounds the call itself
 		return dropIfRemoved(cfg, err)
 	}
 	next := inferscale.Apply(*spec, remote)
@@ -205,7 +205,7 @@ func prepareClusterReal(cfg *config.Config, spec *engine.Spec) error {
 	if worker {
 		bearer = cfg.Provider.NodeToken
 	}
-	if err := inferscale.ReportIP(cfg.Provider.URL, bearer, worker, ip, nodeID, localGPU(), engine.InstalledVersion(spec.Bin)); err != nil {
+	if err := inferscale.ReportIP(cfg.Provider.URL, bearer, worker, ip, nodeID, localGPU(), engine.InstalledVersion(context.Background(), spec.Bin)); err != nil { //nolint:forbidigo // the wizard has no caller context yet (CLU-4, item K1); InstalledVersion bounds the call itself
 		return err
 	}
 	remote, err := inferscale.FetchEngine(cfg.Provider.URL, bearer, worker)
@@ -265,7 +265,7 @@ func refreshClusterEngine(ctx context.Context, cfg *config.Config) error {
 	if err != nil {
 		return err
 	}
-	if err := inferscale.ReportIP(cfg.Provider.URL, bearer, worker, ip, nodeID, localGPU(), engine.InstalledVersion(cfg.Provider.EngineBin)); err != nil {
+	if err := inferscale.ReportIP(cfg.Provider.URL, bearer, worker, ip, nodeID, localGPU(), engine.InstalledVersion(ctx, cfg.Provider.EngineBin)); err != nil {
 		if NodeRemoved(err) {
 			return removedErr(err)
 		}

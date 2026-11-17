@@ -246,7 +246,7 @@ func download(ctx context.Context, url, dest string) error {
 }
 
 // InstalledVersion reads `<bin> --version`. The last field is the release.
-func InstalledVersion(bin string) string {
+func InstalledVersion(_ context.Context, bin string) string {
 	bin = strings.TrimSpace(bin)
 	if bin == "" {
 		return ""
