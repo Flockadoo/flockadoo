@@ -193,3 +193,15 @@ func TestMain(m *testing.M) {
 	}
 	os.Exit(m.Run())
 }
+
+// Section 19.I: the check fails when a test creates a file in the home
+// directory (finding TST-1), and names it.
+func TestRejectsATestThatWritesIntoHome(t *testing.T) {
+	out, err := runFixture(t, "writes-home", stepTests)
+	if err == nil {
+		t.Fatalf("a test that wrote into HOME was accepted; output:\n%s", out)
+	}
+	if !strings.Contains(out, "app.log") {
+		t.Fatalf("the output does not name the file the test left in HOME:\n%s", out)
+	}
+}

@@ -86,3 +86,28 @@ func TestLogsStayInFiles(t *testing.T) {
 		t.Fatalf("error.log = %s", errLog)
 	}
 }
+
+// Finding TST-1: until main installs a logger, logging writes nothing, so a
+// test (or any library caller) never creates files in the home directory.
+func TestTheDefaultLoggerWritesNothingUntilOneIsInstalled(t *testing.T) {
+	home := t.TempDir()
+	t.Setenv("HOME", home)
+	t.Setenv("USERPROFILE", home)
+	SetDefaultLogger(nil)
+	t.Cleanup(func() { SetDefaultLogger(nil) })
+
+	Debug("debug")
+	Info("info")
+	Warn("warn")
+	Error("error")
+	With().Info("with")
+	_ = GetDefaultLogger().Sync()
+
+	entries, err := os.ReadDir(home)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(entries) != 0 {
+		t.Fatalf("logging with no logger installed created %v in HOME", entries)
+	}
+}
