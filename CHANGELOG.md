@@ -2,6 +2,7 @@
 
 ## [Unreleased]
 
+- The deployment fingerprint reads the engine's version from the running engine instead of running `<engine> --version` once a minute. An engine upgrade now counts as a new deployment, so the concurrency benchmark and the capability checks run again. The fingerprint changes once after this update, which re-runs them once.
 - An engine `/metrics` value that is out of range, NaN or infinite (a KV cache usage above 100%, a negative queue) is now left out of the capacity report instead of being sent. A NaN used to make the whole report fail, so it was never sent.
 - A stream time limit from Inferoute larger than 24 hours is capped at 24 hours. A very large value used to overflow and end every write to that stream at once.
 - A model file whose safetensors header claims an impossible size (more than the format's 100 MB limit) is now refused with an error during verification. It used to crash the client.

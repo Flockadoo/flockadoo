@@ -265,7 +265,7 @@ func refreshClusterEngine(ctx context.Context, cfg *config.Config) error {
 	if err != nil {
 		return err
 	}
-	if err := inferscale.ReportIP(cfg.Provider.URL, bearer, worker, ip, nodeID, localGPU(), engine.InstalledVersion(ctx, cfg.Provider.EngineBin)); err != nil {
+	if err := inferscale.ReportIP(cfg.Provider.URL, bearer, worker, ip, nodeID, localGPU(), engine.InstalledVersion(ctx, cfg.Provider.EngineBin)); err != nil { //nolint:contextcheck // the GPU query takes no context yet (CLU-4); H1 rebuilds it
 		if NodeRemoved(err) {
 			return removedErr(err)
 		}

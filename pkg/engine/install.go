@@ -10,6 +10,9 @@ import (
 	"path/filepath"
 	"runtime"
 	"strings"
+	"time"
+
+	"github.com/sentnl/inferoute-node/inferoute-client/pkg/exechide"
 )
 
 const (
@@ -245,13 +248,27 @@ func download(ctx context.Context, url, dest string) error {
 	return err
 }
 
-// InstalledVersion reads `<bin> --version`. The last field is the release.
-func InstalledVersion(_ context.Context, bin string) string {
+// versionTimeout bounds `<bin> --version`: a Python engine takes seconds to
+// import, and one that hangs must not hang the caller.
+const versionTimeout = 20 * time.Second
+
+// InstalledVersion reads `<bin> --version` from stdout (a warning on stderr is
+// not the version); the last field is the release. It gives up when ctx ends
+// or after versionTimeout. The daemon reads the running engine's version over
+// HTTP instead (finding ENG-4); this is for setup and cluster workers.
+func InstalledVersion(ctx context.Context, bin string) string {
 	bin = strings.TrimSpace(bin)
 	if bin == "" {
 		return ""
 	}
-	out, err := exec.Command(bin, "--version").CombinedOutput()
+	ctx, cancel := context.WithTimeout(ctx, versionTimeout)
+	defer cancel()
+	cmd := exec.CommandContext(ctx, bin, "--version")
+	exechide.Apply(cmd)
+	// A child the binary started can hold stdout open after it is killed;
+	// stop waiting for it shortly after.
+	cmd.WaitDelay = time.Second
+	out, err := cmd.Output()
 	text := strings.TrimSpace(string(out))
 	if err != nil && text == "" {
 		return ""

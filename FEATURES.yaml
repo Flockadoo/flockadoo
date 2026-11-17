@@ -71,7 +71,7 @@ features:
   - name: Deployment fingerprint
     entry: deploymentFingerprint keys benchmark and capability results
     code: [cmd/main.go]
-    tests: [cmd/main_test.go]
+    tests: [cmd/main_test.go, cmd/fingerprint_test.go]
     invariants: [I9]
 
   - name: Engine install and start
@@ -194,9 +194,9 @@ invariants:
     statement: a change of model, launch arguments or parsers invalidates benchmark and capability results
     tests: [TestDeploymentFingerprintTracksEngineArgs, TestDeploymentFingerprintTracksTheParsers, TestChangedDeploymentIsProbedAgain]
   - id: I9-engine-version
-    statement: the fingerprint follows the running engine's version
-    pending: Q4
-    notes: finding ENG-4
+    statement: the fingerprint follows the running engine's version, and computing it starts no process
+    tests: [TestTheFingerprintFollowsTheRunningEnginesVersion, TestTheFingerprintStartsNoProcess]
+    notes: finding ENG-4, fixed by item Q4
   - id: I9-never-incomplete
     statement: a failed query makes the fingerprint incomplete, never silently a different deployment
     pending: E2

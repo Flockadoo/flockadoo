@@ -637,13 +637,15 @@ func startCapacity(ctx context.Context, cfg *config.Config, configPath, llmURL s
 // the engine does not answer, so a half-started engine is not mistaken for a
 // different deployment.
 func deploymentFingerprint(ctx context.Context, cfg *config.Config, llmClient llm.Client, gpuMonitor *gpu.Monitor) string {
-	fp := cfg.Provider.Model + "|" + cfg.Provider.Engine + "|" + engine.InstalledVersion(ctx, cfg.Provider.EngineBin)
 	probe, cancel := context.WithTimeout(ctx, 2*time.Second)
 	defer cancel()
 	listed, err := llmClient.ListModels(probe)
 	if err != nil {
 		return ""
 	}
+	// The version the running engine reports (finding ENG-4): an upgrade
+	// changes the fingerprint, and no process is started to find it.
+	fp := cfg.Provider.Model + "|" + cfg.Provider.Engine + "|" + runningEngineVersion(probe, cfg, llmClient)
 	for _, m := range listed.Models {
 		if m.ID == cfg.Provider.Model || cfg.Provider.Model == "" {
 			fp += "|" + m.WeightFingerprint + "|" + fmt.Sprint(m.MaxModelLen)
@@ -661,6 +663,18 @@ func deploymentFingerprint(ctx context.Context, cfg *config.Config, llmClient ll
 	// with the config's parsers, so turning one on is a new deployment too.
 	fp += "|" + cfg.Provider.ToolCallParser + "|" + cfg.Provider.ReasoningParser
 	return fp
+}
+
+// runningEngineVersion asks the running engine for its release: /version on
+// vLLM, /props on llama.cpp. An engine client without the lookup gives "".
+func runningEngineVersion(ctx context.Context, cfg *config.Config, client llm.Client) string {
+	v, ok := client.(interface {
+		EngineVersion(ctx context.Context, llamaServer bool) string
+	})
+	if !ok {
+		return ""
+	}
+	return v.EngineVersion(ctx, cfg.Provider.Engine == string(engine.KindLlamaCpp))
 }
 
 // engineArgsDigest changes when the engine's launch arguments change (a tool
