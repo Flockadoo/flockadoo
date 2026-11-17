@@ -59,11 +59,16 @@ func newRig(t *testing.T, limit int32) *rig {
 	r.s = &Server{config: cfg, llmClient: llm.NewClient("vllm", r.eng.URL, 30*time.Second), sessionQueueWait: 5 * time.Second}
 	r.s.SetMaxInflight(limit)
 
+	// The server owns its tunnel, as Start sets it up.
 	ctx, cancel := context.WithCancel(context.Background())
+	c := connect.New(r.gw.URL, rigKey, r.s.inferenceMux(), nil)
+	r.s.lifeMu.Lock()
+	r.s.connector, r.s.connectCancel = c, cancel
+	r.s.lifeMu.Unlock()
 	done := make(chan struct{})
 	go func() {
 		defer close(done)
-		_ = connect.New(r.gw.URL, rigKey, r.s.inferenceMux(), nil).Run(ctx)
+		_ = c.Run(ctx)
 	}()
 	t.Cleanup(func() { cancel(); <-done })
 	r.gw.AwaitSession(t)

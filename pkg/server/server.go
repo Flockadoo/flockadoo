@@ -485,3 +485,9 @@ func (s *Server) verifyModel(ctx context.Context, model string) error {
 	}
 	return s.verifier.CheckInference(ctx, s.llmClient, model)
 }
+
+// WatchEngine is not written yet: plan item C2, tests first.
+func (s *Server) WatchEngine(ctx context.Context, interval time.Duration) {}
+
+// Drain is not written yet: plan item C2, tests first.
+func (s *Server) Drain(ctx context.Context, limit time.Duration) error { return nil }

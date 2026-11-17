@@ -136,3 +136,6 @@ func (s *Sender) send(ctx context.Context) {
 		logger.Debug("capacity post rejected", zap.Int("status", resp.StatusCode), zap.String("detail", fmt.Sprint(resp.Status)))
 	}
 }
+
+// Flush is not written yet: plan item C2, tests first.
+func (s *Sender) Flush(ctx context.Context) error { return nil }

@@ -2,6 +2,7 @@ package server
 
 import (
 	"github.com/sentnl/inferoute-node/inferoute-client/internal/admission"
+	"github.com/sentnl/inferoute-node/inferoute-client/pkg/capacity"
 	"net/http"
 	"sync"
 	"time"
@@ -33,9 +34,12 @@ type Server struct {
 	consoleMu     sync.Mutex
 	// gate admits requests to the engine; the count lives inside it (plan
 	// item B1). admit creates it on first use.
-	gateOnce         sync.Once
-	gate             *admission.Gate
-	onCapacity       func()
+	gateOnce   sync.Once
+	gate       *admission.Gate
+	onCapacity func()
+	// capacity is the capacity sender, for the drain's final report (plan
+	// item C2; not used yet).
+	capacity         *capacity.Sender
 	engineNote       string
 	engineNoteMu     sync.Mutex
 	capabilitiesNote string
