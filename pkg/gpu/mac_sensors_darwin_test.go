@@ -30,6 +30,11 @@ func TestMacSensors(t *testing.T) {
 	if runtime.GOARCH != "arm64" {
 		t.Skip("Intel Mac: IOReport power and IOHID temperature are Apple Silicon only")
 	}
+	if vm, err := unix.SysctlUint32("kern.hv_vmm_present"); err == nil && vm == 1 {
+		// A virtual Mac (CI's macOS runners) has no GPU power or temperature
+		// sensor; this test reads real hardware and runs on a real Mac.
+		t.Skip("virtual Mac: no GPU power or temperature sensors to read") //nolint:forbidigo // hardware test: a VM has no sensors
+	}
 	if tempC <= 0 {
 		t.Error("no GPU or SoC die temperature sensor found")
 	}
