@@ -46,15 +46,17 @@ func TestASecondReleaseOfASlotChangesNothing(t *testing.T) {
 			_ = resp.Body.Close()
 		}()
 	}
-	// One of the two is refused at once; the other holds the only slot.
-	if got := <-statuses; got != http.StatusServiceUnavailable {
-		t.Fatalf("first answer = %d, want one request refused with 503 while the other runs", got)
+	// One of the two is refused; the other holds the only slot. Either may
+	// answer first: the admitted one answers 200 as soon as the engine
+	// streams, and both answer while the engine stalls.
+	a, b := <-statuses, <-statuses
+	if min(a, b) != http.StatusOK || max(a, b) != http.StatusServiceUnavailable {
+		t.Fatalf("answers = %d and %d, want one request refused with 503 while the other runs", a, b)
 	}
 	if got := r.eng.MaxInFlight(); got > 1 {
 		t.Fatalf("after a double release the engine ran %d requests at once with a limit of 1", got)
 	}
 	cancel()
-	<-statuses
 	r.awaitSlotsFree(t, "after the double release")
 }
 

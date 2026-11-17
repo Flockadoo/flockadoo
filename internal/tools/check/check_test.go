@@ -56,7 +56,13 @@ func TestRejectsAForbiddenImport(t *testing.T) {
 func TestLintJudgesTheSameLinesWhateverTheDiffAlgorithm(t *testing.T) {
 	for _, algorithm := range []string{"myers", "histogram", "patience", "minimal"} {
 		t.Run(algorithm, func(t *testing.T) {
-			dir := copyFixture(t, "diff-algorithm")
+			// The long form of the path: on Windows the temporary directory
+			// can be an 8.3 short name (RUNNER~1), and git reports the long
+			// one, so lint matched no changed file (0 issues in CI).
+			dir, err := filepath.EvalSymlinks(copyFixture(t, "diff-algorithm"))
+			if err != nil {
+				t.Fatal(err)
+			}
 			// The configuration sits in the module root, as in this
 			// repository: golangci-lint makes paths relative to it, and on
 			// Windows the temporary directory can be on another drive
@@ -118,7 +124,8 @@ func TestLintJudgesTheSameLinesWhateverTheDiffAlgorithm(t *testing.T) {
 			err = run(context.Background(), &buf, o)
 			out := buf.String()
 			if err == nil || !strings.Contains(out, "fmt.Println") {
-				t.Fatalf("the new fmt.Println was not reported (err %v):\n%s", err, out)
+				top, _ := exec.CommandContext(context.Background(), "git", "-C", dir, "rev-parse", "--show-toplevel").Output()
+				t.Fatalf("the new fmt.Println was not reported (err %v); module %s, git top level %s\n%s", err, dir, strings.TrimSpace(string(top)), out)
 			}
 			if strings.Contains(out, "os.Stdout") || strings.Contains(out, "os.Stderr") || strings.Contains(out, "G204") {
 				t.Fatalf("with diff.algorithm=%s, lint judged runSudo, which did not change:\n%s", algorithm, out)
