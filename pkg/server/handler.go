@@ -18,6 +18,10 @@ const maxRequestIDLength = 256
 
 const streamWriteDeadlineGrace = 5 * time.Second
 
+// maxStreamDuration is the longest stream deadline the platform's header can
+// set (plan item Q3 declares it; the cap itself is the next commit).
+const maxStreamDuration = 24 * time.Hour
+
 // streamWriteDeadline is when a stream must stop being written. The platform
 // sends how long the stream may run (X-Inferoute-Timeout-Ms), and the deadline
 // is counted from when the request arrived here. It is a duration and not a

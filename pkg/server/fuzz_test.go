@@ -18,3 +18,19 @@ func FuzzStreamWriteDeadline(f *testing.F) {
 		}
 	})
 }
+
+// Found by FuzzStreamWriteDeadline (plan item Q3): a header of 10^13 ms or
+// more overflowed the duration and put the deadline centuries in the past,
+// so every write of the stream failed at once. An absurd value is capped.
+func TestAnAbsurdStreamDeadlineIsCapped(t *testing.T) {
+	arrived := time.Unix(1_700_000_000, 0)
+	for _, header := range []string{"010000000000000", "9223372036854775807", "86400001"} {
+		when, ok := streamWriteDeadline(header, arrived)
+		if !ok {
+			t.Fatalf("header %q gave no deadline", header)
+		}
+		if !when.After(arrived) || when.After(arrived.Add(maxStreamDuration+streamWriteDeadlineGrace)) {
+			t.Fatalf("header %q gave %v, want after arrival and within %v of it", header, when, maxStreamDuration)
+		}
+	}
+}
