@@ -39,6 +39,9 @@ type Server struct {
 	// sessionQueueLimit is how many returning turns may wait for a slot at
 	// once; beyond it a turn is refused at once. Zero means the default.
 	sessionQueueLimit int
+	// engineIdleLimit ends an engine answer that sends nothing for this long
+	// (plan item B2; not used yet).
+	engineIdleLimit time.Duration
 	// sessions remembers recent X-Session-Key values so a returning
 	// conversation can wait for a slot. There is no per-session lock:
 	// parallel agent calls often share one key, and serialising them

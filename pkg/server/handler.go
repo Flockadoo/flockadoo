@@ -15,6 +15,10 @@ import (
 
 const streamWriteDeadlineGrace = 5 * time.Second
 
+// maxRequestBody is the largest request body the relay reads (plan item B2;
+// not used yet).
+const maxRequestBody = 16 << 20
+
 // maxStreamDuration is the longest stream deadline the platform's header can
 // set. A larger value is capped: unchecked, 10^13 ms and more overflowed the
 // duration and put the deadline in the past (found by FuzzStreamWriteDeadline).

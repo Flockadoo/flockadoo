@@ -25,6 +25,8 @@ type RequestLog struct {
 	Path     string `json:"path"`
 	Status   int    `json:"status"`
 	Duration string `json:"duration"`
+	// Outcome is how the request ended (plan item B2; not recorded yet).
+	Outcome string `json:"outcome,omitempty"`
 }
 
 // StatusModel is one model row on the status dashboard.
