@@ -54,6 +54,9 @@ func safetensorsHeaderSHA256(path string) (string, error) {
 		return "", fmt.Errorf("safetensors file too short: %w", err)
 	}
 	headerLen := binary.LittleEndian.Uint64(lenBuf[:])
+	if headerLen > maxSafetensorsHeader {
+		return "", fmt.Errorf("safetensors header of %d bytes is too large (the format allows %d)", headerLen, maxSafetensorsHeader)
+	}
 	header := make([]byte, headerLen)
 	if _, err := io.ReadFull(f, header); err != nil {
 		return "", fmt.Errorf("truncated safetensors header: %w", err)

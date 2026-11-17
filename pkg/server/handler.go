@@ -19,7 +19,8 @@ const maxRequestIDLength = 256
 const streamWriteDeadlineGrace = 5 * time.Second
 
 // maxStreamDuration is the longest stream deadline the platform's header can
-// set (plan item Q3 declares it; the cap itself is the next commit).
+// set. A larger value is capped: unchecked, 10^13 ms and more overflowed the
+// duration and put the deadline in the past (found by FuzzStreamWriteDeadline).
 const maxStreamDuration = 24 * time.Hour
 
 // streamWriteDeadline is when a stream must stop being written. The platform
@@ -31,7 +32,11 @@ func streamWriteDeadline(header string, arrived time.Time) (time.Time, bool) {
 	if err != nil || ms <= 0 {
 		return time.Time{}, false
 	}
-	return arrived.Add(time.Duration(ms)*time.Millisecond + streamWriteDeadlineGrace), true
+	limit := maxStreamDuration
+	if ms < limit.Milliseconds() {
+		limit = time.Duration(ms) * time.Millisecond
+	}
+	return arrived.Add(limit + streamWriteDeadlineGrace), true
 }
 
 func (s *Server) modelNotServed(w http.ResponseWriter, r *http.Request, body []byte, startTime time.Time) bool {

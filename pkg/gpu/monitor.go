@@ -208,8 +208,12 @@ func (m *Monitor) getNvidiaGPUInfo() (*GPUInfo, error) {
 		logger.Error("Failed to run nvidia-smi", zap.Error(err))
 		return nil, fmt.Errorf("failed to run nvidia-smi: %w", err)
 	}
+	return parseNvidiaSMI(output)
+}
 
-	// Parse XML output
+// parseNvidiaSMI reads the output of nvidia-smi -x -q: the machine's GPU
+// count and the first GPU's details.
+func parseNvidiaSMI(output []byte) (*GPUInfo, error) {
 	var nvidiaSMI NvidiaSMI
 	if err := xml.Unmarshal(output, &nvidiaSMI); err != nil {
 		logger.Error("Failed to parse nvidia-smi output", zap.Error(err))

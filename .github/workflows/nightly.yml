@@ -1,0 +1,43 @@
+name: Nightly
+
+# Fuzzing for every parser that reads bytes the client did not write (plan
+# section 18.4, item Q3). A finding fails the job; the failing input is
+# uploaded so it can be added to the target's seed corpus with the fix.
+
+on:
+  schedule:
+    - cron: "17 2 * * *"
+  workflow_dispatch:
+
+jobs:
+  fuzz:
+    strategy:
+      fail-fast: false
+      matrix:
+        target:
+          - { pkg: ./pkg/verify, name: FuzzSafetensorsHeader }
+          - { pkg: ./pkg/llm, name: FuzzParsePrometheusMetrics }
+          - { pkg: ./pkg/gpu, name: FuzzParseIORegAccelerator }
+          - { pkg: ./pkg/gpu, name: FuzzParseNvidiaSMI }
+          - { pkg: ./pkg/inferscale, name: FuzzParseStatus }
+          - { pkg: ./pkg/nodeapi, name: FuzzNewer }
+          - { pkg: ./pkg/nodeapi, name: FuzzParseUpgrade }
+          - { pkg: ./pkg/setup, name: FuzzCredential }
+          - { pkg: ./pkg/server, name: FuzzStreamWriteDeadline }
+          - { pkg: ./pkg/capprobe, name: FuzzProbePassed }
+          - { pkg: ./pkg/compat, name: FuzzSplitCSV }
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+          cache: true
+      - name: Fuzz ${{ matrix.target.name }}
+        run: go test -run '^$' -fuzz '^${{ matrix.target.name }}$' -fuzztime 5m ${{ matrix.target.pkg }}
+      - name: Keep the failing input
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: fuzz-${{ matrix.target.name }}
+          path: "**/testdata/fuzz/${{ matrix.target.name }}/"

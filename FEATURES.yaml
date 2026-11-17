@@ -123,6 +123,11 @@ features:
     code: [internal/tools/check/*.go, .golangci.yml, .github/workflows/ci.yml]
     tests: [internal/tools/check/*_test.go]
 
+  - name: Nightly fuzzing
+    entry: .github/workflows/nightly.yml runs every fuzz target for five minutes; their seed corpora run with every go test
+    code: [.github/workflows/nightly.yml]
+    tests: [pkg/*/fuzz_test.go, pkg/verify/filehash_test.go, internal/tools/check/fuzz_test.go]
+
   - name: Test harness
     entry: internal/testenv/fakeengine, fakegateway and fakeplatform, started in one line by a test (plan section 17)
     code: [internal/testenv/fakeengine/fakeengine.go, internal/testenv/fakeengine/corpus.go, internal/testenv/fakegateway/fakegateway.go, internal/testenv/fakeplatform/fakeplatform.go, scripts/copy_corpus.sh]

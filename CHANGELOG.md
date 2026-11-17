@@ -2,6 +2,9 @@
 
 ## [Unreleased]
 
+- An engine `/metrics` value that is out of range, NaN or infinite (a KV cache usage above 100%, a negative queue) is now left out of the capacity report instead of being sent. A NaN used to make the whole report fail, so it was never sent.
+- A stream time limit from Inferoute larger than 24 hours is capped at 24 hours. A very large value used to overflow and end every write to that stream at once.
+- A model file whose safetensors header claims an impossible size (more than the format's 100 MB limit) is now refused with an error during verification. It used to crash the client.
 - `provider_type` is no longer a setting in `config.yaml`: `engine` is the one setting, and the provider type sent to Inferoute (vllm, or llama_cpp) is worked out from it, as before. A `provider_type` line left in an older file is ignored, which is what already happened in effect, and `setup` no longer writes one.
 - A platform address of `http://localhost:80` in `config.yaml` is now used as written. It used to be replaced with the production address; a file that still holds it will not connect until `url` is corrected or `setup` is run again.
 - The Docker image no longer contains `cloudflared`, which nothing used.

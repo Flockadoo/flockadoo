@@ -10,3 +10,15 @@ func FuzzParseIORegAccelerator(f *testing.F) {
 		_, _ = parseIORegAccelerator(out)
 	})
 }
+
+// Plan item Q3: nvidia-smi's XML is output the client did not write.
+func FuzzParseNvidiaSMI(f *testing.F) {
+	f.Add([]byte(`<nvidia_smi_log><attached_gpus>1</attached_gpus><gpu id="0"><product_name>X</product_name><fb_memory_usage><total>80 GiB</total></fb_memory_usage></gpu></nvidia_smi_log>`))
+	f.Add([]byte(`<nvidia_smi_log><attached_gpus>-3</attached_gpus></nvidia_smi_log>`))
+	f.Add([]byte(`<<<`))
+	f.Fuzz(func(t *testing.T, out []byte) {
+		if info, err := parseNvidiaSMI(out); err == nil && info.GPUCount < 1 {
+			t.Fatalf("accepted %d GPUs", info.GPUCount)
+		}
+	})
+}
