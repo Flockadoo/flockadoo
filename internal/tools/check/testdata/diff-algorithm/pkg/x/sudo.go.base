@@ -1,0 +1,68 @@
+package x
+
+import (
+	"context"
+	"fmt"
+	"io"
+	"net/http"
+	"os"
+	"os/exec"
+)
+
+func runSudo(ctx context.Context, args ...string) error {
+	bin, argv := rootArgv(euid(), args[0], args[1:]...)
+	cmd := exec.CommandContext(ctx, bin, argv...)
+	cmd.Stdout = os.Stdout
+	cmd.Stderr = os.Stderr
+	if err := cmd.Run(); err != nil {
+		return fmt.Errorf("sudo %s: %w", args[0], err)
+	}
+	return nil
+}
+
+func download(ctx context.Context, url, dest string) error {
+	if st, err := os.Stat(dest); err == nil && st.Size() > 0 {
+		return nil
+	}
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
+	if err != nil {
+		return err
+	}
+	res, err := http.DefaultClient.Do(req)
+	if err != nil {
+		return err
+	}
+	defer res.Body.Close()
+	if res.StatusCode != http.StatusOK {
+		return fmt.Errorf("download %s: %s", url, res.Status)
+	}
+	tmp := dest + ".tmp"
+	f, err := os.OpenFile(tmp, os.O_CREATE|os.O_TRUNC|os.O_WRONLY, 0o755)
+	if err != nil {
+		return err
+	}
+	n, copyErr := io.Copy(f, res.Body)
+	if copyErr == nil && n > 0 {
+		copyErr = f.Sync()
+	}
+	closeErr := f.Close()
+	if copyErr != nil || n == 0 {
+		os.Remove(tmp)
+		if copyErr != nil {
+			return copyErr
+		}
+		if closeErr != nil {
+			return closeErr
+		}
+		return fmt.Errorf("download %s: empty", url)
+	}
+	if closeErr != nil {
+		os.Remove(tmp)
+		return closeErr
+	}
+	if err := os.Rename(tmp, dest); err != nil {
+		os.Remove(tmp)
+		return err
+	}
+	return nil
+}

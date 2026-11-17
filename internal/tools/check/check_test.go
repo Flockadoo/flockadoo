@@ -46,6 +46,75 @@ func TestRejectsAForbiddenImport(t *testing.T) {
 	}
 }
 
+// Section 19.D: "it passed locally" and "it passed in CI" mean the same thing.
+// Lint judges only what changed since the merge base, and what changed
+// depends on git's diff algorithm: with diff.algorithm=histogram in the
+// developer's git config, an unchanged function next to a new one stayed
+// unchanged, and CI (git's default, myers) judged it new and failed. The
+// fixture is that change. Whatever the developer's setting, lint reports the
+// new forbidden line and nothing in the function that did not change.
+func TestLintJudgesTheSameLinesWhateverTheDiffAlgorithm(t *testing.T) {
+	for _, algorithm := range []string{"myers", "histogram", "patience", "minimal"} {
+		t.Run(algorithm, func(t *testing.T) {
+			dir := copyFixture(t, "diff-algorithm")
+			gitconfig := filepath.Join(t.TempDir(), "gitconfig")
+			cfg := "[diff]\n\talgorithm = " + algorithm + "\n[user]\n\tname = check\n\temail = check@example.invalid\n[init]\n\tdefaultBranch = main\n"
+			if err := os.WriteFile(gitconfig, []byte(cfg), 0o600); err != nil {
+				t.Fatal(err)
+			}
+			env := []string{"GIT_CONFIG_GLOBAL=" + gitconfig, "GIT_CONFIG_NOSYSTEM=1"}
+			git := func(args ...string) {
+				t.Helper()
+				cmd := exec.CommandContext(context.Background(), "git", args...)
+				cmd.Dir = dir
+				cmd.Env = append(os.Environ(), env...)
+				if out, err := cmd.CombinedOutput(); err != nil {
+					t.Fatalf("git %v: %v\n%s", args, err, out)
+				}
+			}
+			pkg := filepath.Join(dir, "pkg", "x")
+			base, err := os.ReadFile(filepath.Join(pkg, "sudo.go.base"))
+			if err != nil {
+				t.Fatal(err)
+			}
+			head, err := os.ReadFile(filepath.Join(pkg, "sudo.go.head"))
+			if err != nil {
+				t.Fatal(err)
+			}
+			for _, name := range []string{"sudo.go.base", "sudo.go.head"} {
+				if err := os.Remove(filepath.Join(pkg, name)); err != nil {
+					t.Fatal(err)
+				}
+			}
+			sudo := filepath.Join(pkg, "sudo.go")
+			if err := os.WriteFile(sudo, base, 0o600); err != nil {
+				t.Fatal(err)
+			}
+			git("init", "-q")
+			git("add", "-A")
+			git("commit", "-qm", "base")
+			git("tag", "base")
+			if err := os.WriteFile(sudo, head, 0o600); err != nil {
+				t.Fatal(err)
+			}
+			git("commit", "-qam", "head")
+
+			o := fixtureOptions(t, dir, stepLint)
+			o.lintBase = "base"
+			o.env = append(o.env, env...)
+			var buf bytes.Buffer
+			err = run(context.Background(), &buf, o)
+			out := buf.String()
+			if err == nil || !strings.Contains(out, "fmt.Println") {
+				t.Fatalf("the new fmt.Println was not reported (err %v):\n%s", err, out)
+			}
+			if strings.Contains(out, "os.Stdout") || strings.Contains(out, "os.Stderr") || strings.Contains(out, "G204") {
+				t.Fatalf("with diff.algorithm=%s, lint judged runSudo, which did not change:\n%s", algorithm, out)
+			}
+		})
+	}
+}
+
 // The positive control: every step accepts a module with nothing wrong, so the
 // rejections above are about the fixture and not about a step that always fails.
 func TestAcceptsACleanModule(t *testing.T) {
