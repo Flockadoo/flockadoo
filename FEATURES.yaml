@@ -9,7 +9,7 @@ features:
   - name: Gateway tunnel
     entry: connect.Client.Run dials wss://<platform>/api/connect/ws and serves the gateway's yamux streams
     code: [pkg/connect/client.go, pkg/server/server.go]
-    tests: [pkg/connect/client_test.go]
+    tests: [pkg/connect/client_test.go, pkg/connect/backoff_test.go, pkg/server/invariants_test.go]
     invariants: [I7]
 
   - name: Request relay
@@ -223,15 +223,14 @@ invariants:
     tests: [TestDropCutsTheConnectionAndTheClientDialsAgain]
   - id: 6.4-backoff-growth
     statement: the reconnect delay grows after each failed dial, up to its cap
-    pending: Q1
-    notes: holds today, but cannot be tested until the delays are constructor parameters (Q1)
+    tests: [TestShortSessionsLeaveTheDelayGrowing]
   - id: 6.4-backoff-reset-after-stable
     statement: the delay returns to its base after a session stays connected for the stability period
-    pending: Q1
-    notes: finding NET-1
+    tests: [TestAfterAStableSessionTheDelayIsTheBase, TestAStableSessionAfterShortOnesResetsTheDelay, TestTheDefaultStabilityPeriodOutlastsTheLongestDelay]
+    notes: finding NET-1, fixed by item Q1
   - id: 6.4-no-reset-after-short
     statement: sessions shorter than the stability period leave the delay growing
-    pending: Q1
+    tests: [TestShortSessionsLeaveTheDelayGrowing]
   - id: 6.4-rejected-at-start
     statement: a key rejected on the first dial leaves the client up, showing why
     pending: C1

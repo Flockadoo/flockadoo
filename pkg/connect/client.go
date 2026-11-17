@@ -96,7 +96,7 @@ func (c *Client) Run(ctx context.Context) error {
 		if ctx.Err() != nil {
 			return ctx.Err()
 		}
-		err = c.session(ctx, wsURL)
+		connected, err := c.session(ctx, wsURL)
 		if errors.Is(err, ErrInvalidAPIKey) {
 			c.notify(err)
 			return err
@@ -109,7 +109,13 @@ func (c *Client) Run(ctx context.Context) error {
 		if ctx.Err() != nil {
 			return ctx.Err()
 		}
-		logger.Warn("provider connection ended", zap.Error(err))
+		logger.Warn("provider connection ended", zap.Error(err), zap.Duration("connected_for", connected))
+		// Only a session that stayed up for the stability period resets the
+		// delay. A shorter one leaves it growing, so two clients sharing a key
+		// cannot replace each other at full speed (findings NET-1, NET-4).
+		if connected >= c.Timing.Stable {
+			backoff = c.Timing.BaseDelay
+		}
 		wait := backoff + time.Duration(rand.Int63n(int64(backoff/2)+1))
 		if !sleep(ctx, wait) {
 			return ctx.Err()
@@ -136,7 +142,9 @@ func (c *Client) Ready(ctx context.Context) error {
 	}
 }
 
-func (c *Client) session(ctx context.Context, wsURL string) error {
+// session dials once and serves the session until it ends. It returns how
+// long the session was connected (zero if it never was).
+func (c *Client) session(ctx context.Context, wsURL string) (time.Duration, error) {
 	dialCtx, cancel := context.WithTimeout(ctx, 15*time.Second)
 	defer cancel()
 	header := http.Header{}
@@ -144,10 +152,10 @@ func (c *Client) session(ctx context.Context, wsURL string) error {
 	header.Set(nodeapi.HeaderClientVersion, version.Version)
 	conn, resp, err := websocket.Dial(dialCtx, wsURL, &websocket.DialOptions{HTTPHeader: header})
 	if resp != nil && resp.StatusCode == http.StatusUnauthorized {
-		return ErrInvalidAPIKey
+		return 0, ErrInvalidAPIKey
 	}
 	if err != nil {
-		return err
+		return 0, err
 	}
 	netConn := websocket.NetConn(ctx, conn, websocket.MessageBinary)
 	cfg := yamux.DefaultConfig()
@@ -157,9 +165,10 @@ func (c *Client) session(ctx context.Context, wsURL string) error {
 	session, err := yamux.Server(netConn, cfg)
 	if err != nil {
 		_ = conn.Close(websocket.StatusInternalError, "yamux")
-		return err
+		return 0, err
 	}
 	c.connected.Store(true)
+	start := time.Now()
 	c.notify(nil)
 	if c.OnConnect != nil {
 		go c.OnConnect()
@@ -167,7 +176,7 @@ func (c *Client) session(ctx context.Context, wsURL string) error {
 	err = http.Serve(session, c.Handler)
 	c.connected.Store(false)
 	_ = session.Close()
-	return err
+	return time.Since(start), err
 }
 
 func sleep(ctx context.Context, d time.Duration) bool {
