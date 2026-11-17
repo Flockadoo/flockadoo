@@ -34,7 +34,7 @@ type fakeLLM struct {
 }
 
 func (f *fakeLLM) ListModels(ctx context.Context) (*llm.ListModelsResponse, error) { return nil, nil }
-func (f *fakeLLM) ForwardRequest(ctx context.Context, path string, body []byte) (*http.Response, error) {
+func (f *fakeLLM) ForwardRequest(ctx context.Context, path string, body []byte, stream bool) (*http.Response, error) {
 	f.gotPath, f.gotBody = path, body
 	if f.forwardErr != nil {
 		return nil, f.forwardErr
@@ -148,7 +148,7 @@ type statusLLM struct {
 }
 
 func (s *statusLLM) ListModels(context.Context) (*llm.ListModelsResponse, error) { return nil, nil }
-func (s *statusLLM) ForwardRequest(context.Context, string, []byte) (*http.Response, error) {
+func (s *statusLLM) ForwardRequest(context.Context, string, []byte, bool) (*http.Response, error) {
 	h := make(http.Header)
 	h.Set("Content-Type", "application/json")
 	return &http.Response{StatusCode: s.code, Header: h, Body: io.NopCloser(strings.NewReader(s.body))}, nil
@@ -181,7 +181,7 @@ type sseLLM struct{ body string }
 func (s *sseLLM) ListModels(ctx context.Context) (*llm.ListModelsResponse, error) {
 	return nil, nil
 }
-func (s *sseLLM) ForwardRequest(ctx context.Context, path string, body []byte) (*http.Response, error) {
+func (s *sseLLM) ForwardRequest(ctx context.Context, path string, body []byte, stream bool) (*http.Response, error) {
 	h := make(http.Header)
 	h.Set("Content-Type", "text/event-stream")
 	return &http.Response{
@@ -229,7 +229,7 @@ func TestHandleChatCompletionsGuardChain(t *testing.T) {
 
 func TestVerifyModelInRequestNilVerifierPasses(t *testing.T) {
 	s := newTestServer("http://unused", &fakeLLM{})
-	if err := s.verifyModelInRequest(context.Background(), []byte(`{"model":"m"}`)); err != nil {
+	if err := s.verifyModel(context.Background(), "m"); err != nil {
 		t.Fatalf("nil verifier should pass, got %v", err)
 	}
 }
@@ -243,13 +243,13 @@ type blockingLLM struct {
 func (b *blockingLLM) ListModels(ctx context.Context) (*llm.ListModelsResponse, error) {
 	return b.inner.ListModels(ctx)
 }
-func (b *blockingLLM) ForwardRequest(ctx context.Context, path string, body []byte) (*http.Response, error) {
+func (b *blockingLLM) ForwardRequest(ctx context.Context, path string, body []byte, stream bool) (*http.Response, error) {
 	select {
 	case b.started <- struct{}{}:
 	default:
 	}
 	<-b.release
-	return b.inner.ForwardRequest(ctx, path, body)
+	return b.inner.ForwardRequest(ctx, path, body, stream)
 }
 
 func TestInflightCapRejectsConcurrentInference(t *testing.T) {

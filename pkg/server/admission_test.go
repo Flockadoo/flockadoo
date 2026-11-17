@@ -77,7 +77,7 @@ func TestAPanicInTheEngineCallReturnsTheSlot(t *testing.T) {
 // panickingEngine is an engine client with a bug: forwarding panics.
 type panickingEngine struct{ llm.Client }
 
-func (panickingEngine) ForwardRequest(context.Context, string, []byte) (*http.Response, error) {
+func (panickingEngine) ForwardRequest(context.Context, string, []byte, bool) (*http.Response, error) {
 	panic("engine client bug")
 }
 

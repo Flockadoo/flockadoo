@@ -14,8 +14,8 @@ features:
 
   - name: Request relay
     entry: Server.handleInference, for each request the gateway opens on the tunnel
-    code: [pkg/server/handler.go, pkg/server/models.go, pkg/llm/vllm.go, pkg/llm/client.go]
-    tests: [pkg/server/handler_test.go, pkg/server/oneway_test.go, pkg/server/invariants_test.go]
+    code: [pkg/server/handler.go, pkg/server/models.go, internal/relay/envelope.go, internal/relay/outcome.go, pkg/llm/vllm.go, pkg/llm/client.go]
+    tests: [pkg/server/handler_test.go, pkg/server/oneway_test.go, pkg/server/invariants_test.go, pkg/server/relay_test.go, internal/relay/envelope_test.go]
     invariants: [I3, I4, I5, I6]
     notes: inference arrives only on the tunnel, and serving it makes no call to the node (decisions DC1, DC3)
 
@@ -169,16 +169,16 @@ invariants:
     tests: [TestACancelledStreamReleasesTheEngineAndTheSlot, TestARequestInFlightWhenTheSessionDropsIsCancelled]
   - id: I4-stalled-engine
     statement: an engine that stalls with the stream open frees its slot within a bound
-    pending: B2
-    notes: finding STR-1
+    tests: [TestAStalledEngineFreesItsSlotWithinTheIdleLimit]
+    notes: finding STR-1, fixed by item B2
   - id: I5
     statement: every request has exactly one terminal outcome, and it is recorded
-    pending: B2
-    notes: finding STR-3
+    tests: [TestEveryRequestRecordsOneOutcome]
+    notes: finding STR-3, fixed by item B2
   - id: I6
     statement: a response that did not complete is never presented as complete at the transport level
-    pending: B2
-    notes: finding STR-3
+    tests: [TestAnEngineFailureMidStreamIsNotPresentedAsComplete]
+    notes: finding STR-3, fixed by item B2
   - id: I7-benchmark
     statement: while a benchmark has the engine, the capacity report says not accepting
     tests: [TestABenchmarkClosesTheGateInTheNextCapacityReport]
@@ -285,7 +285,7 @@ invariants:
     tests: [TestRefusedRequestsNeverReachTheEngine]
   - id: 7.3-rejected-not-executed-body-too-large
     statement: a body over the limit is refused before the engine
-    pending: B2
+    tests: [TestABodyOverTheLimitIsRefusedBeforeTheEngine]
   - id: 7.3-rejected-not-executed-draining
     statement: a request that arrives during a drain is refused before the engine
     pending: C2

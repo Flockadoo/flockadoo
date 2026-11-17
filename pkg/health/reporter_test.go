@@ -28,7 +28,7 @@ func (s stubLLM) ListModels(context.Context) (*llm.ListModelsResponse, error) {
 	return s.models, s.err
 }
 
-func (s stubLLM) ForwardRequest(context.Context, string, []byte) (*http.Response, error) {
+func (s stubLLM) ForwardRequest(context.Context, string, []byte, bool) (*http.Response, error) {
 	return nil, errors.New("unused")
 }
 

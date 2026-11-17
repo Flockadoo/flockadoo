@@ -29,9 +29,10 @@ type Client interface {
 	// ListModels lists all available models
 	ListModels(ctx context.Context) (*ListModelsResponse, error)
 
-	// ForwardRequest forwards a raw request to the LLM API.
+	// ForwardRequest forwards a raw request to the LLM API. stream says
+	// whether the answer is a stream (read from the request's envelope).
 	// The caller must close the response body. A non-200 is returned with its status.
-	ForwardRequest(ctx context.Context, path string, body []byte) (*http.Response, error)
+	ForwardRequest(ctx context.Context, path string, body []byte, stream bool) (*http.Response, error)
 }
 
 // DefaultTimeout is used when no explicit LLM timeout is configured. Aligned

@@ -3,7 +3,6 @@ package server
 import (
 	"bytes"
 	"context"
-	"encoding/json"
 	"fmt"
 	"net/http"
 	"time"
@@ -13,6 +12,7 @@ import (
 	"github.com/gorilla/mux"
 	"github.com/sentnl/inferoute-node/inferoute-client/internal/admission"
 	"github.com/sentnl/inferoute-node/inferoute-client/internal/config"
+	"github.com/sentnl/inferoute-node/inferoute-client/internal/relay"
 	"github.com/sentnl/inferoute-node/inferoute-client/pkg/connect"
 	"github.com/sentnl/inferoute-node/inferoute-client/pkg/engine"
 	"github.com/sentnl/inferoute-node/inferoute-client/pkg/gpu"
@@ -379,12 +379,12 @@ func (s *Server) printStartupBanner() {
 }
 
 // logRequest logs a request to the console
-func (s *Server) logRequest(method, path string, statusCode int, startTime time.Time) {
+func (s *Server) logRequest(method, path string, statusCode int, outcome relay.Outcome, startTime time.Time) {
 	duration := time.Since(startTime)
 
 	// Format the log entry
 	switch {
-	case statusCode >= 200 && statusCode < 300:
+	case outcome == relay.Completed && statusCode >= 200 && statusCode < 300:
 		s.requestStats.mutex.Lock()
 		s.requestStats.Success++
 		s.requestStats.mutex.Unlock()
@@ -405,6 +405,7 @@ func (s *Server) logRequest(method, path string, statusCode int, startTime time.
 		Path:     path,
 		Status:   statusCode,
 		Duration: formatDuration(duration),
+		Outcome:  outcome.String(),
 	}
 
 	s.requestStats.mutex.Lock()
@@ -420,6 +421,7 @@ func (s *Server) logRequest(method, path string, statusCode int, startTime time.
 		zap.String("method", method),
 		zap.String("path", path),
 		zap.Int("status", statusCode),
+		zap.String("outcome", outcome.String()),
 		zap.Duration("duration", duration))
 }
 
@@ -428,20 +430,14 @@ func (s *Server) logError(errMsg string) {
 	logger.Error(errMsg)
 }
 
-func (s *Server) verifyModelInRequest(ctx context.Context, body []byte) error {
+// verifyModel checks the model a request names. With no verifier, every
+// model passes.
+func (s *Server) verifyModel(ctx context.Context, model string) error {
 	if s.verifier == nil {
 		return nil
 	}
-	var payload struct {
-		Model string `json:"model"`
-	}
-	if err := json.Unmarshal(body, &payload); err != nil || payload.Model == "" {
+	if model == "" {
 		return fmt.Errorf("missing model in request")
 	}
-	return s.verifier.CheckInference(ctx, s.llmClient, payload.Model)
-}
-
-// forwardToLLM forwards a request to the LLM provider
-func (s *Server) forwardToLLM(ctx context.Context, path string, body []byte) (*http.Response, error) {
-	return s.llmClient.ForwardRequest(ctx, path, body)
+	return s.verifier.CheckInference(ctx, s.llmClient, model)
 }

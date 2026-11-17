@@ -2,6 +2,9 @@
 
 ## [Unreleased]
 
+- When the engine's answer breaks off partway, the client now aborts the stream to Inferoute instead of ending it cleanly, so a cut-off answer can never pass for a complete one. Each request on the dashboard shows how it ended (completed, refused_busy, engine_failed, stalled and so on), and only completed requests count as successes.
+- An engine that stops sending for three minutes in the middle of an answer is cut off and its slot freed, instead of holding the slot until Inferoute gave up.
+- A request body larger than 16 MiB is refused before it reaches the engine. Streaming is read from the request's own `stream` field, not by searching the body.
 - `max_concurrent_inference` must be 1 or more. `0` (which meant unlimited) or a negative value now stops the client at startup with a message saying what to set. Leaving it out still lets the client measure the limit.
 - Returning turns of a conversation that wait for a free slot are now served in the order they arrived, and as soon as a slot frees (they used to check every 100 ms and the quickest won). At most 32 wait at once (`server.session_queue_limit`); a turn beyond that is refused at once so Inferoute can send it elsewhere. When the concurrency benchmark starts, waiting turns are refused at once rather than waiting it out.
 - The local web server (`127.0.0.1:8080` by default) no longer answers `/v1/chat/completions`, `/v1/completions` or `/v1/embeddings`. Inference from Inferoute arrives on the client's own connection to Inferoute, as before; to use your model yourself, talk to your engine directly. The dashboard, `/api/status`, `/api/health` and `/api/busy` are unchanged.

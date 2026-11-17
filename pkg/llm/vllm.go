@@ -77,7 +77,7 @@ func (c *VLLMClient) ListModels(ctx context.Context) (*ListModelsResponse, error
 // ForwardRequest forwards a raw request to the vLLM API.
 // The caller owns resp.Body and must close it. Bytes are not buffered here so
 // stream:true reaches the orchestrator as SSE.
-func (c *VLLMClient) ForwardRequest(ctx context.Context, path string, body []byte) (*http.Response, error) {
+func (c *VLLMClient) ForwardRequest(ctx context.Context, path string, body []byte, stream bool) (*http.Response, error) {
 	url := fmt.Sprintf("%s%s", c.baseURL, path)
 
 	req, err := http.NewRequestWithContext(ctx, http.MethodPost, url, bytes.NewBuffer(body))
@@ -87,8 +87,10 @@ func (c *VLLMClient) ForwardRequest(ctx context.Context, path string, body []byt
 
 	req.Header.Set("Content-Type", "application/json")
 
+	// A stream has no client timeout: the relay's deadline and idle watchdog
+	// bound it. A plain answer has the non-streaming timeout.
 	httpClient := c.client
-	if bytes.Contains(body, []byte(`"stream":true`)) || bytes.Contains(body, []byte(`"stream": true`)) {
+	if stream {
 		httpClient = c.stream
 	}
 	resp, err := httpClient.Do(req)

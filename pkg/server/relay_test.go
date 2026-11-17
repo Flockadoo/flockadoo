@@ -18,34 +18,35 @@ import (
 
 // Plan item B2 (findings STR-1, STR-3, STR-5, NET-5; invariants I4, I5, I6).
 
-// outcomes is the recorded outcome of every request, in order.
-func (r *rig) outcomes() []string {
+// outcomes is how many requests have been recorded, and the outcomes of
+// the most recent ones, oldest first (the server keeps the last ten).
+func (r *rig) outcomes() (int, []string) {
 	r.s.requestStats.mutex.Lock()
 	defer r.s.requestStats.mutex.Unlock()
 	var out []string
 	for _, e := range r.s.requestStats.LastRequests {
 		out = append(out, e.Outcome)
 	}
-	return out
+	return r.s.requestStats.Total, out
 }
 
-// awaitOutcomes waits until n more outcomes than before have been recorded
-// and returns the new ones, sorted.
+// awaitOutcomes waits until n more requests than before have been recorded
+// and returns their outcomes, sorted.
 func (r *rig) awaitOutcomes(t *testing.T, before, n int) []string {
 	t.Helper()
 	deadline := time.Now().Add(5 * time.Second)
 	for {
-		got := r.outcomes()
-		if len(got) >= before+n {
-			if len(got) > before+n {
-				t.Fatalf("%d requests recorded %d outcomes: %q", n, len(got)-before, got[before:])
+		total, last := r.outcomes()
+		if total >= before+n {
+			if total > before+n {
+				t.Fatalf("%d requests recorded %d outcomes: %q", n, total-before, last)
 			}
-			out := slices.Clone(got[before:])
+			out := slices.Clone(last[len(last)-n:])
 			slices.Sort(out)
 			return out
 		}
 		if time.Now().After(deadline) {
-			t.Fatalf("waited for %d outcomes, have %q", n, got[before:])
+			t.Fatalf("waited for %d outcomes, %d recorded", n, total-before)
 		}
 		time.Sleep(5 * time.Millisecond)
 	}
@@ -95,7 +96,7 @@ func TestEveryRequestRecordsOneOutcome(t *testing.T) {
 	r.s.engineIdleLimit = 300 * time.Millisecond
 	check := func(name string, want []string, run func()) {
 		t.Helper()
-		before := len(r.outcomes())
+		before, _ := r.outcomes()
 		run()
 		if got := r.awaitOutcomes(t, before, len(want)); !slices.Equal(got, want) {
 			t.Fatalf("%s: outcomes %q, want %q", name, got, want)
@@ -135,7 +136,8 @@ func TestEveryRequestRecordsOneOutcome(t *testing.T) {
 		cancel()
 		_ = held.Body.Close()
 	})
-	check("an engine that is gone", []string{"engine_unreachable"}, func() {
+	// Two requests: the one the engine dies under, and one after it.
+	check("an engine that is gone", []string{"engine_unreachable", "engine_unreachable"}, func() {
 		r.eng.Next(fakeengine.Crash())
 		r.call(t, streamBody, nil)
 		r.call(t, streamBody, nil)

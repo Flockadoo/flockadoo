@@ -26,6 +26,7 @@ jobs:
           - { pkg: ./pkg/server, name: FuzzStreamWriteDeadline }
           - { pkg: ./pkg/capprobe, name: FuzzProbePassed }
           - { pkg: ./pkg/compat, name: FuzzSplitCSV }
+          - { pkg: ./internal/relay, name: FuzzParseEnvelope }
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4

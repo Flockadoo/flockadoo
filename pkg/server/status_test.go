@@ -3,6 +3,7 @@ package server
 import (
 	"context"
 	"encoding/json"
+	"github.com/sentnl/inferoute-node/inferoute-client/internal/relay"
 	"net"
 	"net/http"
 	"net/http/httptest"
@@ -118,7 +119,7 @@ func TestRecentRequestsAreInferenceOnly(t *testing.T) {
 		t.Fatalf("busy request logged: %+v", s.snapshot().RecentRequests)
 	}
 
-	s.logRequest(http.MethodPost, "/v1/chat/completions", http.StatusOK, time.Now())
+	s.logRequest(http.MethodPost, "/v1/chat/completions", http.StatusOK, relay.Completed, time.Now())
 	st := httptest.NewRecorder()
 	s.handleStatus(st, httptest.NewRequest(http.MethodGet, "/api/status", nil))
 	if strings.Contains(st.Body.String(), `"errors"`) {

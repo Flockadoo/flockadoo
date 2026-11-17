@@ -25,7 +25,7 @@ type RequestLog struct {
 	Path     string `json:"path"`
 	Status   int    `json:"status"`
 	Duration string `json:"duration"`
-	// Outcome is how the request ended (plan item B2; not recorded yet).
+	// Outcome is how the request ended (invariant I5).
 	Outcome string `json:"outcome,omitempty"`
 }
 
