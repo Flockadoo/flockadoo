@@ -42,6 +42,48 @@ type Verifier struct {
 	mu          sync.Mutex
 	cache       map[string]*fingerprintCache // alias -> weight fingerprint cache (vLLM)
 	resultCache map[string]*verifyResultEntry
+	resultTTL   time.Duration
+}
+
+// Verdict is what the relay may do for a model now (plan item B3).
+type Verdict int
+
+const (
+	Serve       Verdict = iota // verified: fresh, or inside the outage grace
+	Refuse                     // the node answered, and not with "verified": 403
+	Unavailable                // no usable answer and the node cannot be asked: 503
+)
+
+// SetTiming sets how long an answer is fresh and, past that, how long a
+// verified answer may still be used while the node cannot be asked.
+// Plan item B3, tests first: only the freshness is used yet.
+func (v *Verifier) SetTiming(refreshAfter, outageGrace time.Duration) {
+	v.mu.Lock()
+	defer v.mu.Unlock()
+	v.resultTTL = refreshAfter
+}
+
+// Verdict is not written yet (plan item B3, tests first): today the request
+// path verifies inline, and any failure refuses.
+func (v *Verifier) Verdict(model string) (Verdict, string) {
+	res, err := v.VerifyVLLMModel(context.Background(), model)
+	if err != nil || res.Status != StatusVerified {
+		return Refuse, string(res.Status)
+	}
+	return Serve, ""
+}
+
+// Status is not written yet (plan item B3, tests first): today the health
+// report's status comes from an inline verification.
+func (v *Verifier) Status(model string) Status {
+	res, _ := v.VerifyVLLMModel(context.Background(), model)
+	return res.Status
+}
+
+// Refresh is not written yet (plan item B3, tests first): one inline
+// verification, as the request path does today.
+func (v *Verifier) Refresh(ctx context.Context, model string) {
+	_, _ = v.VerifyVLLMModel(ctx, model)
 }
 
 // NewVerifier creates a verifier. Measurements are sent to the server; expected hashes stay in the DB.
@@ -54,6 +96,7 @@ func NewVerifier(catalog *Catalog, server *ServerClient, serviceType, hfHubCache
 		modelPathOverride: strings.TrimSpace(modelPathOverride),
 		cache:             make(map[string]*fingerprintCache),
 		resultCache:       make(map[string]*verifyResultEntry),
+		resultTTL:         verifyResultTTL,
 	}
 }
 
@@ -139,7 +182,7 @@ func (v *Verifier) cachedVLLMResult(alias string, stats map[string]fileStat) (Re
 	defer v.mu.Unlock()
 
 	entry, ok := v.resultCache[alias]
-	if !ok || !verifyResultFresh(entry) {
+	if !ok || entry == nil || time.Since(entry.cachedAt) >= v.resultTTL {
 		return Result{}, false
 	}
 	if !fileStatsEqual(entry.stats, stats) {
