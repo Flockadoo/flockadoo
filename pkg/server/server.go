@@ -124,17 +124,7 @@ func (s *Server) Start() error {
 		}
 	}
 
-	// Create router
-	r := mux.NewRouter()
-
-	// Register routes
-	r.HandleFunc("/", s.handleDashboard).Methods(http.MethodGet)
-	r.HandleFunc("/api/status", s.handleStatus).Methods(http.MethodGet)
-	r.HandleFunc("/api/health", s.handleHealth).Methods(http.MethodGet)
-	r.HandleFunc("/api/busy", s.handleBusy).Methods(http.MethodGet)
-	r.HandleFunc("/v1/chat/completions", s.handleChatCompletions).Methods(http.MethodPost)
-	r.HandleFunc("/v1/completions", s.handleCompletions).Methods(http.MethodPost)
-	r.HandleFunc("/v1/embeddings", s.handleEmbeddings).Methods(http.MethodPost)
+	r := s.localMux()
 
 	// Create server. Read/write timeouts must cover the session queue wait
 	// plus inference so the orchestrator's sticky timeout is usable.
@@ -172,6 +162,19 @@ func (s *Server) Stop(ctx context.Context) error {
 		return nil
 	}
 	return s.server.Shutdown(ctx)
+}
+
+// localMux is the local listener's routes: the dashboard and its APIs.
+func (s *Server) localMux() http.Handler {
+	r := mux.NewRouter()
+	r.HandleFunc("/", s.handleDashboard).Methods(http.MethodGet)
+	r.HandleFunc("/api/status", s.handleStatus).Methods(http.MethodGet)
+	r.HandleFunc("/api/health", s.handleHealth).Methods(http.MethodGet)
+	r.HandleFunc("/api/busy", s.handleBusy).Methods(http.MethodGet)
+	r.HandleFunc("/v1/chat/completions", s.handleChatCompletions).Methods(http.MethodPost)
+	r.HandleFunc("/v1/completions", s.handleCompletions).Methods(http.MethodPost)
+	r.HandleFunc("/v1/embeddings", s.handleEmbeddings).Methods(http.MethodPost)
+	return r
 }
 
 func (s *Server) inferenceMux() http.Handler {
