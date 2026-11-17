@@ -36,6 +36,11 @@ func fullFileSHA256(path string) (string, error) {
 	return hex.EncodeToString(h.Sum(nil)), nil
 }
 
+// maxSafetensorsHeader is the largest header the safetensors format allows
+// (the reference implementation refuses more than 100 MB). Real headers are
+// kilobytes to a few megabytes.
+const maxSafetensorsHeader = 100_000_000
+
 // safetensorsHeaderSHA256 hashes 8-byte LE header length + header JSON bytes.
 func safetensorsHeaderSHA256(path string) (string, error) {
 	f, err := os.Open(path)

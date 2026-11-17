@@ -4,6 +4,7 @@ import (
 	"encoding/binary"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 )
 
@@ -64,4 +65,35 @@ func TestFileHashRefusesWhatItCannotHash(t *testing.T) {
 	if _, err := FileHash(writeBytes(t, "cut.safetensors", safetensors(`{"meta":{},"tensors":{}}`, nil)[:12]), "safetensors_header"); err == nil {
 		t.Error("a truncated header was accepted")
 	}
+}
+
+// Plan item Q3, finding SEC-5: the header length is read from the file, so a
+// file that claims a huge header must be refused, not allocated.
+func TestAHugeSafetensorsHeaderLengthIsRefused(t *testing.T) {
+	for _, n := range []uint64{1 << 62, maxSafetensorsHeader + 1} {
+		path := writeBytes(t, "huge.safetensors", binary.LittleEndian.AppendUint64(nil, n))
+		_, err := FileHash(path, "safetensors_header")
+		if err == nil || !strings.Contains(err.Error(), "too large") {
+			t.Fatalf("a header length of %d gave %v, want a too-large error", n, err)
+		}
+	}
+}
+
+// Plan item Q3: the header reader reads bytes the client did not write.
+// Whatever a file holds, it returns a hash or an error and never panics, and
+// a hash means the header fitted the bound.
+func FuzzSafetensorsHeader(f *testing.F) {
+	f.Add(safetensors(`{"meta":{},"tensors":{}}`, []byte("weights")))
+	f.Add(binary.LittleEndian.AppendUint64(nil, 1<<62))
+	f.Add([]byte{1, 2, 3})
+	f.Fuzz(func(t *testing.T, b []byte) {
+		path := filepath.Join(t.TempDir(), "f.safetensors")
+		if err := os.WriteFile(path, b, 0o600); err != nil {
+			t.Fatal(err)
+		}
+		if _, err := FileHash(path, "safetensors_header"); err == nil && len(b) >= 8 &&
+			binary.LittleEndian.Uint64(b[:8]) > maxSafetensorsHeader {
+			t.Fatalf("accepted a header of %d bytes", binary.LittleEndian.Uint64(b[:8]))
+		}
+	})
 }
