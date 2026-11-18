@@ -72,6 +72,17 @@ func newRig(t *testing.T, limit int32) *rig {
 	}()
 	t.Cleanup(func() { cancel(); <-done })
 	r.gw.AwaitSession(t)
+	// The gateway has the session a moment before the client marks its side
+	// connected, and until then the client reports not accepting (invariant
+	// I7). A test that starts in between sees that report, so wait for both
+	// sides.
+	deadline := time.Now().Add(10 * time.Second)
+	for !c.Connected() {
+		if time.Now().After(deadline) {
+			t.Fatal("the gateway has a session, and the client never marked its tunnel connected")
+		}
+		time.Sleep(time.Millisecond)
+	}
 	return r
 }
 
