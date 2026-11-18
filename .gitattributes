@@ -1,0 +1,9 @@
+# Go source, go.mod and go.sum keep LF line endings on every platform, so the
+# check command's formatting and tidy steps judge the same bytes on Windows.
+*.go   text eol=lf
+go.mod text eol=lf
+go.sum text eol=lf
+
+# The engine stream corpus is compared byte for byte with its checksums and
+# replayed exactly; no checkout may change its line endings.
+internal/testenv/fakeengine/testdata/corpus/** -text

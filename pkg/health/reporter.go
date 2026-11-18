@@ -202,7 +202,7 @@ func (r *Reporter) sendNodeHealth(ctx context.Context, status string, gpuInfo *g
 		Status        string       `json:"status"`
 		GPU           *gpu.GPUInfo `json:"gpu,omitempty"`
 		EngineVersion string       `json:"engine_version,omitempty"`
-	}{Status: status, GPU: gpuInfo, EngineVersion: installedEngineVersion(r)})
+	}{Status: status, GPU: gpuInfo, EngineVersion: installedEngineVersion(ctx, r)})
 	url := fmt.Sprintf("%s/api/provider/network/node/health", r.config.Provider.URL)
 	req, err := http.NewRequestWithContext(ctx, http.MethodPost, url, bytes.NewReader(body))
 	if err != nil {
@@ -225,12 +225,14 @@ func (r *Reporter) sendNodeHealth(ctx context.Context, status string, gpuInfo *g
 	return nil
 }
 
-func installedEngineVersion(r *Reporter) string {
+// installedEngineVersion is a cluster worker's engine version. A worker's
+// headless rank serves no HTTP, so the binary is asked, with a deadline.
+func installedEngineVersion(ctx context.Context, r *Reporter) string {
 	kind, ok := engine.ParseKind(r.config.Provider.Engine)
 	if !ok || kind != engine.KindVLLM {
 		return ""
 	}
-	return engine.InstalledVersion(engine.BinPath(kind, r.config.Provider.EngineBin))
+	return engine.InstalledVersion(ctx, engine.BinPath(kind, r.config.Provider.EngineBin))
 }
 
 // GetHealthReport gets the current health report
@@ -254,7 +256,7 @@ func (r *Reporter) GetHealthReport(ctx context.Context) (*HealthReport, error) {
 		Object:       "list",
 		Data:         enriched,
 		GPU:          gpuInfo,
-		ProviderType: r.config.Provider.ProviderType,
+		ProviderType: r.config.PlatformType(),
 		Benchmark:    bench,
 	}
 	report.Engine, report.EngineVersion = r.runningEngine(ctx)
@@ -303,18 +305,6 @@ func (r *Reporter) GetLastUpdateTime() time.Time {
 	r.lastUpdateMutex.Lock()
 	defer r.lastUpdateMutex.Unlock()
 	return r.lastUpdateTime
-}
-
-// RefreshModelsForDisplay polls the local LLM and returns models with verification status.
-// Used by the console UI to reflect local model changes between health reports.
-func (r *Reporter) RefreshModelsForDisplay(ctx context.Context) ([]llm.Model, error) {
-	models, err := r.llmClient.ListModels(ctx)
-	if err != nil {
-		return nil, fmt.Errorf("failed to list models: %w", err)
-	}
-	enriched := r.enrichModels(ctx, models.Models)
-	r.setDisplayedModels(enriched)
-	return enriched, nil
 }
 
 // GetDisplayedModels returns the last cached model status snapshot.

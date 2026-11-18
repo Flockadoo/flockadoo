@@ -1,0 +1,5 @@
+engine: llamacpp-reasoning
+model: Qwen/Qwen3-1.7B
+recorded: 2026-11-16T13:37:38Z
+os: Darwin arm64
+script: record_sse.sh v1

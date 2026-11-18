@@ -1,0 +1,68 @@
+data: {"id":"cmpl-947464568a2a597f","object":"text_completion","created":1794833919,"model":"Qwen/Qwen3-1.7B","choices":[{"index":0,"text":" Paris","logprobs":null,"finish_reason":null,"stop_reason":null,"prompt_token_ids":null,"token_ids":null}]}
+
+data: {"id":"cmpl-947464568a2a597f","object":"text_completion","created":1794833919,"model":"Qwen/Qwen3-1.7B","choices":[{"index":0,"text":".","logprobs":null,"finish_reason":null,"stop_reason":null,"prompt_token_ids":null,"token_ids":null}]}
+
+data: {"id":"cmpl-947464568a2a597f","object":"text_completion","created":1794833919,"model":"Qwen/Qwen3-1.7B","choices":[{"index":0,"text":" The","logprobs":null,"finish_reason":null,"stop_reason":null,"prompt_token_ids":null,"token_ids":null}]}
+
+data: {"id":"cmpl-947464568a2a597f","object":"text_completion","created":1794833919,"model":"Qwen/Qwen3-1.7B","choices":[{"index":0,"text":" capital","logprobs":null,"finish_reason":null,"stop_reason":null,"prompt_token_ids":null,"token_ids":null}]}
+
+data: {"id":"cmpl-947464568a2a597f","object":"text_completion","created":1794833919,"model":"Qwen/Qwen3-1.7B","choices":[{"index":0,"text":" of","logprobs":null,"finish_reason":null,"stop_reason":null,"prompt_token_ids":null,"token_ids":null}]}
+
+data: {"id":"cmpl-947464568a2a597f","object":"text_completion","created":1794833919,"model":"Qwen/Qwen3-1.7B","choices":[{"index":0,"text":" the","logprobs":null,"finish_reason":null,"stop_reason":null,"prompt_token_ids":null,"token_ids":null}]}
+
+data: {"id":"cmpl-947464568a2a597f","object":"text_completion","created":1794833919,"model":"Qwen/Qwen3-1.7B","choices":[{"index":0,"text":" United","logprobs":null,"finish_reason":null,"stop_reason":null,"prompt_token_ids":null,"token_ids":null}]}
+
+data: {"id":"cmpl-947464568a2a597f","object":"text_completion","created":1794833919,"model":"Qwen/Qwen3-1.7B","choices":[{"index":0,"text":" States","logprobs":null,"finish_reason":null,"stop_reason":null,"prompt_token_ids":null,"token_ids":null}]}
+
+data: {"id":"cmpl-947464568a2a597f","object":"text_completion","created":1794833919,"model":"Qwen/Qwen3-1.7B","choices":[{"index":0,"text":" is","logprobs":null,"finish_reason":null,"stop_reason":null,"prompt_token_ids":null,"token_ids":null}]}
+
+data: {"id":"cmpl-947464568a2a597f","object":"text_completion","created":1794833919,"model":"Qwen/Qwen3-1.7B","choices":[{"index":0,"text":" Washington","logprobs":null,"finish_reason":null,"stop_reason":null,"prompt_token_ids":null,"token_ids":null}]}
+
+data: {"id":"cmpl-947464568a2a597f","object":"text_completion","created":1794833919,"model":"Qwen/Qwen3-1.7B","choices":[{"index":0,"text":",","logprobs":null,"finish_reason":null,"stop_reason":null,"prompt_token_ids":null,"token_ids":null}]}
+
+data: {"id":"cmpl-947464568a2a597f","object":"text_completion","created":1794833919,"model":"Qwen/Qwen3-1.7B","choices":[{"index":0,"text":" D","logprobs":null,"finish_reason":null,"stop_reason":null,"prompt_token_ids":null,"token_ids":null}]}
+
+data: {"id":"cmpl-947464568a2a597f","object":"text_completion","created":1794833919,"model":"Qwen/Qwen3-1.7B","choices":[{"index":0,"text":".C","logprobs":null,"finish_reason":null,"stop_reason":null,"prompt_token_ids":null,"token_ids":null}]}
+
+data: {"id":"cmpl-947464568a2a597f","object":"text_completion","created":1794833919,"model":"Qwen/Qwen3-1.7B","choices":[{"index":0,"text":".","logprobs":null,"finish_reason":null,"stop_reason":null,"prompt_token_ids":null,"token_ids":null}]}
+
+data: {"id":"cmpl-947464568a2a597f","object":"text_completion","created":1794833919,"model":"Qwen/Qwen3-1.7B","choices":[{"index":0,"text":" The","logprobs":null,"finish_reason":null,"stop_reason":null,"prompt_token_ids":null,"token_ids":null}]}
+
+data: {"id":"cmpl-947464568a2a597f","object":"text_completion","created":1794833919,"model":"Qwen/Qwen3-1.7B","choices":[{"index":0,"text":" capital","logprobs":null,"finish_reason":null,"stop_reason":null,"prompt_token_ids":null,"token_ids":null}]}
+
+data: {"id":"cmpl-947464568a2a597f","object":"text_completion","created":1794833919,"model":"Qwen/Qwen3-1.7B","choices":[{"index":0,"text":" of","logprobs":null,"finish_reason":null,"stop_reason":null,"prompt_token_ids":null,"token_ids":null}]}
+
+data: {"id":"cmpl-947464568a2a597f","object":"text_completion","created":1794833919,"model":"Qwen/Qwen3-1.7B","choices":[{"index":0,"text":" the","logprobs":null,"finish_reason":null,"stop_reason":null,"prompt_token_ids":null,"token_ids":null}]}
+
+data: {"id":"cmpl-947464568a2a597f","object":"text_completion","created":1794833919,"model":"Qwen/Qwen3-1.7B","choices":[{"index":0,"text":" United","logprobs":null,"finish_reason":null,"stop_reason":null,"prompt_token_ids":null,"token_ids":null}]}
+
+data: {"id":"cmpl-947464568a2a597f","object":"text_completion","created":1794833919,"model":"Qwen/Qwen3-1.7B","choices":[{"index":0,"text":" Kingdom","logprobs":null,"finish_reason":null,"stop_reason":null,"prompt_token_ids":null,"token_ids":null}]}
+
+data: {"id":"cmpl-947464568a2a597f","object":"text_completion","created":1794833919,"model":"Qwen/Qwen3-1.7B","choices":[{"index":0,"text":" is","logprobs":null,"finish_reason":null,"stop_reason":null,"prompt_token_ids":null,"token_ids":null}]}
+
+data: {"id":"cmpl-947464568a2a597f","object":"text_completion","created":1794833919,"model":"Qwen/Qwen3-1.7B","choices":[{"index":0,"text":" London","logprobs":null,"finish_reason":null,"stop_reason":null,"prompt_token_ids":null,"token_ids":null}]}
+
+data: {"id":"cmpl-947464568a2a597f","object":"text_completion","created":1794833919,"model":"Qwen/Qwen3-1.7B","choices":[{"index":0,"text":".","logprobs":null,"finish_reason":null,"stop_reason":null,"prompt_token_ids":null,"token_ids":null}]}
+
+data: {"id":"cmpl-947464568a2a597f","object":"text_completion","created":1794833919,"model":"Qwen/Qwen3-1.7B","choices":[{"index":0,"text":" The","logprobs":null,"finish_reason":null,"stop_reason":null,"prompt_token_ids":null,"token_ids":null}]}
+
+data: {"id":"cmpl-947464568a2a597f","object":"text_completion","created":1794833919,"model":"Qwen/Qwen3-1.7B","choices":[{"index":0,"text":" capital","logprobs":null,"finish_reason":null,"stop_reason":null,"prompt_token_ids":null,"token_ids":null}]}
+
+data: {"id":"cmpl-947464568a2a597f","object":"text_completion","created":1794833919,"model":"Qwen/Qwen3-1.7B","choices":[{"index":0,"text":" of","logprobs":null,"finish_reason":null,"stop_reason":null,"prompt_token_ids":null,"token_ids":null}]}
+
+data: {"id":"cmpl-947464568a2a597f","object":"text_completion","created":1794833919,"model":"Qwen/Qwen3-1.7B","choices":[{"index":0,"text":" the","logprobs":null,"finish_reason":null,"stop_reason":null,"prompt_token_ids":null,"token_ids":null}]}
+
+data: {"id":"cmpl-947464568a2a597f","object":"text_completion","created":1794833919,"model":"Qwen/Qwen3-1.7B","choices":[{"index":0,"text":" Russian","logprobs":null,"finish_reason":null,"stop_reason":null,"prompt_token_ids":null,"token_ids":null}]}
+
+data: {"id":"cmpl-947464568a2a597f","object":"text_completion","created":1794833919,"model":"Qwen/Qwen3-1.7B","choices":[{"index":0,"text":" Federation","logprobs":null,"finish_reason":null,"stop_reason":null,"prompt_token_ids":null,"token_ids":null}]}
+
+data: {"id":"cmpl-947464568a2a597f","object":"text_completion","created":1794833919,"model":"Qwen/Qwen3-1.7B","choices":[{"index":0,"text":" is","logprobs":null,"finish_reason":null,"stop_reason":null,"prompt_token_ids":null,"token_ids":null}]}
+
+data: {"id":"cmpl-947464568a2a597f","object":"text_completion","created":1794833919,"model":"Qwen/Qwen3-1.7B","choices":[{"index":0,"text":" Moscow","logprobs":null,"finish_reason":null,"stop_reason":null,"prompt_token_ids":null,"token_ids":null}]}
+
+data: {"id":"cmpl-947464568a2a597f","object":"text_completion","created":1794833919,"model":"Qwen/Qwen3-1.7B","choices":[{"index":0,"text":".","logprobs":null,"finish_reason":"length","stop_reason":null,"prompt_token_ids":null,"token_ids":null}]}
+
+data: {"id":"cmpl-947464568a2a597f","object":"text_completion","created":1794833919,"model":"Qwen/Qwen3-1.7B","choices":[],"usage":{"prompt_tokens":5,"total_tokens":37,"completion_tokens":32},"system_fingerprint":"vllm-0.28.0-6c80912d"}
+
+data: [DONE]
+

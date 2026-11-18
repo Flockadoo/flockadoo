@@ -19,14 +19,6 @@ func SpinWhile(out io.Writer, msg string, fn func() error) error {
 	return spinWhile(out, func() string { return msg }, fn)
 }
 
-// SpinWhileLive is SpinWhile with a message that can change while fn runs.
-func SpinWhileLive(out io.Writer, msg func() string, fn func() error) error {
-	if msg == nil {
-		msg = func() string { return "" }
-	}
-	return spinWhile(out, msg, fn)
-}
-
 func spinWhile(out io.Writer, msg func() string, fn func() error) error {
 	if out == nil {
 		out = os.Stdout

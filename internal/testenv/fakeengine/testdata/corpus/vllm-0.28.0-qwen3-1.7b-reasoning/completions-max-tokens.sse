@@ -1,0 +1,12 @@
+data: {"id":"cmpl-b9c4fd20a8b99132","object":"text_completion","created":1794833920,"model":"Qwen/Qwen3-1.7B","choices":[{"index":0,"text":" ","logprobs":null,"finish_reason":null,"stop_reason":null,"prompt_token_ids":null,"token_ids":null}]}
+
+data: {"id":"cmpl-b9c4fd20a8b99132","object":"text_completion","created":1794833920,"model":"Qwen/Qwen3-1.7B","choices":[{"index":0,"text":"1","logprobs":null,"finish_reason":null,"stop_reason":null,"prompt_token_ids":null,"token_ids":null}]}
+
+data: {"id":"cmpl-b9c4fd20a8b99132","object":"text_completion","created":1794833920,"model":"Qwen/Qwen3-1.7B","choices":[{"index":0,"text":",","logprobs":null,"finish_reason":null,"stop_reason":null,"prompt_token_ids":null,"token_ids":null}]}
+
+data: {"id":"cmpl-b9c4fd20a8b99132","object":"text_completion","created":1794833920,"model":"Qwen/Qwen3-1.7B","choices":[{"index":0,"text":" ","logprobs":null,"finish_reason":"length","stop_reason":null,"prompt_token_ids":null,"token_ids":null}]}
+
+data: {"id":"cmpl-b9c4fd20a8b99132","object":"text_completion","created":1794833920,"model":"Qwen/Qwen3-1.7B","choices":[],"usage":{"prompt_tokens":9,"total_tokens":13,"completion_tokens":4},"system_fingerprint":"vllm-0.28.0-6c80912d"}
+
+data: [DONE]
+

@@ -34,6 +34,9 @@ type Sender struct {
 	slots  Slots
 	engine llm.Client
 	client *http.Client
+	// Active, when set, says whether to report at all: false once the
+	// tunnel has stopped for good (decision DC8).
+	Active func() bool
 
 	instance string
 	seq      atomic.Int64
@@ -89,8 +92,14 @@ type payload struct {
 }
 
 func (s *Sender) send(ctx context.Context) {
-	if s.slots == nil {
-		return
+	if err := s.post(ctx); err != nil {
+		logger.Debug("capacity post failed", zap.Error(err))
+	}
+}
+
+func (s *Sender) post(ctx context.Context) error {
+	if s.slots == nil || (s.Active != nil && !s.Active()) {
+		return nil
 	}
 	inflight, maxInflight, accepting := s.slots()
 	body := payload{
@@ -113,23 +122,29 @@ func (s *Sender) send(ctx context.Context) {
 	}
 	raw, err := json.Marshal(body)
 	if err != nil {
-		return
+		return err
 	}
 	reqCtx, cancel := context.WithTimeout(ctx, postTimeout)
 	defer cancel()
 	req, err := http.NewRequestWithContext(reqCtx, http.MethodPost, s.url+"/api/provider/capacity", bytes.NewReader(raw))
 	if err != nil {
-		return
+		return err
 	}
 	req.Header.Set("Content-Type", "application/json")
 	req.Header.Set("Authorization", "Bearer "+s.apiKey)
 	resp, err := s.client.Do(req)
 	if err != nil {
-		logger.Debug("capacity post failed", zap.Error(err))
-		return
+		return err
 	}
-	resp.Body.Close()
+	_ = resp.Body.Close()
 	if resp.StatusCode != http.StatusNoContent && resp.StatusCode != http.StatusOK {
-		logger.Debug("capacity post rejected", zap.Int("status", resp.StatusCode), zap.String("detail", fmt.Sprint(resp.Status)))
+		return fmt.Errorf("capacity post rejected: %s", resp.Status)
 	}
+	return nil
+}
+
+// Flush sends a report now and waits for it, for the drain's final
+// "not accepting" (decision DC9).
+func (s *Sender) Flush(ctx context.Context) error {
+	return s.post(ctx)
 }

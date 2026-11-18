@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"github.com/sentnl/inferoute-node/inferoute-client/internal/download"
 	"io"
 	"net/http"
 	"os"
@@ -340,27 +341,62 @@ func stateDir() (string, error) {
 	return dir, nil
 }
 
-// installNeeded is true when the root-owned binaries are not both present.
+// installNeeded is true when the root-owned binaries are not both present,
+// or do not match the pinned release.
 func installNeeded() (bool, error) {
-	_, daemonName, err := hostAsset()
+	cliName, daemonName, err := hostAsset()
+	if err != nil {
+		return false, err
+	}
+	pin, err := embeddedPin()
 	if err != nil {
 		return false, err
 	}
 	cli, daemon := binPaths()
-	return needsInstall(daemonName, cli, daemon), nil
+	return needsInstall(pin, cliName, daemonName, cli, daemon), nil
 }
 
-func needsInstall(daemonName, cli, daemon string) bool {
-	return rootOwned(cli) != nil || (daemonName != "" && rootOwned(daemon) != nil)
+// needsInstall is true unless both binaries are root-owned and are the
+// pinned files: a binary from an older pin, or one changed on disk, is
+// replaced through the verified path, never run (plan item S1).
+func needsInstall(pin Pin, cliName, daemonName, cli, daemon string) bool {
+	if rootOwned(cli) != nil || !matchesPin(pin, cliName, cli) {
+		return true
+	}
+	return daemonName != "" && (rootOwned(daemon) != nil || !matchesPin(pin, daemonName, daemon))
 }
+
+func matchesPin(pin Pin, name, path string) bool {
+	sum, err := pin.sum(name)
+	return err == nil && download.Matches(path, sum)
+}
+
+// downloadClient fetches release assets; the binaries are tens of MB.
+var downloadClient = &http.Client{Timeout: 10 * time.Minute}
 
 func ensureBins(ctx context.Context) (string, error) {
 	cliName, daemonName, err := hostAsset()
 	if err != nil {
 		return "", err
 	}
+	// The pinned hashes come first: with nothing pinned for this platform,
+	// nothing is downloaded (plan item S1).
+	pin, err := embeddedPin()
+	if err != nil {
+		return "", err
+	}
+	cliSum, err := pin.sum(cliName)
+	if err != nil {
+		return "", err
+	}
+	daemonSum := ""
+	if daemonName != "" {
+		if daemonSum, err = pin.sum(daemonName); err != nil {
+			return "", err
+		}
+	}
 	cli, daemon := binPaths()
-	if !needsInstall(daemonName, cli, daemon) {
+	if !needsInstall(pin, cliName, daemonName, cli, daemon) {
 		return cli, nil
 	}
 	// BringUp prompts before the spinner. This covers a direct call.
@@ -370,11 +406,11 @@ func ensureBins(ctx context.Context) (string, error) {
 	if err := lockDownDir(ctx, libexecDir); err != nil {
 		return "", err
 	}
-	if err := installBinary(ctx, downloadURL(cliName), cli); err != nil {
+	if err := installBinary(ctx, downloadURLFor(pin, cliName), cliSum, cli); err != nil {
 		return "", err
 	}
 	if daemonName != "" {
-		if err := installBinary(ctx, downloadURL(daemonName), daemon); err != nil {
+		if err := installBinary(ctx, downloadURLFor(pin, daemonName), daemonSum, daemon); err != nil {
 			return "", err
 		}
 	}
@@ -389,60 +425,37 @@ func ensureBins(ctx context.Context) (string, error) {
 	return cli, nil
 }
 
-func installBinary(ctx context.Context, url, dest string) error {
+// installBinary downloads url, checks it against sum, and only then
+// installs it at dest, root-owned. A file that does not match is never
+// written to dest.
+func installBinary(ctx context.Context, url, sum, dest string) error {
 	if err := rejectSymlink(dest); err != nil {
 		return err
 	}
+	src, err := download.Verified(ctx, downloadClient, url, sum, "")
+	if err != nil {
+		return err
+	}
+	defer func() { _ = os.Remove(src) }()
 	if euid() == 0 {
-		if err := os.Remove(dest); err != nil && !os.IsNotExist(err) {
-			return err
-		}
-		if err := download(ctx, url, dest); err != nil {
-			return err
-		}
-		return os.Chmod(dest, 0o755)
+		return copyFile(src, dest, 0o755)
 	}
-	req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
+	in, err := os.Open(src)
 	if err != nil {
 		return err
 	}
-	res, err := http.DefaultClient.Do(req)
-	if err != nil {
-		return err
-	}
-	defer res.Body.Close()
-	if res.StatusCode != http.StatusOK {
-		return fmt.Errorf("download %s: %s", url, res.Status)
-	}
+	defer func() { _ = in.Close() }()
 	tmp := dest + ".tmp"
 	if err := runSudo(ctx, "rm", "-f", tmp); err != nil {
 		return err
 	}
-	pr, pw := io.Pipe()
 	cmd := exec.CommandContext(ctx, "sudo", "-n", "--", "tee", tmp)
-	cmd.Stdin = pr
+	cmd.Stdin = in
 	cmd.Stdout = io.Discard
 	cmd.Stderr = os.Stderr
-	copyErrc := make(chan error, 1)
-	go func() {
-		n, copyErr := io.Copy(pw, res.Body)
-		if copyErr == nil && n == 0 {
-			copyErr = fmt.Errorf("download %s: empty", url)
-		}
-		closeErr := pw.CloseWithError(copyErr)
-		if copyErr == nil {
-			copyErr = closeErr
-		}
-		copyErrc <- copyErr
-	}()
-	runErr := cmd.Run()
-	copyErr := <-copyErrc
-	if copyErr != nil || runErr != nil {
+	if err := cmd.Run(); err != nil {
 		_ = runSudo(ctx, "rm", "-f", tmp)
-		if copyErr != nil {
-			return copyErr
-		}
-		return fmt.Errorf("install %s: %w", dest, runErr)
+		return fmt.Errorf("install %s: %w", dest, err)
 	}
 	if err := runSudo(ctx, "mv", "-f", tmp, dest); err != nil {
 		return err
@@ -453,6 +466,30 @@ func installBinary(ctx context.Context, url, dest string) error {
 	return runSudo(ctx, "chown", "root:root", dest)
 }
 
+// copyFile writes src to dest through a temporary file and a rename.
+func copyFile(src, dest string, mode os.FileMode) error {
+	in, err := os.Open(src)
+	if err != nil {
+		return err
+	}
+	defer func() { _ = in.Close() }()
+	tmp := dest + ".tmp"
+	out, err := os.OpenFile(tmp, os.O_CREATE|os.O_TRUNC|os.O_WRONLY, mode)
+	if err != nil {
+		return err
+	}
+	if _, err := io.Copy(out, in); err != nil {
+		_ = out.Close()
+		_ = os.Remove(tmp)
+		return err
+	}
+	if err := out.Close(); err != nil {
+		_ = os.Remove(tmp)
+		return err
+	}
+	return os.Rename(tmp, dest)
+}
+
 func runSudo(ctx context.Context, args ...string) error {
 	bin, argv := rootArgv(euid(), args[0], args[1:]...)
 	cmd := exec.CommandContext(ctx, bin, argv...)
@@ -460,53 +497,6 @@ func runSudo(ctx context.Context, args ...string) error {
 	cmd.Stderr = os.Stderr
 	if err := cmd.Run(); err != nil {
 		return fmt.Errorf("sudo %s: %w", args[0], err)
-	}
-	return nil
-}
-
-func download(ctx context.Context, url, dest string) error {
-	if st, err := os.Stat(dest); err == nil && st.Size() > 0 {
-		return nil
-	}
-	req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
-	if err != nil {
-		return err
-	}
-	res, err := http.DefaultClient.Do(req)
-	if err != nil {
-		return err
-	}
-	defer res.Body.Close()
-	if res.StatusCode != http.StatusOK {
-		return fmt.Errorf("download %s: %s", url, res.Status)
-	}
-	tmp := dest + ".tmp"
-	f, err := os.OpenFile(tmp, os.O_CREATE|os.O_TRUNC|os.O_WRONLY, 0o755)
-	if err != nil {
-		return err
-	}
-	n, copyErr := io.Copy(f, res.Body)
-	if copyErr == nil && n > 0 {
-		copyErr = f.Sync()
-	}
-	closeErr := f.Close()
-	if copyErr != nil || n == 0 {
-		os.Remove(tmp)
-		if copyErr != nil {
-			return copyErr
-		}
-		if closeErr != nil {
-			return closeErr
-		}
-		return fmt.Errorf("download %s: empty", url)
-	}
-	if closeErr != nil {
-		os.Remove(tmp)
-		return closeErr
-	}
-	if err := os.Rename(tmp, dest); err != nil {
-		os.Remove(tmp)
-		return err
 	}
 	return nil
 }
@@ -577,18 +567,6 @@ type nodeState struct {
 	IP     string
 	ID     string
 	Online bool
-}
-
-// Inspect reads the IPv4 address and the Headscale node id.
-func Inspect(ctx context.Context, cli string) (ip, nodeID string, err error) {
-	st, err := readState(ctx, cli)
-	if err != nil {
-		return "", "", err
-	}
-	if st.IP == "" {
-		return "", st.ID, fmt.Errorf("inferscale has no ipv4")
-	}
-	return st.IP, st.ID, nil
 }
 
 func readState(ctx context.Context, cli string) (nodeState, error) {
@@ -695,16 +673,6 @@ func ipv4(ctx context.Context, cli string) (string, error) {
 		return "", fmt.Errorf("inferscale has no ipv4")
 	}
 	return ip, nil
-}
-
-// LocalStatus is the tailnet address and a "N online" peer summary.
-// A missing binary is an empty result.
-func LocalStatus() (ip, peers string) {
-	ip, n := Tailnet()
-	if n > 0 {
-		peers = fmt.Sprintf("%d online", n)
-	}
-	return ip, peers
 }
 
 // Tailnet is this machine's tailnet IPv4 and how many other nodes are online.

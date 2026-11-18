@@ -3,16 +3,17 @@ package server
 import (
 	"bytes"
 	"context"
-	"encoding/json"
 	"fmt"
-	"io"
 	"net/http"
 	"time"
 
 	"errors"
 
 	"github.com/gorilla/mux"
+	"github.com/sentnl/inferoute-node/inferoute-client/internal/admission"
 	"github.com/sentnl/inferoute-node/inferoute-client/internal/config"
+	"github.com/sentnl/inferoute-node/inferoute-client/internal/relay"
+	"github.com/sentnl/inferoute-node/inferoute-client/pkg/capacity"
 	"github.com/sentnl/inferoute-node/inferoute-client/pkg/connect"
 	"github.com/sentnl/inferoute-node/inferoute-client/pkg/engine"
 	"github.com/sentnl/inferoute-node/inferoute-client/pkg/gpu"
@@ -20,16 +21,10 @@ import (
 	"github.com/sentnl/inferoute-node/inferoute-client/pkg/inferscale"
 	"github.com/sentnl/inferoute-node/inferoute-client/pkg/llm"
 	"github.com/sentnl/inferoute-node/inferoute-client/pkg/logger"
-	"github.com/sentnl/inferoute-node/inferoute-client/pkg/nodeapi"
 	"github.com/sentnl/inferoute-node/inferoute-client/pkg/usermsg"
 	"github.com/sentnl/inferoute-node/inferoute-client/pkg/verify"
 	"go.uber.org/zap"
 )
-
-// rename this file to server.go since it contains the same methods
-// the original server.go file seems to have been renamed to service.go
-// but there are still references to server.go in the codebase
-// this is causing duplicate method declarations
 
 // maskString Helper function to mask sensitive strings
 func maskStringHelper(s string) string {
@@ -41,23 +36,27 @@ func maskStringHelper(s string) string {
 
 // Creates a new server
 func CreateServer(cfg *config.Config, gpuMonitor *gpu.Monitor, healthReporter *health.Reporter, verifier *verify.Verifier) *Server {
-	llmClient := llm.NewClient(cfg.Provider.ProviderType, cfg.Provider.LLMURL, cfg.LLMTimeout())
+	llmClient := llm.NewClient(cfg.PlatformType(), cfg.Provider.LLMURL, cfg.LLMTimeout())
 
 	s := &Server{
 		config:           cfg,
 		gpuMonitor:       gpuMonitor,
 		healthReporter:   healthReporter,
 		llmClient:        llmClient,
-		verifier:         verifier,
 		consoleUI:        true,
 		sessionQueueWait: cfg.SessionQueueWait(),
 	}
+	if verifier != nil {
+		// Not a typed nil inside the interface: a nil verifier serves all.
+		s.verifier = verifier
+	}
+	s.sessionQueueLimit = cfg.Server.SessionQueueLimit
 	kind, _ := engine.ParseKind(cfg.Provider.Engine)
 	n := int32(engine.DefaultConcurrency(kind))
 	if v, ok := cfg.ExplicitConcurrency(); ok {
 		n = int32(v)
 	}
-	s.maxInflight.Store(n)
+	s.SetMaxInflight(n)
 
 	return s
 }
@@ -67,17 +66,171 @@ func (s *Server) SetCapacityNotify(fn func()) {
 	s.onCapacity = fn
 }
 
-// SetMaxInflight changes the live slot limit and reports it immediately.
+// admit is the admission gate, created on first use with a limit of 1 until
+// SetMaxInflight sets the real one.
+func (s *Server) admit() *admission.Gate {
+	s.gateOnce.Do(func() {
+		one, _ := admission.NewLimit(1)
+		s.gate = admission.NewGate(one, s.notifyCapacityChange)
+	})
+	return s.gate
+}
+
+// SetMaxInflight changes the live slot limit and reports it immediately. A
+// limit below 1 is refused (decision DC4): config rejects one at startup, and
+// the benchmark never measures one.
 func (s *Server) SetMaxInflight(n int32) {
-	s.maxInflight.Store(n)
-	s.notifyCapacityChange()
+	l, err := admission.NewLimit(int(n))
+	if err != nil {
+		logger.Error("refused a concurrency limit", zap.Error(err))
+		return
+	}
+	s.admit().SetLimit(l)
 }
 
 // SetBenchmarking closes the gate while a concurrency benchmark runs.
 func (s *Server) SetBenchmarking(on bool) {
-	s.benchmarking.Store(on)
-	s.notifyCapacityChange()
+	s.setClosed(func() { s.benchmarking = on })
 	s.redrawConsole()
+}
+
+// SetCapacitySender is the sender the drain flushes its final report with.
+func (s *Server) SetCapacitySender(c *capacity.Sender) {
+	s.capacity = c
+}
+
+// setClosed applies change to the reasons the gate is closed, and closes or
+// opens the gate to match: it is closed while a benchmark runs, the engine
+// is down or the client is draining (invariant I7).
+func (s *Server) setClosed(change func()) {
+	s.closeMu.Lock()
+	change()
+	closed := s.benchmarking || s.engineDown || s.draining
+	s.closeMu.Unlock()
+	s.admit().SetClosed(closed)
+}
+
+// closedReason is why the gate is closed, for the dashboard.
+func (s *Server) closedReason() string {
+	s.closeMu.Lock()
+	defer s.closeMu.Unlock()
+	switch {
+	case s.draining:
+		return "draining"
+	case s.engineDown:
+		return "engine down"
+	case s.benchmarking:
+		return "benchmarking"
+	}
+	return ""
+}
+
+// engineProbeInterval is how often WatchEngine looks at the engine.
+const engineProbeInterval = 5 * time.Second
+
+// WatchEngine looks at the engine every interval until ctx ends: two
+// failures in a row close the gate as "engine down", one success opens it
+// again (finding NET-7). It reports the engine down; it does not restart it
+// (decision DC5). A request that cannot reach the engine asks for a look at
+// once.
+func (s *Server) WatchEngine(ctx context.Context, interval time.Duration) {
+	if interval <= 0 {
+		interval = engineProbeInterval
+	}
+	s.closeMu.Lock()
+	if s.engineProbe == nil {
+		s.engineProbe = make(chan struct{}, 1)
+	}
+	probeNow := s.engineProbe
+	s.closeMu.Unlock()
+	tick := time.NewTicker(interval)
+	defer tick.Stop()
+	failures := 0
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		case <-tick.C:
+		case <-probeNow:
+		}
+		pctx, cancel := context.WithTimeout(ctx, 2*time.Second)
+		_, err := s.llmClient.ListModels(pctx)
+		cancel()
+		switch {
+		case err == nil:
+			failures = 0
+			s.setEngineDown(false)
+		case ctx.Err() == nil:
+			if failures++; failures >= 2 {
+				s.setEngineDown(true)
+			}
+		}
+	}
+}
+
+func (s *Server) setEngineDown(down bool) {
+	s.closeMu.Lock()
+	was := s.engineDown
+	s.closeMu.Unlock()
+	if was == down {
+		return
+	}
+	if down {
+		logger.Error("the engine does not answer; not accepting requests until it does")
+	} else {
+		logger.Info("the engine answers again; accepting requests")
+	}
+	s.setClosed(func() { s.engineDown = down })
+}
+
+// suspectEngine asks WatchEngine to look at the engine now.
+func (s *Server) suspectEngine() {
+	s.closeMu.Lock()
+	ch := s.engineProbe
+	s.closeMu.Unlock()
+	if ch != nil {
+		select {
+		case ch <- struct{}{}:
+		default:
+		}
+	}
+}
+
+// defaultDrainLimit is how long a drain waits for requests in progress: the
+// gateway's own drain time (decision DC9).
+const defaultDrainLimit = 60 * time.Second
+
+// Drain stops taking work and lets the work in progress finish: it closes
+// the gate, sends a final "not accepting" report and waits for it, then
+// waits for requests in flight, for up to limit or until ctx ends (a second
+// stop request). What still runs then is cut by Stop (finding NET-3).
+func (s *Server) Drain(ctx context.Context, limit time.Duration) error {
+	if limit <= 0 {
+		limit = defaultDrainLimit
+	}
+	// The console redraws itself every second; the new state shows there.
+	s.setClosed(func() { s.draining = true })
+	if s.capacity != nil {
+		fctx, cancel := context.WithTimeout(ctx, 5*time.Second)
+		if err := s.capacity.Flush(fctx); err != nil {
+			logger.Warn("the final capacity report failed", zap.Error(err))
+		}
+		cancel()
+	}
+	deadline := time.NewTimer(limit)
+	defer deadline.Stop()
+	tick := time.NewTicker(20 * time.Millisecond)
+	defer tick.Stop()
+	for s.admit().Snapshot().Inflight > 0 {
+		select {
+		case <-ctx.Done():
+			return ctx.Err()
+		case <-deadline.C:
+			return fmt.Errorf("%d requests still running after %v", s.admit().Snapshot().Inflight, limit)
+		case <-tick.C:
+		}
+	}
+	return nil
 }
 
 // SetEngineNote is the local dashboard line for benchmark progress.
@@ -97,16 +250,13 @@ func (s *Server) SetCapabilities(note string) {
 	s.redrawConsole()
 }
 
-func (s *Server) SetCapabilityItems(items []CapabilityStatus) {
-	s.engineNoteMu.Lock()
-	s.capabilityItems = append([]CapabilityStatus(nil), items...)
-	s.engineNoteMu.Unlock()
-	s.redrawConsole()
-}
-
 // SlotSnapshot is what the capacity sender reports.
 func (s *Server) SlotSnapshot() (inflight, maxInflight int32, accepting bool) {
-	return s.inflight.Load(), s.maxInflight.Load(), !s.benchmarking.Load()
+	snap := s.admit().Snapshot()
+	// Accepting only with an open gate and a connected tunnel (invariant
+	// I7). A worker has no tunnel of its own.
+	c := s.tunnel()
+	return snap.Inflight, snap.Limit, snap.Accepting && (c == nil || c.Connected())
 }
 
 // SetConsoleUI enables or disables the ANSI terminal dashboard.
@@ -117,46 +267,55 @@ func (s *Server) SetConsoleUI(enabled bool) {
 
 // Start starts the local dashboard and the outbound provider connection.
 // An enrolled worker has no provider API key that the gateway will accept.
+// Start and Stop may be called from different goroutines, in either order
+// (finding NET-6): Stop before Start finishes stops it.
 func (s *Server) Start() error {
 	connectCtx, connectCancel := context.WithCancel(context.Background())
+	s.lifeMu.Lock()
+	if s.stopped {
+		s.lifeMu.Unlock()
+		connectCancel()
+		return nil
+	}
 	s.connectCancel = connectCancel
+	var connector *connect.Client
 	if !s.config.EnrolledWorker() {
-		s.connector = connect.New(s.config.Provider.URL, s.config.Provider.APIKey, s.inferenceMux(), s.onConnect)
+		connector = connect.New(s.config.Provider.URL, s.config.Provider.APIKey, s.inferenceMux(), s.onConnect)
+		connector.OnState = func(connect.State) { s.notifyCapacityChange() }
+		s.connector = connector
+	}
+	s.lifeMu.Unlock()
+
+	if connector != nil {
 		go func() {
-			if err := s.connector.Run(connectCtx); err != nil && !errors.Is(err, context.Canceled) {
+			if err := connector.Run(connectCtx); err != nil && !errors.Is(err, context.Canceled) {
 				logger.Error("provider connection stopped", zap.Error(err))
 			}
 		}()
-		readyCtx, readyCancel := context.WithTimeout(context.Background(), 15*time.Second)
-		err := s.connector.Ready(readyCtx)
+		// Wait up to 15 s for the first dial. A rejected key does not stop
+		// the client: it stays up and the dashboard shows why (decision DC8).
+		readyCtx, readyCancel := context.WithTimeout(connectCtx, 15*time.Second)
+		_ = connector.Ready(readyCtx)
 		readyCancel()
-		if errors.Is(err, connect.ErrInvalidAPIKey) {
-			connectCancel()
-			return fmt.Errorf("failed to connect: %w", err)
-		}
 	}
-
-	// Create router
-	r := mux.NewRouter()
-
-	// Register routes
-	r.HandleFunc("/", s.handleDashboard).Methods(http.MethodGet)
-	r.HandleFunc("/api/status", s.handleStatus).Methods(http.MethodGet)
-	r.HandleFunc("/api/health", s.handleHealth).Methods(http.MethodGet)
-	r.HandleFunc("/api/busy", s.handleBusy).Methods(http.MethodGet)
-	r.HandleFunc("/v1/chat/completions", s.handleChatCompletions).Methods(http.MethodPost)
-	r.HandleFunc("/v1/completions", s.handleCompletions).Methods(http.MethodPost)
-	r.HandleFunc("/v1/embeddings", s.handleEmbeddings).Methods(http.MethodPost)
 
 	// Create server. Read/write timeouts must cover the session queue wait
 	// plus inference so the orchestrator's sticky timeout is usable.
-	s.server = &http.Server{
-		Addr:         fmt.Sprintf("%s:%d", s.config.Server.Host, s.config.Server.Port),
-		Handler:      r,
-		ReadTimeout:  s.config.RequestTimeout(),
-		WriteTimeout: s.config.RequestTimeout(),
-		IdleTimeout:  120 * time.Second,
+	srv := &http.Server{
+		Addr:              fmt.Sprintf("%s:%d", s.config.Server.Host, s.config.Server.Port),
+		Handler:           s.localMux(),
+		ReadTimeout:       s.config.RequestTimeout(),
+		WriteTimeout:      s.config.RequestTimeout(),
+		IdleTimeout:       120 * time.Second,
+		ReadHeaderTimeout: 10 * time.Second,
 	}
+	s.lifeMu.Lock()
+	if s.stopped {
+		s.lifeMu.Unlock()
+		return nil
+	}
+	s.server = srv
+	s.lifeMu.Unlock()
 
 	if s.consoleUI {
 		s.printStartupBanner()
@@ -165,25 +324,49 @@ func (s *Server) Start() error {
 
 	// Log server start
 	logger.Info("Starting HTTP server",
-		zap.String("address", s.server.Addr),
-		zap.String("provider_type", s.config.Provider.ProviderType),
+		zap.String("address", srv.Addr),
+		zap.String("provider_type", s.config.PlatformType()),
 		zap.String("llm_url", s.config.Provider.LLMURL))
 
-	// Start server
-	return s.server.ListenAndServe()
+	if err := srv.ListenAndServe(); !errors.Is(err, http.ErrServerClosed) {
+		return err
+	}
+	return nil
 }
 
-// Stop stops the server
+// Stop stops the server. It is safe before, during and after Start.
 func (s *Server) Stop(ctx context.Context) error {
 	logger.Info("Stopping HTTP server")
-	if s.connectCancel != nil {
-		s.connectCancel()
+	s.lifeMu.Lock()
+	s.stopped = true
+	cancel, srv := s.connectCancel, s.server
+	s.lifeMu.Unlock()
+	if cancel != nil {
+		cancel()
 	}
-
-	if s.server == nil {
+	if srv == nil {
 		return nil
 	}
-	return s.server.Shutdown(ctx)
+	return srv.Shutdown(ctx)
+}
+
+// tunnel is the provider connection, or nil (a worker, or before Start).
+func (s *Server) tunnel() *connect.Client {
+	s.lifeMu.Lock()
+	defer s.lifeMu.Unlock()
+	return s.connector
+}
+
+// localMux is the local listener's routes: the dashboard and its APIs. It
+// serves no inference: that arrives only on the tunnel (decision DC3), and a
+// provider who wants their own model locally talks to their engine.
+func (s *Server) localMux() http.Handler {
+	r := mux.NewRouter()
+	r.HandleFunc("/", s.handleDashboard).Methods(http.MethodGet)
+	r.HandleFunc("/api/status", s.handleStatus).Methods(http.MethodGet)
+	r.HandleFunc("/api/health", s.handleHealth).Methods(http.MethodGet)
+	r.HandleFunc("/api/busy", s.handleBusy).Methods(http.MethodGet)
+	return r
 }
 
 func (s *Server) inferenceMux() http.Handler {
@@ -206,7 +389,16 @@ func (s *Server) onConnect() {
 }
 
 func (s *Server) gatewayConnected() bool {
-	return s.connector != nil && s.connector.Connected()
+	c := s.tunnel()
+	return c != nil && c.Connected()
+}
+
+// TunnelActive is false once the tunnel has stopped for good (a rejected
+// key, a replacement, an upgrade required): the client then stops reporting
+// to the node and waits for the operator (decision DC8).
+func (s *Server) TunnelActive() bool {
+	c := s.tunnel()
+	return c == nil || !c.State().Terminal()
 }
 
 // consoleUpdater periodically updates the console with request stats and errors
@@ -248,9 +440,6 @@ func (s *Server) redrawConsole() {
 	if snap.CapabilityLine != "" {
 		buf.WriteString(fmt.Sprintf("\033[1;35mCapabilities                  \033[0m%s\n", snap.CapabilityLine))
 	}
-	for _, cap := range snap.Capabilities {
-		buf.WriteString(fmt.Sprintf("  %-30s%s\n", cap.Name, cap.State))
-	}
 	switch snap.UpdateStatus {
 	case "required":
 		buf.WriteString(fmt.Sprintf("\033[1;31mUpdate required: %s -> %s. Run 'inferoute-client update' then restart.\033[0m\n", snap.ClientVersion, snap.LatestVersion))
@@ -262,10 +451,15 @@ func (s *Server) redrawConsole() {
 	buf.WriteString(fmt.Sprintf("\033[1;35mProvider URL                  \033[0m%s\n", snap.ProviderURL))
 	buf.WriteString(fmt.Sprintf("\033[1;35mLLM URL                       \033[0m%s\n", snap.LLMURL))
 	state := "connecting"
-	if s.config.EnrolledWorker() {
+	switch {
+	case s.config.EnrolledWorker():
 		state = "worker"
-	} else if snap.Connected {
+	case snap.ConnectionReason != "" && !s.TunnelActive():
+		state = "\033[1;31m" + snap.Connection + ": " + snap.ConnectionReason + "\033[0m"
+	case snap.Connected:
 		state = "connected"
+	case snap.ConnectionReason != "":
+		state = "connecting (" + snap.ConnectionReason + ")"
 	}
 	buf.WriteString(fmt.Sprintf("\033[1;35mPlatform connection           \033[0m%s\n", state))
 
@@ -376,12 +570,12 @@ func (s *Server) printStartupBanner() {
 }
 
 // logRequest logs a request to the console
-func (s *Server) logRequest(method, path string, statusCode int, startTime time.Time) {
+func (s *Server) logRequest(method, path string, statusCode int, outcome relay.Outcome, startTime time.Time) {
 	duration := time.Since(startTime)
 
 	// Format the log entry
 	switch {
-	case statusCode >= 200 && statusCode < 300:
+	case outcome == relay.Completed && statusCode >= 200 && statusCode < 300:
 		s.requestStats.mutex.Lock()
 		s.requestStats.Success++
 		s.requestStats.mutex.Unlock()
@@ -402,6 +596,7 @@ func (s *Server) logRequest(method, path string, statusCode int, startTime time.
 		Path:     path,
 		Status:   statusCode,
 		Duration: formatDuration(duration),
+		Outcome:  outcome.String(),
 	}
 
 	s.requestStats.mutex.Lock()
@@ -417,6 +612,7 @@ func (s *Server) logRequest(method, path string, statusCode int, startTime time.
 		zap.String("method", method),
 		zap.String("path", path),
 		zap.Int("status", statusCode),
+		zap.String("outcome", outcome.String()),
 		zap.Duration("duration", duration))
 }
 
@@ -425,76 +621,15 @@ func (s *Server) logError(errMsg string) {
 	logger.Error(errMsg)
 }
 
-// validateHMAC validates an HMAC with the central system
-func (s *Server) validateHMAC(ctx context.Context, hmac string) error {
-	// Create request
-	url := fmt.Sprintf("%s/api/provider/validate_hmac", s.config.Provider.URL)
-
-	reqBody, err := json.Marshal(HMACValidationRequest{HMAC: hmac})
-	if err != nil {
-		return fmt.Errorf("failed to marshal request: %w", err)
-	}
-
-	req, err := http.NewRequestWithContext(ctx, http.MethodPost, url, bytes.NewBuffer(reqBody))
-	if err != nil {
-		return fmt.Errorf("failed to create request: %w", err)
-	}
-
-	// Add headers
-	req.Header.Set("Content-Type", "application/json")
-	req.Header.Set("Authorization", fmt.Sprintf("Bearer %s", s.config.Provider.APIKey))
-
-	// Send request
-	client := nodeapi.NewHTTPClient(10 * time.Second)
-	resp, err := client.Do(req)
-	if err != nil {
-		return fmt.Errorf("failed to send request: %w", err)
-	}
-	defer resp.Body.Close()
-
-	// Check response status
-	if resp.StatusCode != http.StatusOK {
-		// Read and log response body for debugging
-		respBody, readErr := io.ReadAll(resp.Body)
-		if readErr == nil {
-			s.logError(fmt.Sprintf("HMAC validation error response: %s", string(respBody)))
-		}
-		return fmt.Errorf("request failed with status code: %d", resp.StatusCode)
-	}
-
-	// Parse response
-	var response HMACValidationResponse
-	respBody, err := io.ReadAll(resp.Body)
-	if err != nil {
-		return fmt.Errorf("failed to read response body: %w", err)
-	}
-
-	if err := json.Unmarshal(respBody, &response); err != nil {
-		return fmt.Errorf("failed to parse response: %w", err)
-	}
-
-	// Check if HMAC is valid
-	if !response.Valid {
-		return fmt.Errorf("invalid HMAC")
-	}
-
-	return nil
-}
-
-func (s *Server) verifyModelInRequest(ctx context.Context, body []byte) error {
+// verifyModel is the verdict for the model a request names, read from the
+// verifier's state with no call to the node (plan item B3). With no
+// verifier, every model is served.
+func (s *Server) verifyModel(model string) (verify.Verdict, string) {
 	if s.verifier == nil {
-		return nil
+		return verify.Serve, ""
 	}
-	var payload struct {
-		Model string `json:"model"`
+	if model == "" {
+		return verify.Refuse, "missing model in request"
 	}
-	if err := json.Unmarshal(body, &payload); err != nil || payload.Model == "" {
-		return fmt.Errorf("missing model in request")
-	}
-	return s.verifier.CheckInference(ctx, s.llmClient, payload.Model)
-}
-
-// forwardToLLM forwards a request to the LLM provider
-func (s *Server) forwardToLLM(ctx context.Context, path string, body []byte) (*http.Response, error) {
-	return s.llmClient.ForwardRequest(ctx, path, body)
+	return s.verifier.Verdict(model)
 }

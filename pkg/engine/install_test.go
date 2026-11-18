@@ -2,12 +2,14 @@ package engine
 
 import (
 	"bytes"
+	"context"
 	"io"
 	"os"
 	"path/filepath"
 	"runtime"
 	"strings"
 	"testing"
+	"time"
 )
 
 func TestReplaceVenvDirRemovesExisting(t *testing.T) {
@@ -102,10 +104,54 @@ func TestInstalledVersion(t *testing.T) {
 	if err := os.WriteFile(bin, []byte(body), 0o755); err != nil {
 		t.Fatal(err)
 	}
-	if got := InstalledVersion(bin); got != "0.31.0" {
+	if got := InstalledVersion(context.Background(), bin); got != "0.31.0" {
 		t.Fatalf("version = %q", got)
 	}
-	if InstalledVersion("") != "" {
+	if InstalledVersion(context.Background(), "") != "" {
 		t.Fatal("empty bin")
+	}
+}
+
+// Plan item Q4, finding ENG-4: the wizard's --version call has a deadline,
+// so a binary that hangs cannot hang the caller.
+func TestInstalledVersionGivesUpOnAHungBinary(t *testing.T) {
+	dir := t.TempDir()
+	bin := filepath.Join(dir, "vllm")
+	body := "#!/bin/sh\nsleep 30\n"
+	if runtime.GOOS == "windows" {
+		bin += ".cmd"
+		body = "@ping -n 31 127.0.0.1 >nul\r\n"
+	}
+	if err := os.WriteFile(bin, []byte(body), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), 300*time.Millisecond)
+	defer cancel()
+	done := make(chan string, 1)
+	go func() { done <- InstalledVersion(ctx, bin) }()
+	select {
+	case got := <-done:
+		if got != "" {
+			t.Fatalf("a hung binary gave version %q", got)
+		}
+	case <-time.After(5 * time.Second):
+		t.Fatal("InstalledVersion was still waiting for a hung binary after 5s")
+	}
+}
+
+// A warning on stderr is not the version (finding ENG-4, point 3).
+func TestInstalledVersionReadsStdoutOnly(t *testing.T) {
+	dir := t.TempDir()
+	bin := filepath.Join(dir, "vllm")
+	body := "#!/bin/sh\necho vLLM version 0.31.0\necho 'WARNING: CUDA driver is old' >&2\n"
+	if runtime.GOOS == "windows" {
+		bin += ".cmd"
+		body = "@echo vLLM version 0.31.0\r\n@echo WARNING: CUDA driver is old 1>&2\r\n"
+	}
+	if err := os.WriteFile(bin, []byte(body), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if got := InstalledVersion(context.Background(), bin); got != "0.31.0" {
+		t.Fatalf("version = %q, want 0.31.0", got)
 	}
 }

@@ -21,11 +21,6 @@ func ProviderName(providerType string) string {
 	}
 }
 
-// Console maps an error to a short message for the terminal UI.
-func Console(err error, providerType string) string {
-	return formatLLM(err, ProviderName(providerType))
-}
-
 // HTTP maps an error to a short message for JSON API responses.
 func HTTP(err error, providerType string) string {
 	return formatLLM(err, ProviderName(providerType))

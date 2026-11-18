@@ -9,15 +9,6 @@ import (
 	"github.com/sentnl/inferoute-node/inferoute-client/internal/config"
 )
 
-// EnsureReady starts the configured engine if auto_start is on and llm_url is down.
-// The process is detached and left running when inferoute-client exits.
-func EnsureReady(ctx context.Context, cfg *config.Config, logDir string) error {
-	if cfg == nil || !cfg.Provider.AutoStart {
-		return nil
-	}
-	return StartAndWait(ctx, cfg, logDir)
-}
-
 // StartAndWait starts the configured engine if llm_url is down and waits until it is serving.
 // A multi-node master returns once its torch store is accepting other ranks.
 func StartAndWait(ctx context.Context, cfg *config.Config, logDir string) error {

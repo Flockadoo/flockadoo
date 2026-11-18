@@ -12,7 +12,7 @@ import (
 
 func TestConsoleLLMUnreachable(t *testing.T) {
 	err := fmt.Errorf("list models: %w", fmt.Errorf("send: %w", llm.ErrUnreachable))
-	got := Console(err, "vllm")
+	got := HTTP(err, "vllm")
 	want := "Could not connect to vLLM — is it running?"
 	if got != want {
 		t.Fatalf("got %q, want %q", got, want)
@@ -21,7 +21,7 @@ func TestConsoleLLMUnreachable(t *testing.T) {
 
 func TestConsoleLLMHTTP(t *testing.T) {
 	err := fmt.Errorf("list models: %w", llm.ErrHTTP)
-	got := Console(err, "vllm")
+	got := HTTP(err, "vllm")
 	want := "vLLM returned an error"
 	if got != want {
 		t.Fatalf("got %q, want %q", got, want)
@@ -29,7 +29,7 @@ func TestConsoleLLMHTTP(t *testing.T) {
 }
 
 func TestConsoleUnknown(t *testing.T) {
-	got := Console(errors.New("something else"), "vllm")
+	got := HTTP(errors.New("something else"), "vllm")
 	want := "Could not reach vLLM"
 	if got != want {
 		t.Fatalf("got %q, want %q", got, want)

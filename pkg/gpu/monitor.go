@@ -208,8 +208,12 @@ func (m *Monitor) getNvidiaGPUInfo() (*GPUInfo, error) {
 		logger.Error("Failed to run nvidia-smi", zap.Error(err))
 		return nil, fmt.Errorf("failed to run nvidia-smi: %w", err)
 	}
+	return parseNvidiaSMI(output)
+}
 
-	// Parse XML output
+// parseNvidiaSMI reads the output of nvidia-smi -x -q: the machine's GPU
+// count and the first GPU's details.
+func parseNvidiaSMI(output []byte) (*GPUInfo, error) {
 	var nvidiaSMI NvidiaSMI
 	if err := xml.Unmarshal(output, &nvidiaSMI); err != nil {
 		logger.Error("Failed to parse nvidia-smi output", zap.Error(err))
@@ -395,20 +399,6 @@ func macProductName(ctx context.Context) (string, error) {
 		return fmt.Sprintf("%s (%d cores)", productName, coreCount), nil
 	}
 	return productName, nil
-}
-
-// IsBusy returns true if the GPU is busy
-func (m *Monitor) IsBusy() (bool, error) {
-	logger.Debug("Checking if GPU is busy")
-
-	info, err := m.GetGPUInfo()
-	if err != nil {
-		logger.Error("Failed to check if GPU is busy", zap.Error(err))
-		return false, err
-	}
-
-	logger.Debug("GPU busy status", zap.Bool("is_busy", info.IsBusy), zap.Float64("utilization", info.Utilization))
-	return info.IsBusy, nil
 }
 
 // parseMemoryValue parses a memory value string (e.g., "1234 MiB")

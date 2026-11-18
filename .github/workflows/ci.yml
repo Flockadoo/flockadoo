@@ -1,26 +1,57 @@
 name: CI
 
+# Every operating system runs the one check command and nothing else, so
+# "it passed locally" and "it passed in CI" mean the same thing (plan item A1,
+# section 19.D).
+
 on:
   push:
-    branches: [main]
+    branches: [main, "refactor/**"]
   pull_request:
-    branches: [main]
+    branches: [main, "refactor/**"]
 
 jobs:
-  test:
+  check:
     strategy:
+      fail-fast: false
       matrix:
-        os: [ubuntu-latest, windows-latest]
+        os: [ubuntu-latest, macos-latest, windows-latest]
     runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          # Lint judges what changed since the merge base with main.
+          fetch-depth: 0
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+          cache: true
+      - name: Install golangci-lint
+        run: go install github.com/golangci/golangci-lint/v2/cmd/golangci-lint@v2.15.0
+      - name: Check
+        run: go run ./internal/tools/check -lint-base origin/main
+
+  no-network:
+    # The same tests with networking removed: no test may need the internet.
+    runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-go@v5
         with:
           go-version-file: go.mod
           cache: true
-      - name: Vet
-        run: go vet ./...
-      - name: Test
-        run: go test -race -count=1 ./...
-      - name: Build
-        run: go build ./...
+      - name: Install golangci-lint
+        run: go install github.com/golangci/golangci-lint/v2/cmd/golangci-lint@v2.15.0
+      - name: Download modules and build the tests
+        run: |
+          go mod download
+          go test -race -count=1 -run '^$' ./...
+      - name: Tests with no network
+        run: |
+          # Ubuntu 24.04 restricts unprivileged user namespaces through AppArmor.
+          sudo sysctl -w kernel.apparmor_restrict_unprivileged_userns=0 || true
+          export GOCACHE="$(go env GOCACHE)" GOMODCACHE="$(go env GOMODCACHE)" GOPATH="$(go env GOPATH)" GOENV="$(go env GOENV)"
+          export GOPROXY=off GOTOOLCHAIN=local PATH="$PATH:$GOPATH/bin"
+          # A new network namespace has only loopback, and it starts down; the
+          # tests' local servers need it up.
+          HOME="$(mktemp -d)" unshare -rn sh -c 'ip link set lo up && exec go test -race -count=1 -shuffle=on ./...'

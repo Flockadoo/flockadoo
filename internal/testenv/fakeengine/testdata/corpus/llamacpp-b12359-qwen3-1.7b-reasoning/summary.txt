@@ -1,0 +1,16 @@
+case                   status    bytes   data  done
+chat-plain                200    17221     66   yes
+chat-long                 200   103815    400   yes
+chat-system               200    17251     66   yes
+chat-escapes              200    25545     98   yes
+chat-max-tokens           200     2643     10   yes
+chat-stop                 200    17215     66   yes
+chat-tools-auto           200    26909    102   yes
+chat-tools-forced         200    33031    128   yes
+chat-tools-two            200    27244    102   yes
+chat-tools-declined       200    17228     66   yes
+chat-json-object          200    33814    130   yes
+chat-json-schema          200    33906    130   yes
+chat-logprobs             200     8935     18   yes
+completions-plain         200     8553     34   yes
+completions-max-tokens    200     1605      6   yes

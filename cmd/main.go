@@ -70,6 +70,10 @@ For more information, visit: https://github.com/inferoute/inferoute-client
 
 func main() {
 	enableVirtualTerminal()
+	// Until the config file is read, log to the default files. Library code
+	// logs nowhere unless main installs a logger (finding TST-1).
+	early := installEarlyLogger()
+	defer func() { _ = early.Close() }()
 
 	// Subcommands that must not start the provider daemon.
 	if len(os.Args) > 1 && os.Args[1] == "compatibility" {
@@ -186,6 +190,9 @@ func main() {
 		fatal("Failed to initialize logger: %v", err)
 	}
 	logger.SetDefaultLogger(log)
+	// The configured logger may write to the same files; release the early
+	// one's handles so the two never rotate the same file.
+	_ = early.Close()
 	defer log.Logger.Sync()
 
 	logger.Info("Starting Inferoute Provider Client",
@@ -216,9 +223,9 @@ func main() {
 			llmURL = u
 		}
 	}
-	llmClient := llm.NewClient(cfg.Provider.ProviderType, llmURL, cfg.LLMTimeout())
+	llmClient := llm.NewClient(cfg.PlatformType(), llmURL, cfg.LLMTimeout())
 
-	catalog := verify.NewCatalog(cfg.Provider.URL, cfg.Provider.ProviderType)
+	catalog := verify.NewCatalog(cfg.Provider.URL, cfg.PlatformType())
 	var modelVerifier *verify.Verifier
 	if !cfg.EnrolledWorker() {
 		if err := catalog.Refresh(ctx); err != nil {
@@ -228,11 +235,16 @@ func main() {
 				zap.Strings("aliases", catalog.Aliases()))
 		}
 		serverClient := verify.NewServerClient(cfg.Provider.URL, cfg.Provider.APIKey)
-		modelVerifier = verify.NewVerifier(catalog, serverClient, cfg.Provider.ProviderType, cfg.Provider.HFHubCache, cfg.Provider.ModelPath)
+		modelVerifier = verify.NewVerifier(catalog, serverClient, cfg.PlatformType(), cfg.Provider.HFHubCache, cfg.Provider.ModelPath)
 	}
 
 	healthReporter := health.NewReporter(cfg, gpuMonitor, llmClient)
 	healthReporter.SetVerifier(modelVerifier)
+	// Model verification is refreshed in the background; requests only read
+	// the verdict (plan item B3).
+	if modelVerifier != nil {
+		go modelVerifier.RunRefresher(ctx, 15*time.Second, func() []string { return []string{cfg.Provider.Model} })
+	}
 
 	srv := server.CreateServer(cfg, gpuMonitor, healthReporter, modelVerifier)
 	if useTray {
@@ -252,6 +264,11 @@ func main() {
 		upgradeLogged := false
 
 		report := func(msg string) bool {
+			// A tunnel stopped for good (rejected key, replaced, upgrade
+			// required) stops the reports too (decision DC8).
+			if !srv.TunnelActive() {
+				return true
+			}
 			err := healthReporter.SendHealthReport(ctx)
 			if setup.NodeRemoved(err) {
 				logger.Error("The owner removed this machine from the cluster. Re-run setup and paste a new join code.", zap.Error(err))
@@ -299,9 +316,9 @@ func main() {
 	quit := make(chan os.Signal, 1)
 	signal.Notify(quit, syscall.SIGINT, syscall.SIGTERM)
 
-	// Start() blocks in ListenAndServe after ~10s of tunnel startup. A 100ms
-	// wait returned long before tunnel/listen failures, so the process sat in
-	// the tray with a dead server while health still advertised the tunnel.
+	// Start() waits up to 15s for the first gateway dial, then blocks in
+	// ListenAndServe. A fatal start-up error (a rejected key, a port in use)
+	// arrives on serverErr and must end the process, not leave it in the tray.
 	var (
 		exitMu  sync.Mutex
 		exitErr error
@@ -318,8 +335,8 @@ func main() {
 	}
 
 	if useTray {
-		// RequestTunnel can fail in tens of ms, before tray.Run has an event
-		// loop. systray.Quit is a no-op until then, so drain first and fatal
+		// Start can fail in tens of ms, before tray.Run has an event loop.
+		// systray.Quit is a no-op until then, so drain first and fatal
 		// without entering the tray. Slow failures wait for Started.
 		select {
 		case err := <-serverErr:
@@ -359,6 +376,22 @@ func main() {
 			}
 		}
 	}
+
+	// Drain: take no new work, tell the node, and let what is running finish
+	// for up to 60 s. A second interrupt stops at once (decision DC9).
+	logger.Info("Draining: no new requests; waiting up to 60s for those in progress (interrupt again to stop now)")
+	drainCtx, drainCancel := context.WithCancel(context.Background())
+	go func() {
+		select {
+		case <-quit:
+			drainCancel()
+		case <-drainCtx.Done():
+		}
+	}()
+	if err := srv.Drain(drainCtx, 0); err != nil {
+		logger.Warn("drain ended before every request finished", zap.Error(err))
+	}
+	drainCancel()
 
 	logger.Info("Shutting down gracefully...")
 	cancel()
@@ -534,6 +567,10 @@ func startCapacity(ctx context.Context, cfg *config.Config, configPath, llmURL s
 		return
 	}
 	sender := capacity.NewSender(cfg.Provider.URL, cfg.Provider.APIKey, srv.SlotSnapshot, llmClient)
+	sender.Active = srv.TunnelActive
+	srv.SetCapacitySender(sender)
+	// A dead engine is reported, not restarted (decision DC5).
+	go srv.WatchEngine(ctx, 0)
 	srv.SetCapacityNotify(sender.Notify)
 	go sender.Loop(ctx)
 
@@ -630,13 +667,15 @@ func startCapacity(ctx context.Context, cfg *config.Config, configPath, llmURL s
 // the engine does not answer, so a half-started engine is not mistaken for a
 // different deployment.
 func deploymentFingerprint(ctx context.Context, cfg *config.Config, llmClient llm.Client, gpuMonitor *gpu.Monitor) string {
-	fp := cfg.Provider.Model + "|" + cfg.Provider.Engine + "|" + engine.InstalledVersion(cfg.Provider.EngineBin)
 	probe, cancel := context.WithTimeout(ctx, 2*time.Second)
 	defer cancel()
 	listed, err := llmClient.ListModels(probe)
 	if err != nil {
 		return ""
 	}
+	// The version the running engine reports (finding ENG-4): an upgrade
+	// changes the fingerprint, and no process is started to find it.
+	fp := cfg.Provider.Model + "|" + cfg.Provider.Engine + "|" + runningEngineVersion(probe, cfg, llmClient)
 	for _, m := range listed.Models {
 		if m.ID == cfg.Provider.Model || cfg.Provider.Model == "" {
 			fp += "|" + m.WeightFingerprint + "|" + fmt.Sprint(m.MaxModelLen)
@@ -656,10 +695,35 @@ func deploymentFingerprint(ctx context.Context, cfg *config.Config, llmClient ll
 	return fp
 }
 
+// runningEngineVersion asks the running engine for its release: /version on
+// vLLM, /props on llama.cpp. An engine client without the lookup gives "".
+func runningEngineVersion(ctx context.Context, cfg *config.Config, client llm.Client) string {
+	v, ok := client.(interface {
+		EngineVersion(ctx context.Context, llamaServer bool) string
+	})
+	if !ok {
+		return ""
+	}
+	return v.EngineVersion(ctx, cfg.Provider.Engine == string(engine.KindLlamaCpp))
+}
+
 // engineArgsDigest changes when the engine's launch arguments change (a tool
 // parser turned on, say). It is a hash because the fingerprint is sent to the
 // platform and the arguments can hold an API key.
 func engineArgsDigest(args []string) string {
 	sum := sha256.Sum256([]byte(strings.Join(args, "\x00")))
 	return hex.EncodeToString(sum[:6])
+}
+
+// installEarlyLogger installs the default file logger, so the subcommands
+// and the start of the daemon log where they always have. It returns the
+// logger so main can close its files once the configured one replaces it.
+// If the files cannot be opened, logging stays off.
+func installEarlyLogger() *logger.Logger {
+	l, err := logger.New(logger.DefaultConfig())
+	if err != nil {
+		return nil
+	}
+	logger.SetDefaultLogger(l)
+	return l
 }

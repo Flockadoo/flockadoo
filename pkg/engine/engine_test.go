@@ -430,17 +430,6 @@ func TestLabel(t *testing.T) {
 	}
 }
 
-func TestEnsureReadySkipsWithoutAutoStart(t *testing.T) {
-	t.Parallel()
-	cfg := &config.Config{}
-	cfg.Provider.Engine = "vllm"
-	cfg.Provider.LLMURL = "http://127.0.0.1:1"
-	cfg.Provider.AutoStart = false
-	if err := EnsureReady(context.Background(), cfg, t.TempDir()); err != nil {
-		t.Fatalf("EnsureReady: %v", err)
-	}
-}
-
 func TestMasterState(t *testing.T) {
 	if got := MasterState(context.Background(), KindVLLM, "http://127.0.0.1:1", nil, 0); got != "not started" {
 		t.Fatalf("not started = %q", got)

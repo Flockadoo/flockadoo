@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
@@ -54,7 +55,7 @@ func (s *ServerClient) VerifyModel(ctx context.Context, req verifyModelRequest) 
 		return verifyModelResponse{}, err
 	}
 	if resp.StatusCode != http.StatusOK {
-		return verifyModelResponse{}, fmt.Errorf("verify model returned %d: %s", resp.StatusCode, string(respBody))
+		return verifyModelResponse{}, &NodeStatusError{Code: resp.StatusCode, Body: string(respBody)}
 	}
 
 	var out verifyModelResponse
@@ -62,4 +63,27 @@ func (s *ServerClient) VerifyModel(ctx context.Context, req verifyModelRequest) 
 		return verifyModelResponse{}, fmt.Errorf("decode verify model response: %w", err)
 	}
 	return out, nil
+}
+
+// NodeStatusError is a verify-model call the node answered with an error
+// status.
+type NodeStatusError struct {
+	Code int
+	Body string
+}
+
+func (e *NodeStatusError) Error() string {
+	return fmt.Sprintf("verify model returned %d: %s", e.Code, e.Body)
+}
+
+// unavailable reports whether err means the node could not be asked: a
+// timeout, a failed connection, a 5xx, or an answer that cannot be read.
+// A 401 or 426 is not an outage: the key or the client version was refused,
+// and no grace applies (plan item B3, detail 4).
+func unavailable(err error) bool {
+	var se *NodeStatusError
+	if errors.As(err, &se) {
+		return se.Code >= 500
+	}
+	return err != nil
 }

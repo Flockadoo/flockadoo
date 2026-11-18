@@ -59,3 +59,26 @@ func TestNvidiaPowerAndTemperature(t *testing.T) {
 		}
 	}
 }
+
+// Plan item Q3: parseNvidiaSMI is the parsing half of the nvidia-smi query,
+// split out so it can be fuzzed. This pins what it returns for a sample.
+// (It existed inline before, so the test could not fail first.)
+func TestParseNvidiaSMIReadsTheFirstGPU(t *testing.T) {
+	doc := `<nvidia_smi_log><driver_version>550.54.15</driver_version><cuda_version>12.4</cuda_version>
+<attached_gpus>2</attached_gpus>
+<gpu id="0"><product_name>NVIDIA RTX A6000</product_name><uuid>GPU-1</uuid>
+<fb_memory_usage><total>49140 MiB</total><used>1024 MiB</used><free>48116 MiB</free></fb_memory_usage>
+<utilization><gpu_util>37 %</gpu_util></utilization></gpu>
+<gpu id="1"><product_name>NVIDIA RTX A6000</product_name><uuid>GPU-2</uuid></gpu></nvidia_smi_log>`
+	got, err := parseNvidiaSMI([]byte(doc))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got.GPUCount != 2 || got.ProductName != "NVIDIA RTX A6000" || got.UUID != "GPU-1" || got.DriverVersion != "550.54.15" ||
+		got.MemoryTotal != 49140 || got.MemoryUsed != 1024 || got.MemoryFree != 48116 || got.Utilization != 37 || !got.IsBusy {
+		t.Fatalf("parsed %+v", got)
+	}
+	if _, err := parseNvidiaSMI([]byte(`<nvidia_smi_log><attached_gpus>0</attached_gpus></nvidia_smi_log>`)); err == nil {
+		t.Fatal("no GPUs was accepted")
+	}
+}

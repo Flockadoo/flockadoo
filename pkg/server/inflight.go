@@ -1,25 +1,24 @@
 package server
 
-import (
-	"context"
-	"time"
-)
+import "time"
 
-// slotAcquirePollInterval is how often a queued same-session request re-tries
-// the inference slot. The queue has depth 1 in practice, so polling is fine.
-const slotAcquirePollInterval = 100 * time.Millisecond
-
-// isBusy is true when every inference slot is taken.
-// nvidia-smi utilization is not an admission check: it is a trailing window
-// and stays high for about a second after this process's own forward.
-func (s *Server) isBusy() (bool, error) {
-	return s.slotsBusy(), nil
+// slotsBusy reports whether all inference slots are taken. nvidia-smi
+// utilization is not an admission check: it is a trailing window and stays
+// high for about a second after this process's own forward.
+func (s *Server) slotsBusy() bool {
+	snap := s.admit().Snapshot()
+	return snap.Inflight >= snap.Limit
 }
 
-// slotsBusy reports whether all inference slots are taken.
-func (s *Server) slotsBusy() bool {
-	max := s.maxInflight.Load()
-	return max > 0 && s.inflight.Load() >= max
+// defaultSessionQueueLimit is how many returning turns may wait for a slot
+// when the config does not say.
+const defaultSessionQueueLimit = 32
+
+func (s *Server) queueLimit() int {
+	if s.sessionQueueLimit > 0 {
+		return s.sessionQueueLimit
+	}
+	return defaultSessionQueueLimit
 }
 
 // sessionMemory is how long a conversation still counts as "served here".
@@ -53,69 +52,16 @@ func (s *Server) setActiveSession(key string) {
 	}
 }
 
-// tryAcquireInference reserves an inference slot. maxInflight <= 0 means unlimited.
-func (s *Server) tryAcquireInference() bool {
-	for {
-		n := s.inflight.Load()
-		max := s.maxInflight.Load()
-		if max > 0 && n >= max {
-			return false
-		}
-		if s.inflight.CompareAndSwap(n, n+1) {
-			s.notifyCapacityChange()
-			return true
-		}
-	}
-}
-
-// acquireInferenceWait reserves a slot, waiting up to maxWait for one to free.
-// Used for same-session turns, which are serial by nature: the previous turn
-// is usually still decoding when the next arrives.
-func (s *Server) acquireInferenceWait(ctx context.Context, maxWait time.Duration) bool {
-	if s.tryAcquireInference() {
-		return true
-	}
-
-	deadline := time.Now().Add(maxWait)
-	ticker := time.NewTicker(slotAcquirePollInterval)
-	defer ticker.Stop()
-
-	for {
-		select {
-		case <-ctx.Done():
-			return false
-		case <-ticker.C:
-			if s.tryAcquireInference() {
-				return true
-			}
-			if time.Now().After(deadline) {
-				return false
-			}
-		}
-	}
-}
-
-func (s *Server) releaseInference() {
-	s.inflight.Add(-1)
-	s.notifyCapacityChange()
-}
-
 // ClaimIdleSlot reserves an inference slot for the client's own work, such as
 // a capability probe. It succeeds only when nothing is in flight and no
 // benchmark has the engine. The slot counts as in flight: the platform sees
 // it, and a benchmark that starts while it is held waits for it.
 func (s *Server) ClaimIdleSlot() (release func(), ok bool) {
-	if s.benchmarking.Load() || !s.inflight.CompareAndSwap(0, 1) {
+	slot, ok := s.admit().ClaimIdle()
+	if !ok {
 		return nil, false
 	}
-	// The benchmark closes the gate, then waits for in-flight work. If it
-	// closed the gate after the check above, give the slot back.
-	if s.benchmarking.Load() {
-		s.inflight.Add(-1)
-		return nil, false
-	}
-	s.notifyCapacityChange()
-	return s.releaseInference, true
+	return slot.Release, true
 }
 
 // notifyCapacityChange asks the capacity sender to push. Non-blocking;

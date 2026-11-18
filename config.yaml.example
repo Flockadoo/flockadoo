@@ -3,8 +3,12 @@ server:
   port: 8080
   host: "127.0.0.1"
   # Leave this out and the client measures how many requests this GPU can
-  # hold. Set a number only to override that. 0 means unlimited.
+  # hold. Set a number (1 or more) only to override that; there is no
+  # unlimited.
   # max_concurrent_inference: 4
+  # How many returning turns of conversations may wait for a free slot.
+  # Beyond this a turn is refused at once and Inferoute sends it elsewhere.
+  # session_queue_limit: 32
 
 # Provider configuration
 provider:
@@ -12,9 +16,8 @@ provider:
   api_key: "your_api_key_here"
   # URL of the central Inferoute system.
   url: "https://core.inferoute.com"
-  provider_type: "vllm"
-  # Local engine: vllm, vllm-metal, or llama_cpp.
-  # Empty defaults from provider_type. Re-run `inferoute-client setup` to change this.
+  # Local engine: vllm, vllm-metal, or llama_cpp (empty means vllm).
+  # Re-run `inferoute-client setup` to change this.
   # engine: "vllm"
   # engine_bin: ""  # absolute path when the binary is not on PATH
   llm_url: "http://127.0.0.1:8000"

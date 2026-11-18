@@ -1,9 +1,10 @@
 package server
 
 import (
+	"github.com/sentnl/inferoute-node/inferoute-client/internal/admission"
+	"github.com/sentnl/inferoute-node/inferoute-client/pkg/capacity"
 	"net/http"
 	"sync"
-	"sync/atomic"
 	"time"
 
 	"context"
@@ -18,24 +19,44 @@ import (
 
 // Server represents the HTTP server
 type Server struct {
-	config           *config.Config
-	gpuMonitor       *gpu.Monitor
-	healthReporter   *health.Reporter
-	llmClient        llm.Client
-	verifier         *verify.Verifier
-	connector        *connect.Client
-	connectCancel    context.CancelFunc
-	consoleUI        bool
-	consoleMu        sync.Mutex
-	maxInflight      atomic.Int32
-	inflight         atomic.Int32
-	benchmarking     atomic.Bool
-	onCapacity       func()
+	config         *config.Config
+	gpuMonitor     *gpu.Monitor
+	healthReporter *health.Reporter
+	llmClient      llm.Client
+	// verifier gives the verdict for a model; nil serves every model.
+	verifier verdicts
+	// lifeMu guards the lifecycle fields: Start and Stop may run in
+	// different goroutines (finding NET-6).
+	lifeMu        sync.Mutex
+	stopped       bool
+	connector     *connect.Client
+	connectCancel context.CancelFunc
+	consoleUI     bool
+	consoleMu     sync.Mutex
+	// gate admits requests to the engine; the count lives inside it (plan
+	// item B1). admit creates it on first use.
+	gateOnce   sync.Once
+	gate       *admission.Gate
+	onCapacity func()
+	// capacity is the capacity sender, for the drain's final report.
+	capacity *capacity.Sender
+	// closeMu guards why the gate is closed: a benchmark, a dead engine,
+	// or a drain (invariant I7). engineProbe asks WatchEngine to look now.
+	closeMu          sync.Mutex
+	benchmarking     bool
+	engineDown       bool
+	draining         bool
+	engineProbe      chan struct{}
 	engineNote       string
 	engineNoteMu     sync.Mutex
 	capabilitiesNote string
-	capabilityItems  []CapabilityStatus
 	sessionQueueWait time.Duration
+	// sessionQueueLimit is how many returning turns may wait for a slot at
+	// once; beyond it a turn is refused at once. Zero means the default.
+	sessionQueueLimit int
+	// engineIdleLimit ends an engine answer that sends nothing for this
+	// long; zero means defaultEngineIdleLimit.
+	engineIdleLimit time.Duration
 	// sessions remembers recent X-Session-Key values so a returning
 	// conversation can wait for a slot. There is no per-session lock:
 	// parallel agent calls often share one key, and serialising them
@@ -58,17 +79,13 @@ type BusyResponse struct {
 	Busy bool `json:"busy"`
 }
 
-// HMACValidationRequest is the request structure for HMAC validation
-type HMACValidationRequest struct {
-	HMAC string `json:"hmac"`
-}
-
-// HMACValidationResponse is the response structure for HMAC validation
-type HMACValidationResponse struct {
-	Valid bool `json:"valid"`
-}
-
 // ErrorResponse is the standard error response structure
 type ErrorResponse struct {
 	Error string `json:"error"`
+}
+
+// verdicts is what the relay needs from model verification: the verdict for
+// a model now, read from state (plan section 15.3).
+type verdicts interface {
+	Verdict(model string) (verify.Verdict, string)
 }

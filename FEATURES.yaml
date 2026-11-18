@@ -1,0 +1,312 @@
+# Feature map for inferoute-client.
+# Every feature lists its code and its tests, and every path under `code` and
+# `tests` must exist (a glob must match a file): the check command's features
+# step and TestTheFeatureMapIsCurrent enforce it. Invariant ids are from
+# section 13 of the plan (inferoute-plans/client_reliability_audit_3d9b52e7.plan.md).
+# A feature gains a `target` package as section 14's packages appear.
+
+features:
+  - name: Gateway tunnel
+    entry: connect.Client.Run dials wss://<platform>/api/connect/ws and serves the gateway's yamux streams
+    code: [pkg/connect/client.go, pkg/server/server.go]
+    tests: [pkg/connect/client_test.go, pkg/connect/backoff_test.go, pkg/connect/state_test.go, pkg/server/tunnel_state_test.go, pkg/server/invariants_test.go]
+    invariants: [I7]
+
+  - name: Request relay
+    entry: Server.handleInference, for each request the gateway opens on the tunnel
+    code: [pkg/server/handler.go, pkg/server/models.go, internal/relay/envelope.go, internal/relay/outcome.go, pkg/llm/vllm.go, pkg/llm/client.go]
+    tests: [pkg/server/handler_test.go, pkg/server/oneway_test.go, pkg/server/invariants_test.go, pkg/server/relay_test.go, internal/relay/envelope_test.go]
+    invariants: [I3, I4, I5, I6]
+    notes: inference arrives only on the tunnel, and serving it makes no call to the node (decisions DC1, DC3)
+
+  - name: Admission
+    entry: admission.Gate (TryAcquire, Acquire for returning turns, ClaimIdle for probes, SetClosed for the benchmark); the relay holds a Slot per request
+    code: [internal/admission/admission.go, pkg/server/inflight.go, pkg/server/handler.go]
+    tests: [internal/admission/admission_test.go, pkg/server/admission_test.go, pkg/server/handler_test.go, pkg/server/probe_benchmark_test.go]
+    invariants: [I1, I2, I11]
+
+  - name: Model verification
+    entry: Verifier.Verdict on the request path (reads state, no node call); Verifier.RunRefresher and ApplyToModels ask the node
+    code: [pkg/verify/verifier.go, pkg/verify/measure.go, pkg/verify/fingerprint.go, pkg/verify/server.go, pkg/verify/context_gate.go, pkg/verify/hfresolve.go, pkg/verify/llamacache.go]
+    tests: [pkg/verify/verifier_test.go, pkg/verify/state_test.go, pkg/verify/measure_test.go, pkg/verify/filehash_test.go, pkg/verify/context_gate_test.go, pkg/verify/hfresolve_test.go, pkg/verify/llamacache_test.go, pkg/server/verdict_test.go]
+    invariants: [I13, I14]
+    notes: >-
+      Verification identifies a model, it does not prove one (finding SEC-2). Safetensors are
+      hashed by header only, which fixes the architecture and tensor layout, not the weights,
+      and a modified client can report anything. The node must never treat it as proof.
+
+  - name: Approved catalog
+    entry: Catalog.Refresh before each health report; compat.FetchCatalog in the wizard
+    code: [pkg/verify/catalog.go, pkg/verify/engines.go, pkg/verify/types.go, pkg/compat/catalog.go]
+    tests: [pkg/health/advertise_test.go, pkg/verify/engines_test.go, pkg/verify/contract_shape_test.go]
+
+  - name: Health report
+    entry: Reporter.SendHealthReport, every 3 minutes and after each connect; node health for a cluster worker
+    code: [pkg/health/reporter.go]
+    tests: [pkg/health/reporter_test.go, pkg/health/advertise_test.go, pkg/health/provider_type_test.go, pkg/contract/shape_test.go]
+
+  - name: Capacity report
+    entry: capacity.Sender.Loop, on every slot change and every 20 seconds
+    code: [pkg/capacity/sender.go, pkg/server/server.go]
+    tests: [pkg/capacity/sender_test.go, pkg/server/drain_test.go]
+    invariants: [I7]
+
+  - name: Capability probes
+    entry: capprobe.Watcher.Loop
+    code: [pkg/capprobe/*.go]
+    tests: [pkg/capprobe/*_test.go]
+    invariants: [I8, I9]
+
+  - name: Concurrency benchmark
+    entry: benchmark.Watcher.Loop; the benchmark subcommand drops a marker it polls for
+    code: [pkg/benchmark/*.go]
+    tests: [pkg/benchmark/*_test.go, pkg/server/probe_benchmark_test.go]
+    invariants: [I9, I11]
+
+  - name: Deployment fingerprint
+    entry: deploymentFingerprint keys benchmark and capability results
+    code: [cmd/main.go]
+    tests: [cmd/main_test.go, cmd/fingerprint_test.go]
+    invariants: [I9]
+
+  - name: Engine install and start
+    entry: engine.Install, engine.StartAndWait, setup.EnsureOnStart
+    code: [pkg/engine/install.go, pkg/engine/install_llama.go, pkg/engine/start.go, pkg/engine/detect.go, pkg/engine/health.go, pkg/engine/ensure.go, pkg/engine/kind.go, pkg/setup/ensure.go]
+    tests: [pkg/engine/*_test.go, pkg/setup/ensure_test.go]
+    invariants: [I10]
+
+  - name: Setup wizard
+    entry: setup.Execute (inferoute-client setup)
+    code: [pkg/setup/command.go, pkg/setup/wizard.go, pkg/setup/prompt.go, pkg/setup/spinner.go]
+    tests: [pkg/setup/wizard_test.go, pkg/setup/serve_opts_test.go, pkg/setup/spinner_test.go]
+
+  - name: Compatibility check
+    entry: compat.Run (inferoute-client compatibility)
+    code: [pkg/compat/command.go, pkg/compat/score.go, pkg/compat/hardware.go, pkg/compat/output.go]
+    tests: [pkg/compat/*_test.go]
+
+  - name: GPU information
+    entry: gpu.Monitor.GetGPUInfo for the health report
+    code: [pkg/gpu/*.go]
+    tests: [pkg/gpu/*_test.go]
+    invariants: [I10]
+
+  - name: Cluster (vLLM, Linux)
+    entry: inferscale.BringUp and setup.prepareCluster; the node-built engine command
+    code: [pkg/inferscale/*.go, pkg/inferscale/release.json, internal/download/*.go, .github/workflows/inferscale-pin.yml, pkg/setup/cluster.go, pkg/engine/command.go, pkg/engine/alive.go]
+    tests: [pkg/inferscale/*_test.go, internal/download/*_test.go, pkg/setup/cluster_test.go]
+    invariants: [I10, I12]
+
+  - name: Self-update
+    entry: update.Apply (inferoute-client update); the 426 handling on every node call
+    code: [pkg/update/update.go, pkg/nodeapi/client.go]
+    tests: [pkg/update/update_test.go, pkg/nodeapi/client_test.go]
+
+  - name: Dashboard, console and tray
+    entry: Server.snapshot and redrawConsole; /api/status, /api/health, /api/busy; the Windows tray
+    code: [pkg/server/status.go, pkg/server/server.go, pkg/server/dashboard.html, pkg/tray/tray.go, cmd/dashboard.go, pkg/usermsg/*.go]
+    tests: [pkg/server/status_test.go, cmd/dashboard_test.go, pkg/usermsg/*_test.go]
+    invariants: [I12]
+
+  - name: Configuration
+    entry: config.Load and Save; ~/.config/inferoute/config.yaml
+    code: [internal/config/config.go]
+    tests: [internal/config/config_test.go, pkg/setup/defaults_test.go]
+
+  - name: Check command
+    entry: go run ./internal/tools/check, which CI runs on Linux, macOS and Windows
+    code: [internal/tools/check/*.go, .golangci.yml, .github/workflows/ci.yml]
+    tests: [internal/tools/check/*_test.go]
+
+  - name: Nightly fuzzing
+    entry: .github/workflows/nightly.yml runs every fuzz target for five minutes; their seed corpora run with every go test
+    code: [.github/workflows/nightly.yml]
+    tests: [pkg/*/fuzz_test.go, pkg/verify/filehash_test.go, internal/tools/check/fuzz_test.go]
+
+  - name: Test harness
+    entry: internal/testenv/fakeengine, fakegateway and fakeplatform, started in one line by a test (plan section 17)
+    code: [internal/testenv/fakeengine/fakeengine.go, internal/testenv/fakeengine/corpus.go, internal/testenv/fakegateway/fakegateway.go, internal/testenv/fakeplatform/fakeplatform.go, scripts/copy_corpus.sh]
+    tests: [internal/testenv/*/*_test.go, pkg/server/harness_test.go]
+
+# The invariants checklist (plan section 17.5, item A3): one entry for each
+# invariant of section 13, each lifecycle row of 6.4 and each property of 7.3.
+# An entry names the tests that hold it, or is pending on the backlog item
+# whose pull request writes its test first and then fixes it; never both. No
+# test that is known to fail is merged. Moving an entry back to pending needs
+# a maintainer's review.
+invariants:
+  - id: I1
+    statement: the engine never runs more requests at once than the limit, under any load and after the limit is lowered
+    tests: [TestTheEngineNeverRunsMoreThanTheLimit]
+  - id: I1-double-release
+    statement: the count survives a double release and a panic between claim and release
+    tests: [TestASlotIsReleasedOnce, TestASecondReleaseOfASlotChangesNothing, TestTheLimitHoldsUnderRandomUse, TestAPanicInTheEngineCallReturnsTheSlot]
+    notes: finding ADM-1, fixed by item B1
+  - id: I1-always-a-limit
+    statement: there is always a limit; 0 or below stops the client at startup
+    tests: [TestAConcurrencyLimitBelowOneIsRefused, TestNewLimitRefusesBelowOne]
+    notes: finding ADM-2, decision DC4, fixed by item B1
+  - id: I1-returning-turns
+    statement: returning turns of a conversation wait in arrival order, up to a queue limit beyond which they are refused at once
+    tests: [TestReturningTurnsAreAdmittedInArrivalOrder, TestReturningTurnsBeyondTheQueueLimitAreRefusedAtOnce, TestWaitingTurnsAreAdmittedInArrivalOrder, TestATurnBeyondTheQueueIsRefusedAtOnce]
+    notes: finding ADM-3, fixed by item B1
+  - id: I2
+    statement: every admitted request returns its slot, whatever happens to it
+    tests: [TestEverySlotComesBack, TestTheEngineNeverRunsMoreThanTheLimit]
+  - id: I3
+    statement: a refused request never reaches the engine
+    tests: [TestRefusedRequestsNeverReachTheEngine]
+  - id: I3-one-way-in
+    statement: inference arrives only on the tunnel; the local listener serves none, and serving a request makes no call to the node, so it is served while the node is unreachable
+    tests: [TestTheLocalListenerServesNoInference, TestAnInferenceRequestMakesNoCallToTheNode, TestARequestIsServedWhileTheNodeIsUnreachable, TestTheDashboardAndItsAPIsStillAnswer]
+    notes: findings NET-9 and SEC-4, decisions DC1 and DC3, item B2's first pull request
+  - id: I3-verification
+    statement: a request refused by model verification, or while verification is unavailable, never reaches the engine
+    tests: [TestAVerificationVerdictIsAppliedBeforeTheEngine]
+    notes: item B3
+  - id: I4
+    statement: a cancelled request releases its engine call and its slot
+    tests: [TestACancelledStreamReleasesTheEngineAndTheSlot, TestARequestInFlightWhenTheSessionDropsIsCancelled]
+  - id: I4-stalled-engine
+    statement: an engine that stalls with the stream open frees its slot within a bound
+    tests: [TestAStalledEngineFreesItsSlotWithinTheIdleLimit]
+    notes: finding STR-1, fixed by item B2
+  - id: I5
+    statement: every request has exactly one terminal outcome, and it is recorded
+    tests: [TestEveryRequestRecordsOneOutcome]
+    notes: finding STR-3, fixed by item B2
+  - id: I6
+    statement: a response that did not complete is never presented as complete at the transport level
+    tests: [TestAnEngineFailureMidStreamIsNotPresentedAsComplete]
+    notes: finding STR-3, fixed by item B2
+  - id: I7-benchmark
+    statement: while a benchmark has the engine, the capacity report says not accepting
+    tests: [TestABenchmarkClosesTheGateInTheNextCapacityReport]
+  - id: I7-engine-and-drain
+    statement: accepting also needs a connected tunnel, a ready engine and no drain in progress
+    tests: [TestADeadEngineIsReportedNotAcceptingUntilItIsBack, TestAStreamInFlightAtStopFinishes, TestOnlyAConnectedTunnelSaysAccepting]
+    notes: findings NET-7 and NET-3, fixed by item C2
+  - id: I8
+    statement: a capability not verified on this deployment is never reported as supported
+    tests: [TestReportRegistersThenRecords, TestBusyEngineIsRetriedNotMarkedUnsupported]
+  - id: I8-table
+    statement: the capability report is built from one table that equals the node's golden, so no capability can take another's place
+    pending: E2
+    notes: finding CAP-1
+  - id: I9
+    statement: a change of model, launch arguments or parsers invalidates benchmark and capability results
+    tests: [TestDeploymentFingerprintTracksEngineArgs, TestDeploymentFingerprintTracksTheParsers, TestChangedDeploymentIsProbedAgain]
+  - id: I9-engine-version
+    statement: the fingerprint follows the running engine's version, and computing it starts no process
+    tests: [TestTheFingerprintFollowsTheRunningEnginesVersion, TestTheFingerprintStartsNoProcess]
+    notes: finding ENG-4, fixed by item Q4
+  - id: I9-never-incomplete
+    statement: a failed query makes the fingerprint incomplete, never silently a different deployment
+    pending: E2
+    notes: finding CAP-4
+  - id: I10
+    statement: an unsupported platform is refused with an explicit error when the tailnet binaries are chosen
+    tests: [TestAssetNames]
+  - id: I10-hardware
+    statement: an unsupported platform and a missing or unreadable GPU are reported as such, not as Unknown or false
+    pending: H1
+    notes: findings PLAT-2 and PLAT-4
+  - id: I11
+    statement: the benchmark never runs while customer requests run, and no customer request is admitted into it
+    tests: [TestBenchmarkingRejectsAfterAcquire, TestProbesAndBenchmarkTakeTurns]
+  - id: I12
+    statement: the API key appears only in the Authorization header, never in logs, the status page or a body
+    tests: [TestTheKeyAppearsOnlyInTheAuthorizationHeader]
+  - id: I12-cluster-secrets
+    statement: the node token and the tailnet key appear nowhere but where they are used either
+    pending: K1
+    notes: the cluster code cannot run in the harness until K1 isolates it
+  - id: I14
+    statement: inference is served only on a verified verdict for this deployment, fresh or inside the 30-minute outage grace; a failure to reach the node is never recorded as a failed verification
+    tests: [TestAShortOutageDoesNotInterruptAVerifiedModel, TestAContinuingOutageEndsInUnavailable, TestAnExplicitRejectionBlocksAtOnce, TestANewOrChangedModelInheritsNoVerdict, TestRecoveryRestoresTheVerdict, TestAnOutageIsNeverRecordedAsFailed, TestNeverVerifiedDuringAnOutageIsUnavailable, TestARefreshInProgressDoesNotDelayARequest, TestRequestsMakeNoVerifyCalls]
+    notes: finding ADM-5, decision DC2, fixed by item B3
+
+  - id: 6.4-reconnect-after-drop
+    statement: after the network drops the session, the client dials again and gets a new session
+    tests: [TestDropCutsTheConnectionAndTheClientDialsAgain]
+  - id: 6.4-backoff-growth
+    statement: the reconnect delay grows after each failed dial, up to its cap
+    tests: [TestShortSessionsLeaveTheDelayGrowing]
+  - id: 6.4-backoff-reset-after-stable
+    statement: the delay returns to its base after a session stays connected for the stability period
+    tests: [TestAfterAStableSessionTheDelayIsTheBase, TestAStableSessionAfterShortOnesResetsTheDelay, TestTheDefaultStabilityPeriodOutlastsTheLongestDelay]
+    notes: finding NET-1, fixed by item Q1
+  - id: 6.4-no-reset-after-short
+    statement: sessions shorter than the stability period leave the delay growing
+    tests: [TestShortSessionsLeaveTheDelayGrowing]
+  - id: 6.4-rejected-at-start
+    statement: a key rejected on the first dial leaves the client up, showing why
+    tests: [TestAKeyRejectedAtStartLeavesTheClientUp]
+    notes: decision DC8, fixed by item C1
+  - id: 6.4-rejected-later
+    statement: a key rejected on a later dial leaves the client up, showing why, and stops reporting
+    tests: [TestAKeyRejectedOnALaterDialIsTerminal, TestNothingIsSentWhileTheTunnelIsTerminal]
+    notes: finding NET-2, fixed by item C1; the health loop's stop is wired in cmd and not under test
+  - id: 6.4-draining-gateway
+    statement: a 503 from a draining gateway is retried, and the next dial is accepted
+    tests: [TestRejectNextAnswersOnlyTheNextDial]
+  - id: 6.4-upgrade-required
+    statement: a 426 on the dial is reported as an upgrade the operator must make
+    tests: [TestAnUpgradeRequiredIsTerminal]
+  - id: 6.4-half-open
+    statement: a peer that stops reading without closing is detected by the keepalive within a bound
+    tests: [TestAHalfOpenGatewayIsFound]
+    notes: open question U2; the bound is KeepAlive plus KeepAliveTimeout (25 s by default)
+  - id: 6.4-replaced
+    statement: a session replaced by another client with the same key is recognised, and the client says so
+    tests: [TestAReplacedSessionIsTerminal, TestShortSessionsInARowNameTheLikelyCause]
+    notes: finding NET-4, decision DC8, item C1; the gateway's close code 4001 is a node change still to make (plan section 22)
+  - id: 6.4-in-flight-on-drop
+    statement: a request in flight when the session drops has its engine call cancelled and its slot returned
+    tests: [TestARequestInFlightWhenTheSessionDropsIsCancelled]
+    notes: settles open question U13 on Linux
+  - id: 6.4-drain-on-stop
+    statement: on stop the client stops taking work, reports not accepting, and lets requests in progress finish for up to 60 seconds
+    tests: [TestAStreamInFlightAtStopFinishes, TestTheDrainEndsAtItsLimit, TestASecondStopEndsTheDrainAtOnce]
+    notes: finding NET-3, decision DC9, fixed by item C2; main's signal wiring is not under test
+  - id: 6.4-accepting-only-when-connected
+    statement: only a connected tunnel may report accepting
+    tests: [TestOnlyAConnectedTunnelSaysAccepting]
+  - id: 6.4-tunnel-server-limits
+    statement: the HTTP server on the tunnel has header and body limits
+    tests: [TestAStalledRequestHeaderIsClosed, TestABodyOverTheLimitIsRefusedBeforeTheEngine]
+    notes: finding NET-5, items C1 and B2
+
+  - id: 7.3-limit
+    statement: concurrency never exceeds the limit
+    tests: [TestTheEngineNeverRunsMoreThanTheLimit]
+  - id: 7.3-rejected-not-executed
+    statement: rejected requests do not execute (busy, wrong model, gate closed)
+    tests: [TestRefusedRequestsNeverReachTheEngine]
+  - id: 7.3-rejected-not-executed-body-too-large
+    statement: a body over the limit is refused before the engine
+    tests: [TestABodyOverTheLimitIsRefusedBeforeTheEngine]
+  - id: 7.3-rejected-not-executed-draining
+    statement: a request that arrives during a drain is refused before the engine
+    tests: [TestAStreamInFlightAtStopFinishes]
+  - id: 7.3-released-once
+    statement: every slot is released exactly once
+    tests: [TestEverySlotComesBack]
+  - id: 7.3-released-once-double-release
+    statement: a second release of the same slot changes nothing
+    tests: [TestASlotIsReleasedOnce, TestASecondReleaseOfASlotChangesNothing]
+  - id: 7.3-cancellation
+    statement: cancellation releases the engine call and the slot
+    tests: [TestACancelledStreamReleasesTheEngineAndTheSlot]
+  - id: 7.3-failures-no-leak
+    statement: engine failures (errors, bad bodies, a dropped stream, a hang, a crash) leak no slot
+    tests: [TestEverySlotComesBack]
+  - id: 7.3-failures-no-leak-panic
+    statement: a panic between claim and release leaks no slot
+    tests: [TestAPanicInTheEngineCallReturnsTheSlot, TestTheLimitHoldsUnderRandomUse]
+  - id: 7.3-race
+    statement: concurrent requests cannot corrupt state; every test runs with the race detector
+    tests: [TestTheEngineNeverRunsMoreThanTheLimit]
+  - id: 7.3-race-nightly
+    statement: the harness runs repeatedly under the race detector every night
+    pending: L1

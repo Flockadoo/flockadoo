@@ -1,6 +1,9 @@
 package llm
 
-import "testing"
+import (
+	"fmt"
+	"testing"
+)
 
 func TestParsePrometheusMetricsVLLM(t *testing.T) {
 	text := `
@@ -38,4 +41,50 @@ func TestParsePrometheusMetricsLlama(t *testing.T) {
 	if got.Waiting == nil || *got.Waiting != 1 || got.KVCacheUsage == nil || *got.KVCacheUsage != 0.25 {
 		t.Fatalf("%+v", got)
 	}
+}
+
+// Found by FuzzParsePrometheusMetrics (plan item Q3): a gauge the engine
+// reports out of range, or as NaN or Inf, is left out, as if it were
+// missing. Kept, a KV cache usage above 1 reached the node, and a NaN made
+// the capacity report fail to encode, so it was dropped.
+func TestAGaugeOutOfRangeIsLeftOut(t *testing.T) {
+	cases := []string{
+		"llamacpp:kv_cache_usage_ratio 101",
+		"vllm:kv_cache_usage_perc NaN",
+		"vllm:kv_cache_usage_perc -0.5",
+		"vllm:gpu_cache_usage_perc +Inf",
+		"vllm:num_requests_waiting NaN",
+		"vllm:num_requests_waiting -3",
+		"llamacpp:requests_deferred 1e20",
+		"vllm:num_preemptions_total -1",
+		"vllm:num_preemptions_total Inf",
+	}
+	for _, text := range cases {
+		got := ParsePrometheusMetrics(text)
+		if got.KVCacheUsage != nil || got.Waiting != nil || got.Preemptions != nil {
+			t.Errorf("%q gave %s", text, describe(got))
+		}
+	}
+}
+
+// A good sample after a bad one of the same name still counts.
+func TestAGoodSampleAfterABadOneCounts(t *testing.T) {
+	got := ParsePrometheusMetrics("vllm:num_requests_waiting NaN\nvllm:num_requests_waiting 4\n")
+	if got.Waiting == nil || *got.Waiting != 4 {
+		t.Fatalf("waiting = %s", describe(got))
+	}
+}
+
+func describe(c EngineCapacity) string {
+	s := ""
+	if c.Waiting != nil {
+		s += fmt.Sprintf("waiting=%d ", *c.Waiting)
+	}
+	if c.KVCacheUsage != nil {
+		s += fmt.Sprintf("kv=%v ", *c.KVCacheUsage)
+	}
+	if c.Preemptions != nil {
+		s += fmt.Sprintf("preemptions=%d ", *c.Preemptions)
+	}
+	return "{" + s + "}"
 }

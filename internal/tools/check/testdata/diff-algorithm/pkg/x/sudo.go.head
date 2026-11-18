@@ -1,0 +1,44 @@
+package x
+
+import (
+	"context"
+	"fmt"
+	"io"
+	"os"
+	"os/exec"
+)
+
+func copyFile(src, dest string, mode os.FileMode) error {
+	in, err := os.Open(src)
+	if err != nil {
+		return err
+	}
+	defer func() { _ = in.Close() }()
+	tmp := dest + ".tmp"
+	out, err := os.OpenFile(tmp, os.O_CREATE|os.O_TRUNC|os.O_WRONLY, mode)
+	if err != nil {
+		return err
+	}
+	if _, err := io.Copy(out, in); err != nil {
+		_ = out.Close()
+		_ = os.Remove(tmp)
+		return err
+	}
+	if err := out.Close(); err != nil {
+		_ = os.Remove(tmp)
+		return err
+	}
+	fmt.Println("copied", dest)
+	return os.Rename(tmp, dest)
+}
+
+func runSudo(ctx context.Context, args ...string) error {
+	bin, argv := rootArgv(euid(), args[0], args[1:]...)
+	cmd := exec.CommandContext(ctx, bin, argv...)
+	cmd.Stdout = os.Stdout
+	cmd.Stderr = os.Stderr
+	if err := cmd.Run(); err != nil {
+		return fmt.Errorf("sudo %s: %w", args[0], err)
+	}
+	return nil
+}

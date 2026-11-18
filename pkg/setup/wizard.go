@@ -116,7 +116,7 @@ func Execute(opts Options, io Streams) error {
 		return fmt.Errorf("this cluster has no vLLM version yet. Run setup on the master first")
 	}
 	if detected.Found && pinned != "" && !(external && plan.Role != "worker") {
-		have := engine.InstalledVersion(detected.Bin)
+		have := engine.InstalledVersion(context.Background(), detected.Bin) //nolint:forbidigo // the wizard has no caller context yet (CLU-4, item K1); InstalledVersion bounds the call itself
 		if have != "" && have != pinned {
 			reinstall := opts.Yes || plan.Role == "worker"
 			if !reinstall {
@@ -198,7 +198,6 @@ func Execute(opts Options, io Streams) error {
 	}
 
 	cfg.Provider.Engine = string(kind)
-	cfg.Provider.ProviderType = engine.PlatformType(kind)
 	cfg.Provider.LLMURL = engine.DefaultURL(kind)
 	if external {
 		cfg.Provider.LLMURL = strings.TrimSpace(opts.LLMURL)
@@ -247,18 +246,7 @@ func Execute(opts Options, io Streams) error {
 
 func loadOrFresh(path string) (*config.Config, error) {
 	if _, err := os.Stat(path); os.IsNotExist(err) {
-		cfg := &config.Config{}
-		cfg.Server.Port = 8080
-		cfg.Server.Host = "127.0.0.1"
-		cfg.Server.SessionQueueWaitSeconds = 90
-		cfg.Server.RequestTimeoutSeconds = 240
-		cfg.Provider.URL = config.DefaultPlatformURL
-		cfg.Provider.LLMTimeoutSeconds = 120
-		cfg.Logging.Level = "info"
-		cfg.Logging.MaxSize = 100
-		cfg.Logging.MaxBackups = 5
-		cfg.Logging.MaxAge = 30
-		return cfg, nil
+		return config.Defaults(), nil
 	}
 	return config.Load(path)
 }

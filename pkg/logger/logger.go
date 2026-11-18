@@ -135,36 +135,25 @@ func (l *Logger) Close() error {
 	return l.close()
 }
 
-// GetDefaultLogger returns the default logger, creating it on first use.
+// DefaultConfig is the logging main installs before it has read the config
+// file: info level, files under ~/.local/state/inferoute/log.
+func DefaultConfig() *Config {
+	return &Config{Level: "info", MaxSize: 100, MaxBackups: 5, MaxAge: 30}
+}
+
+// nop is the default until main installs a logger with SetDefaultLogger.
+var nop = &Logger{Logger: zap.NewNop(), level: zapcore.InfoLevel}
+
+// GetDefaultLogger returns the logger main installed, or one that discards
+// everything if none was. A library or a test that logs before main runs
+// therefore writes no file (finding TST-1).
 func GetDefaultLogger() *Logger {
 	defaultMu.RLock()
-	l := defaultLogger
-	defaultMu.RUnlock()
-	if l != nil {
-		return l
-	}
-
-	defaultMu.Lock()
-	defer defaultMu.Unlock()
+	defer defaultMu.RUnlock()
 	if defaultLogger != nil {
 		return defaultLogger
 	}
-
-	cfg := &Config{
-		Level:      "info",
-		MaxSize:    100,
-		MaxBackups: 5,
-		MaxAge:     30,
-	}
-	var err error
-	defaultLogger, err = New(cfg)
-	if err != nil {
-		defaultLogger = &Logger{
-			Logger: zap.NewNop(),
-			level:  zapcore.InfoLevel,
-		}
-	}
-	return defaultLogger
+	return nop
 }
 
 // SetDefaultLogger sets the default logger
@@ -197,17 +186,4 @@ func Error(msg string, fields ...zapcore.Field) {
 // Fatal logs a fatal message and exits
 func Fatal(msg string, fields ...zapcore.Field) {
 	GetDefaultLogger().Fatal(msg, fields...)
-}
-
-// With creates a child logger with the given fields
-func With(fields ...zapcore.Field) *Logger {
-	return &Logger{
-		Logger: GetDefaultLogger().With(fields...),
-		level:  GetDefaultLogger().level,
-	}
-}
-
-// IsDebugEnabled returns true if debug logging is enabled
-func IsDebugEnabled() bool {
-	return GetDefaultLogger().level <= zapcore.DebugLevel
 }
