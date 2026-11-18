@@ -52,6 +52,23 @@ func (r *rig) awaitOutcomes(t *testing.T, before, n int) []string {
 	}
 }
 
+// A non-streaming answer sends nothing until generation finishes. That wait
+// is the engine client's timeout, not the stream idle limit: a completion
+// longer than the idle limit and shorter than the client timeout must come
+// back whole.
+func TestALongNonStreamingAnswerIsNotCutByTheIdleWatchdog(t *testing.T) {
+	r := newRig(t, 1)
+	r.s.engineIdleLimit = 200 * time.Millisecond
+	r.eng.Next(fakeengine.Complete("ok", fakeengine.Usage{PromptTokens: 1, CompletionTokens: 1}).Delay(500 * time.Millisecond))
+	status, body := r.call(t, `{"model":"fake/model"}`, nil)
+	if status != http.StatusOK {
+		t.Fatalf("status %d, body %s; the idle watchdog cut a non-streaming answer", status, body)
+	}
+	if !strings.Contains(body, `"content":"ok"`) {
+		t.Fatalf("body %s, want the completion", body)
+	}
+}
+
 // I4: an engine that stops sending with the stream open frees its slot
 // within the idle limit, and its request is cancelled.
 func TestAStalledEngineFreesItsSlotWithinTheIdleLimit(t *testing.T) {

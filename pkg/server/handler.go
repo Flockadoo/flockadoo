@@ -212,8 +212,17 @@ func (s *Server) relayRequest(w http.ResponseWriter, r *http.Request, llmPath st
 	if idle <= 0 {
 		idle = defaultEngineIdleLimit
 	}
-	watchdog := time.AfterFunc(idle, func() { cancelEngine(errStalled) })
-	defer watchdog.Stop()
+	// A non-streaming answer sends nothing until generation finishes, and
+	// that wait is the whole answer. The engine client's timeout and the
+	// platform's deadline bound it. The idle watchdog is only for a stream:
+	// its client has no timeout, so silence until the first byte and between
+	// chunks has to be cut here. Armed for a plain answer, it cancels a
+	// completion at 180s that the 330s client timeout was raised to allow.
+	var watchdog *time.Timer
+	if env.Stream {
+		watchdog = time.AfterFunc(idle, func() { cancelEngine(errStalled) })
+		defer watchdog.Stop()
+	}
 
 	llmResp, err := s.llmClient.ForwardRequest(engineCtx, llmPath, body, env.Stream)
 	if err != nil {
@@ -237,7 +246,9 @@ func (s *Server) relayRequest(w http.ResponseWriter, r *http.Request, llmPath st
 	flusher, _ := w.(http.Flusher)
 	buf := make([]byte, 4096)
 	for {
-		watchdog.Reset(idle)
+		if watchdog != nil {
+			watchdog.Reset(idle)
+		}
 		n, readErr := llmResp.Body.Read(buf)
 		if n > 0 {
 			if _, writeErr := w.Write(buf[:n]); writeErr != nil {

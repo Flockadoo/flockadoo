@@ -366,8 +366,9 @@ type Usage struct{ PromptTokens, CompletionTokens int }
 type Response struct {
 	build       func(path, model string) (status int, contentType string, body []byte, events [][]byte)
 	gap         time.Duration
-	cutAfter    int // abort the connection after this many events; -1 never
-	stallAfter  int // hold the stream open after this many events; -1 never
+	delay       time.Duration // wait before the first byte
+	cutAfter    int           // abort the connection after this many events; -1 never
+	stallAfter  int           // hold the stream open after this many events; -1 never
 	hang, crash bool
 }
 
@@ -377,6 +378,10 @@ func newResponse(build func(path, model string) (int, string, []byte, [][]byte))
 
 // Slow waits perChunk between the events of a stream.
 func (r Response) Slow(perChunk time.Duration) Response { r.gap = perChunk; return r }
+
+// Delay waits before the first byte. A non-streaming answer does this for
+// the whole generation: nothing is written until it is finished.
+func (r Response) Delay(d time.Duration) Response { r.delay = d; return r }
 
 // Partial sends n events, then drops the connection with no [DONE] and no
 // clean end of the body.
@@ -397,6 +402,15 @@ func (r Response) serve(e *Engine, w http.ResponseWriter, req *http.Request, mod
 		panic(http.ErrAbortHandler)
 	}
 	status, contentType, body, events := r.build(req.URL.Path, model)
+	if r.delay > 0 {
+		timer := time.NewTimer(r.delay)
+		select {
+		case <-timer.C:
+		case <-ctx.Done():
+			timer.Stop()
+			return
+		}
+	}
 	w.Header().Set("Content-Type", contentType)
 	w.WriteHeader(status)
 	if events == nil {
