@@ -185,7 +185,9 @@ func TestDeclinedReinstallTurnsAutoStartOff(t *testing.T) {
 // A cluster pinned below the minimum would install a release every client
 // refuses, so setup stops before installing or joining.
 func TestSetupRefusesAClusterPinBelowTheMinimum(t *testing.T) {
-	skipWithoutVLLM(t)
+	if engine.RuntimeKind(runtime.GOOS, engine.KindVLLM) != engine.KindVLLM {
+		t.Skip("clusters and their vLLM pin are Linux only") //nolint:forbidigo // platform test: macOS serves vLLM rows with vLLM Metal and Windows with llama.cpp, and neither joins a cluster
+	}
 	singlePlan(t)
 	clusterPlan = func(*config.Config) (clusterSettings, error) {
 		return clusterSettings{
