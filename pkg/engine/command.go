@@ -36,14 +36,27 @@ type ServeOpts struct {
 	Task string
 }
 
-// ErrIncompleteRope is a stub (scaffolding).
-var ErrIncompleteRope = errors.New("incomplete rope settings")
+// ErrIncompleteRope marks RoPE settings vLLM cannot be given: a rope_type
+// without the base context or the model's rope_theta.
+var ErrIncompleteRope = errors.New("incomplete RoPE settings")
 
-// Validate is a stub with today's behaviour: nothing is checked.
-func (o ServeOpts) Validate() error { return nil }
+// Validate reports RoPE settings that cannot make a vLLM override: the override
+// replaces the model's rope_parameters, so it needs all of them. llama.cpp
+// ignores RoPE settings; callers check only vLLM and vLLM Metal.
+func (o ServeOpts) Validate() error {
+	if strings.TrimSpace(o.RopeType) == "" || o.ropeComplete() {
+		return nil
+	}
+	return fmt.Errorf("%w: rope_type %s needs max_model_len, rope_base_context_len and the model's rope_theta (max_model_len %d, rope_base_context_len %d, rope_theta %v)",
+		ErrIncompleteRope, strings.TrimSpace(o.RopeType), o.MaxModelLen, o.RopeBaseContextLen, o.RopeTheta)
+}
 
-// ServeOptsFromConfig is a stub with today's behaviour: the fields the two
-// hand-copied literals copy today.
+func (o ServeOpts) ropeComplete() bool {
+	return strings.TrimSpace(o.RopeType) != "" && o.MaxModelLen > 0 && o.RopeBaseContextLen > 0 && o.RopeTheta > 0
+}
+
+// ServeOptsFromConfig is the serve flags setup saved, for every command built
+// from a saved config: auto-start, the cluster refresh and the printed command.
 func ServeOptsFromConfig(cfg *config.Config) ServeOpts {
 	return ServeOpts{
 		ToolCallParser:     cfg.Provider.ToolCallParser,
@@ -51,6 +64,7 @@ func ServeOptsFromConfig(cfg *config.Config) ServeOpts {
 		MaxModelLen:        cfg.Provider.MaxModelLen,
 		RopeType:           cfg.Provider.RopeType,
 		RopeBaseContextLen: cfg.Provider.RopeBaseContextLen,
+		RopeTheta:          cfg.Provider.RopeTheta,
 		GGUFFile:           cfg.Provider.GGUFFile,
 		Task:               cfg.Provider.Task,
 	}
@@ -73,6 +87,9 @@ func ServeOptsFromCatalog(entry verify.CatalogEntry) ServeOpts {
 	}
 	if entry.RopeBaseContextLen != nil {
 		opts.RopeBaseContextLen = *entry.RopeBaseContextLen
+	}
+	if entry.RopeTheta != nil {
+		opts.RopeTheta = *entry.RopeTheta
 	}
 	if entry.GGUFFile != nil {
 		opts.GGUFFile = strings.TrimSpace(*entry.GGUFFile)
@@ -126,7 +143,10 @@ func ServeSpec(kind Kind, bin, modelAlias, hfRepo string, opts ServeOpts) Spec {
 			spec.Args = append(spec.Args, "--served-model-name", modelAlias)
 		}
 		spec.Args = append(spec.Args, vllmServeFlags(opts)...)
-		if strings.TrimSpace(opts.RopeType) != "" && opts.MaxModelLen > opts.RopeBaseContextLen && opts.RopeBaseContextLen > 0 {
+		// vLLM does not count YaRN when it checks --max-model-len against the
+		// model's own context, so a YaRN row needs this. Without a complete
+		// override it is left out, and vLLM refuses the long context itself.
+		if opts.ropeComplete() && opts.MaxModelLen > opts.RopeBaseContextLen {
 			spec.Env = append(spec.Env, "VLLM_ALLOW_LONG_MAX_MODEL_LEN=1")
 		}
 	case KindLlamaCpp:
@@ -166,13 +186,19 @@ func vllmServeFlags(opts ServeOpts) []string {
 	if opts.MaxModelLen > 0 {
 		args = append(args, "--max-model-len", strconv.FormatInt(opts.MaxModelLen, 10))
 	}
-	if rope := strings.TrimSpace(opts.RopeType); rope != "" && opts.MaxModelLen > 0 && opts.RopeBaseContextLen > 0 {
+	// vLLM sets a dict override on the loaded config with setattr, which on
+	// transformers 5 replaces the model's whole rope_parameters. So the override
+	// is that complete dict, rope_theta included: a rope_scaling dict there
+	// leaves rope_theta None and vLLM crashes at load. Needs vLLM 0.30.0 or
+	// newer (MinVLLMVersion). An incomplete set sends no override (Validate).
+	if opts.ropeComplete() {
 		factor := float64(opts.MaxModelLen) / float64(opts.RopeBaseContextLen)
 		payload := map[string]any{
-			"rope_scaling": map[string]any{
-				"rope_type":                        rope,
+			"rope_parameters": map[string]any{
+				"rope_type":                        strings.TrimSpace(opts.RopeType),
 				"factor":                           factor,
 				"original_max_position_embeddings": opts.RopeBaseContextLen,
+				"rope_theta":                       opts.RopeTheta,
 			},
 		}
 		raw, err := json.Marshal(payload)

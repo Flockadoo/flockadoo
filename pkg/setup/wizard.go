@@ -115,33 +115,61 @@ func Execute(opts Options, io Streams) error {
 	if plan.Role == "worker" && kind == engine.KindVLLM && pinned == "" && !cfg.EnrolledWorker() {
 		return fmt.Errorf("this cluster has no vLLM version yet. Run setup on the master first")
 	}
-	if detected.Found && pinned != "" && !(external && plan.Role != "worker") {
+	// Every machine installs the pin, and the client refuses a release below
+	// the minimum, so such a pin would stop the whole cluster.
+	if pinned != "" && engine.TooOld(kind, pinned) {
+		return fmt.Errorf("this cluster pins vLLM %s, and Inferoute needs vLLM %s or newer. Ask the cluster owner to change the vLLM version on the Nodes page", pinned, engine.MinVLLMVersion)
+	}
+	// unsupported is an installed vLLM older than Inferoute supports that is
+	// still in place: it is never started.
+	unsupported := false
+	if detected.Found && (kind == engine.KindVLLM || kind == engine.KindVLLMMetal) && (!external || plan.Role == "worker") {
 		have := engine.InstalledVersion(context.Background(), detected.Bin) //nolint:forbidigo // the wizard has no caller context yet (CLU-4, item K1); InstalledVersion bounds the call itself
-		if have != "" && have != pinned {
+		var notice, question, kept, want string
+		switch {
+		case pinned != "" && have != "" && have != pinned:
+			question = fmt.Sprintf("vLLM %s is installed. This cluster uses vLLM %s. Reinstall it now?", have, pinned)
+			kept = fmt.Sprintf("Leaving vLLM %s installed. This cluster uses vLLM %s, so it may not start.", have, pinned)
+			want = pinned
+		case engine.TooOld(kind, have):
+			unsupported = true
+			notice = fmt.Sprintf("%s %s is installed. Inferoute needs vLLM %s or newer.", engine.Label(kind), have, engine.MinVLLMVersion)
+			question = "Reinstall it now?"
+			kept = fmt.Sprintf("Leaving %s %s installed. The client will not serve through it. Run inferoute-client setup again to install a supported release.", engine.Label(kind), have)
+		}
+		if question != "" {
+			if notice != "" {
+				_, _ = fmt.Fprintln(io.Out, notice)
+			}
 			reinstall := opts.Yes || plan.Role == "worker"
 			if !reinstall {
-				ok, err := promptYes(io.In, io.Out, fmt.Sprintf("vLLM %s is installed. This cluster uses vLLM %s. Reinstall it now?", have, pinned), true)
+				ok, err := promptYes(io.In, io.Out, question, true)
 				if err != nil {
 					return err
 				}
 				reinstall = ok
 			}
 			if reinstall {
-				fmt.Fprintf(io.Out, "Installing vLLM %s...\n", pinned)
-				if err := installEngine(context.Background(), kind, pinned, io.Out); err != nil {
+				release := "vLLM " + want
+				if want == "" {
+					release = "the current " + engine.Label(kind) + " release"
+				}
+				_, _ = fmt.Fprintf(io.Out, "Installing %s...\n", release)
+				if err := installEngine(context.Background(), kind, want, io.Out); err != nil { //nolint:forbidigo // the wizard has no caller context yet (CLU-4, item K1)
 					if plan.Role == "worker" {
 						// Exchange spends the join code. Do not enroll on the
 						// wrong (or now-missing) vLLM after a failed reinstall.
-						return fmt.Errorf("install vLLM %s: %w", pinned, err)
+						return fmt.Errorf("install %s: %w", release, err)
 					}
 					fmt.Fprintf(io.Err, "install failed: %v\n", err)
 					autoStart = false
 				} else {
 					detected = detectEngine(kind)
+					unsupported = false
 				}
 			} else {
 				autoStart = false
-				fmt.Fprintf(io.Err, "Leaving vLLM %s installed. This cluster uses vLLM %s, so it may not start.\n", have, pinned)
+				_, _ = fmt.Fprintln(io.Err, kept)
 			}
 		}
 	}
@@ -202,11 +230,16 @@ func Execute(opts Options, io Streams) error {
 	if external {
 		cfg.Provider.LLMURL = strings.TrimSpace(opts.LLMURL)
 	}
-	cfg.Provider.AutoStart = autoStart && !external && detected.Found && plan.Role != "master" && plan.Role != "worker"
+	cfg.Provider.AutoStart = autoStart && !external && detected.Found && !unsupported && plan.Role != "master" && plan.Role != "worker"
 
 	hfRepo := engine.HFRepo(entry)
-	applyServeOpts(cfg, entry, hfRepo)
 	serveOpts := engine.ServeOptsFromCatalog(entry)
+	if kind != engine.KindLlamaCpp {
+		if err := serveOpts.Validate(); err != nil {
+			return fmt.Errorf("the catalog's settings for %s cannot start vLLM: %w. Pick another model, or ask Inferoute to fix this one", entry.Alias, err)
+		}
+	}
+	applyServeOpts(cfg, entry, hfRepo)
 	spec := engine.ServeSpec(kind, bin, entry.Alias, hfRepo, serveOpts)
 	if err := prepareCluster(cfg, &spec); err != nil {
 		if saveErr := config.Save(path, cfg); saveErr != nil {
@@ -222,7 +255,7 @@ func Execute(opts Options, io Streams) error {
 
 	if plan.Role == "master" || plan.Role == "worker" {
 		printClusterStart(io.Out, plan.Role, spec)
-	} else if err := maybeStart(kind, spec, cfg, opts, detected.Found, io); err != nil {
+	} else if err := maybeStart(kind, spec, cfg, opts, detected.Found && !unsupported, io); err != nil {
 		if saveErr := config.Save(path, cfg); saveErr != nil {
 			return saveErr
 		}
@@ -524,6 +557,7 @@ func applyServeOpts(cfg *config.Config, entry verify.CatalogEntry, hfRepo string
 	cfg.Provider.MaxModelLen = opts.MaxModelLen
 	cfg.Provider.RopeType = opts.RopeType
 	cfg.Provider.RopeBaseContextLen = opts.RopeBaseContextLen
+	cfg.Provider.RopeTheta = opts.RopeTheta
 	cfg.Provider.Task = opts.Task
 	if hfRepo != "" && hfRepo != entry.Alias {
 		cfg.Provider.HFRepo = hfRepo

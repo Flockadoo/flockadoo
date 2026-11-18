@@ -28,7 +28,7 @@ features:
   - name: Model verification
     entry: Verifier.Verdict on the request path (reads state, no node call); Verifier.RunRefresher and ApplyToModels ask the node
     code: [pkg/verify/verifier.go, pkg/verify/measure.go, pkg/verify/fingerprint.go, pkg/verify/server.go, pkg/verify/context_gate.go, pkg/verify/hfresolve.go, pkg/verify/llamacache.go]
-    tests: [pkg/verify/verifier_test.go, pkg/verify/state_test.go, pkg/verify/measure_test.go, pkg/verify/filehash_test.go, pkg/verify/context_gate_test.go, pkg/verify/hfresolve_test.go, pkg/verify/llamacache_test.go, pkg/server/verdict_test.go]
+    tests: [pkg/verify/verifier_test.go, pkg/verify/state_test.go, pkg/verify/measure_test.go, pkg/verify/filehash_test.go, pkg/verify/context_gate_test.go, pkg/verify/hfresolve_test.go, pkg/verify/llamacache_test.go, pkg/verify/engine_refusal_test.go, pkg/server/verdict_test.go]
     invariants: [I13, I14]
     notes: >-
       Verification identifies a model, it does not prove one (finding SEC-2). Safetensors are
@@ -71,14 +71,14 @@ features:
 
   - name: Engine install and start
     entry: engine.Install, engine.StartAndWait, setup.EnsureOnStart
-    code: [pkg/engine/install.go, pkg/engine/install_llama.go, pkg/engine/start.go, pkg/engine/detect.go, pkg/engine/health.go, pkg/engine/ensure.go, pkg/engine/kind.go, pkg/setup/ensure.go]
-    tests: [pkg/engine/*_test.go, pkg/setup/ensure_test.go]
+    code: [pkg/engine/install.go, pkg/engine/install_llama.go, pkg/engine/start.go, pkg/engine/detect.go, pkg/engine/health.go, pkg/engine/ensure.go, pkg/engine/kind.go, pkg/engine/minversion.go, pkg/setup/ensure.go]
+    tests: [pkg/engine/*_test.go, pkg/setup/ensure_test.go, cmd/engine_version_test.go]
     invariants: [I10]
 
   - name: Setup wizard
     entry: setup.Execute (inferoute-client setup)
     code: [pkg/setup/command.go, pkg/setup/wizard.go, pkg/setup/prompt.go, pkg/setup/spinner.go]
-    tests: [pkg/setup/wizard_test.go, pkg/setup/serve_opts_test.go, pkg/setup/spinner_test.go]
+    tests: [pkg/setup/wizard_test.go, pkg/setup/serve_opts_test.go, pkg/setup/engine_checks_test.go, pkg/setup/spinner_test.go]
 
   - name: Compatibility check
     entry: compat.Run (inferoute-client compatibility)

@@ -35,6 +35,10 @@ type Reporter struct {
 
 	benchmarkMu sync.Mutex
 	benchmark   *BenchmarkSummary
+
+	// lastRefusal is the last engine refusal logged, so a change is logged once.
+	refusalMu   sync.Mutex
+	lastRefusal string
 }
 
 const (
@@ -260,8 +264,40 @@ func (r *Reporter) GetHealthReport(ctx context.Context) (*HealthReport, error) {
 		Benchmark:    bench,
 	}
 	report.Engine, report.EngineVersion = r.runningEngine(ctx)
+	// An engine older than Inferoute supports serves no model through it: the
+	// report advertises none, so the node stops routing to them, and the
+	// verifier refuses any request that still arrives.
+	if refusal := r.engineRefusal(report.Engine, report.EngineVersion); refusal != "" {
+		report.Data = []llm.Model{}
+	}
 
 	return report, nil
+}
+
+// engineRefusal is why the running engine may not serve, or "" when it may.
+// It passes the answer to the verifier and logs when it changes.
+func (r *Reporter) engineRefusal(kind, version string) string {
+	refusal := ""
+	if k, ok := engine.ParseKind(kind); ok {
+		if err := engine.CheckVersion(k, version); err != nil {
+			refusal = err.Error()
+		}
+	}
+	if r.verifier != nil {
+		r.verifier.SetEngineRefusal(refusal)
+	}
+	r.refusalMu.Lock()
+	changed := refusal != r.lastRefusal
+	r.lastRefusal = refusal
+	r.refusalMu.Unlock()
+	if changed {
+		if refusal != "" {
+			logger.Error("Not serving: the running engine is not supported", zap.String("reason", refusal))
+		} else {
+			logger.Info("The running engine is supported again; serving", zap.String("engine", kind), zap.String("version", version))
+		}
+	}
+	return refusal
 }
 
 // engineVersioner is the engine client's version lookup (llm.VLLMClient).

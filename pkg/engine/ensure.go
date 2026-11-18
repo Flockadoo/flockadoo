@@ -48,6 +48,11 @@ func StartAndWait(ctx context.Context, cfg *config.Config, logDir string) error 
 		}
 		return fmt.Errorf("%s is not installed and is not running at %s", Label(kind), url)
 	}
+	if kind == KindVLLM || kind == KindVLLMMetal {
+		if err := CheckVersion(kind, InstalledVersion(ctx, spec.Bin)); err != nil {
+			return err
+		}
+	}
 	exited, err := StartDetached(spec, LogPath(logDir))
 	if err != nil {
 		return err
@@ -81,15 +86,13 @@ func SpecFromConfig(cfg *config.Config) (Spec, error) {
 	}
 	bin := BinPath(kind, firstNonEmpty(ResolveBin(kind, cfg.Provider.EngineBin), cfg.Provider.EngineBin))
 	hfRepo := firstNonEmpty(cfg.Provider.HFRepo, cfg.Provider.Model)
-	spec := ServeSpec(kind, bin, cfg.Provider.Model, hfRepo, ServeOpts{
-		ToolCallParser:     cfg.Provider.ToolCallParser,
-		ReasoningParser:    cfg.Provider.ReasoningParser,
-		MaxModelLen:        cfg.Provider.MaxModelLen,
-		RopeType:           cfg.Provider.RopeType,
-		RopeBaseContextLen: cfg.Provider.RopeBaseContextLen,
-		GGUFFile:           cfg.Provider.GGUFFile,
-		Task:               cfg.Provider.Task,
-	})
+	opts := ServeOptsFromConfig(cfg)
+	if kind != KindLlamaCpp {
+		if err := opts.Validate(); err != nil {
+			return Spec{}, fmt.Errorf("%w. Run inferoute-client setup again to save the model's current settings", err)
+		}
+	}
+	spec := ServeSpec(kind, bin, cfg.Provider.Model, hfRepo, opts)
 	if len(cfg.Provider.EngineArgs) > 0 {
 		spec.Args = append([]string(nil), cfg.Provider.EngineArgs...)
 		spec.Env = append([]string(nil), cfg.Provider.EngineEnv...)

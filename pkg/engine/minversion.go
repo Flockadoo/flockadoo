@@ -1,13 +1,40 @@
 package engine
 
-import "errors"
+import (
+	"errors"
+	"fmt"
 
-// Stub with today's behaviour: no release is too old.
+	"github.com/sentnl/inferoute-node/inferoute-client/pkg/nodeapi"
+)
 
+// MinVLLMVersion is the oldest vLLM release Inferoute supports, for vLLM and
+// vLLM Metal (which reports the vLLM release it runs). The YaRN override is a
+// complete rope_parameters dict (command.go), which needs the transformers 5
+// handling every release from 0.30 has; an older vLLM reads rope_scaling,
+// ignores the override and serves past the model's context with no error.
+// inferoute-node refuses a cluster pin below the same release
+// (pkg/cluster.MinVLLMVersion).
 const MinVLLMVersion = "0.30.0"
 
-var ErrEngineTooOld = errors.New("engine release is too old")
+// ErrEngineTooOld marks an engine release older than Inferoute supports.
+var ErrEngineTooOld = errors.New("unsupported engine release")
 
-func TooOld(kind Kind, version string) bool { return false }
+// TooOld reports whether version is a vLLM or vLLM Metal release older than
+// MinVLLMVersion. llama.cpp builds are never too old, and a version that cannot
+// be read ("", "dev") is not treated as old.
+func TooOld(kind Kind, version string) bool {
+	if kind != KindVLLM && kind != KindVLLMMetal {
+		return false
+	}
+	return nodeapi.Newer(MinVLLMVersion, version)
+}
 
-func CheckVersion(kind Kind, version string) error { return nil }
+// CheckVersion is TooOld as an error that names the release, the minimum and
+// what to do; nil when the release is supported or unknown.
+func CheckVersion(kind Kind, version string) error {
+	if !TooOld(kind, version) {
+		return nil
+	}
+	return fmt.Errorf("%w: %s %s is older than Inferoute supports (vLLM %s or newer). Run inferoute-client setup to install a supported release",
+		ErrEngineTooOld, Label(kind), version, MinVLLMVersion)
+}
