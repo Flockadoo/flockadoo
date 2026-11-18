@@ -1,15 +1,15 @@
 {
-  "version": "v0.0.3",
-  "commit": "a4bb31418538c42e4d1129205e820ff1e6142161",
+  "version": "v0.0.5",
+  "commit": "a5db3246b56bb4868318332e5bf01a1045d484c6",
   "sha256": {
-    "inferscale-darwin-amd64": "26eaad388680140c9941e80deda6ab75fce4286d67bb1d36eceacf373fb480de",
-    "inferscale-darwin-arm64": "19985e90a23a275e1afb020f28876da4f93b2484d7b07eed8152ddb32c32bdf0",
-    "inferscale-linux-amd64": "58097ea0882ae948ebec4f40637bac3374011ad93038d394249a975e4e115451",
-    "inferscale-linux-arm64": "fa9109e875fb0f0a024296a0d9cadeb07ec9653dab2ea6e1e7c4121defc8d062",
-    "inferscale-windows-amd64.zip": "e5b54ef94cc4ae7b9a383ae41ee3b5bffd16d78122aeaafc4ad726e17afd43a7",
-    "inferscaled-darwin-amd64": "26eaad388680140c9941e80deda6ab75fce4286d67bb1d36eceacf373fb480de",
-    "inferscaled-darwin-arm64": "19985e90a23a275e1afb020f28876da4f93b2484d7b07eed8152ddb32c32bdf0",
-    "inferscaled-linux-amd64": "58097ea0882ae948ebec4f40637bac3374011ad93038d394249a975e4e115451",
-    "inferscaled-linux-arm64": "fa9109e875fb0f0a024296a0d9cadeb07ec9653dab2ea6e1e7c4121defc8d062"
+    "inferscale-darwin-amd64": "f00f4c61d171e72447780eab4e9971358437122b17884382c0908cde1275c345",
+    "inferscale-darwin-arm64": "8e75228997dc5964747383b75d07630c277c48722b56148c1afa995689bfee3d",
+    "inferscale-linux-amd64": "6a710a7e1ce0b66e024ce6b9658629a203ed9d28a8bdbc335f37bcec1d98569b",
+    "inferscale-linux-arm64": "3d029870ca35d99c674ad769ee3acfecb7b099aa5c3e74ff5c6a1e200dcb3ea2",
+    "inferscale-windows-amd64.zip": "940f1e01c8e7e9ef23f8c4049c1fe358a7ed2b4eecd69b7ccd27826f00ac33d2",
+    "inferscaled-darwin-amd64": "f00f4c61d171e72447780eab4e9971358437122b17884382c0908cde1275c345",
+    "inferscaled-darwin-arm64": "8e75228997dc5964747383b75d07630c277c48722b56148c1afa995689bfee3d",
+    "inferscaled-linux-amd64": "6a710a7e1ce0b66e024ce6b9658629a203ed9d28a8bdbc335f37bcec1d98569b",
+    "inferscaled-linux-arm64": "3d029870ca35d99c674ad769ee3acfecb7b099aa5c3e74ff5c6a1e200dcb3ea2"
   }
 }
