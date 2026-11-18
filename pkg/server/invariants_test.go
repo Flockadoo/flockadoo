@@ -324,24 +324,21 @@ func TestARequestInFlightWhenTheSessionDropsIsCancelled(t *testing.T) {
 // capacity report says not accepting, and the one after it says accepting.
 func TestABenchmarkClosesTheGateInTheNextCapacityReport(t *testing.T) {
 	r := newRig(t, 2)
+	// The gateway sees the session a moment before the client marks itself
+	// connected, so wait for it. Until then a report says not accepting
+	// with the gate open.
+	awaitSnapshotAccepting(t, r, true, "not accepting while connected")
+
 	sender := capacity.NewSender(r.plat.URL, rigKey, r.s.SlotSnapshot, nil)
 	r.s.SetCapacityNotify(sender.Notify)
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 	go sender.Loop(ctx)
 
-	accepting := func(n int) bool {
-		posts := r.plat.AwaitRequests(t, http.MethodPost, "/api/provider/capacity", n)
-		return strings.Contains(string(posts[n-1].Body), `"accepting":true`)
-	}
 	r.s.SetBenchmarking(true)
-	if accepting(1) {
-		t.Fatal("the report sent when the benchmark started says accepting")
-	}
+	awaitAccepting(t, r, false)
 	r.s.SetBenchmarking(false)
-	if !accepting(2) {
-		t.Fatal("the report sent when the benchmark ended says not accepting")
-	}
+	awaitAccepting(t, r, true)
 }
 
 // I12: the API key goes to the node only in the Authorization header. It is
