@@ -14,6 +14,7 @@ import (
 	"time"
 
 	"github.com/sentnl/inferoute-node/inferoute-client/internal/testenv/fakeengine"
+	"github.com/sentnl/inferoute-node/inferoute-client/pkg/llm"
 )
 
 // Plan item B2 (findings STR-1, STR-3, STR-5, NET-5; invariants I4, I5, I6).
@@ -71,6 +72,75 @@ func TestAStalledEngineFreesItsSlotWithinTheIdleLimit(t *testing.T) {
 	}
 	if reqs := r.eng.Requests(); !reqs[0].Cancelled {
 		t.Fatal("the stalled engine request was not cancelled")
+	}
+}
+
+// STR-1 is about a streamed answer: its engine client has no timeout, so
+// silence has to be cut here. A plain answer sends nothing until it is
+// generated; that silence is how it works, and its bound is the engine
+// client's timeout and the node's own limit. A plain answer that takes
+// longer than the idle limit comes back whole.
+func TestALongNonStreamingAnswerIsNotCutByTheIdleWatchdog(t *testing.T) {
+	r := newRig(t, 1)
+	r.s.engineIdleLimit = 200 * time.Millisecond
+	r.eng.Next(fakeengine.Complete("ok", fakeengine.Usage{PromptTokens: 1, CompletionTokens: 1}).Delay(600 * time.Millisecond))
+	before, _ := r.outcomes()
+	status, body := r.call(t, `{"model":"fake/model"}`, nil)
+	if status != http.StatusOK || !strings.Contains(body, `"content":"ok"`) {
+		t.Fatalf("status %d, body %s: the idle watchdog cut a plain answer that was still being generated", status, body)
+	}
+	if got := r.awaitOutcomes(t, before, 1); got[0] != "completed" {
+		t.Fatalf("outcome %q, want completed", got[0])
+	}
+}
+
+// The other side of the rule: a stream whose engine never sends a byte is
+// still cut at the idle limit (silence before the first chunk counts, as
+// between chunks), and its slot comes back.
+func TestAStreamThatNeverStartsIsCutAtTheIdleLimit(t *testing.T) {
+	r := newRig(t, 1)
+	r.s.engineIdleLimit = 200 * time.Millisecond
+	r.eng.Next(fakeengine.Stream("a", "b").Delay(time.Minute))
+	before, _ := r.outcomes()
+	start := time.Now()
+	if status, body := r.call(t, streamBody, nil); status == http.StatusOK {
+		t.Fatalf("status 200, body %s, from a stream that never started", body)
+	}
+	r.awaitSlotsFree(t, "after a stream that never started")
+	if d := time.Since(start); d > 3*time.Second {
+		t.Fatalf("the slot came back after %v with an idle limit of 200ms", d)
+	}
+	if got := r.awaitOutcomes(t, before, 1); got[0] != "stalled" {
+		t.Fatalf("outcome %q, want stalled", got[0])
+	}
+	r.eng.AwaitIdle(t)
+	if reqs := r.eng.Requests(); !reqs[0].Cancelled {
+		t.Fatal("the engine request was not cancelled")
+	}
+}
+
+// A plain answer is not left without a bound: an engine that never replies
+// is cut by the engine client's timeout, and the slot comes back.
+func TestAHungNonStreamingAnswerIsCutByTheEngineTimeout(t *testing.T) {
+	r := newRig(t, 1)
+	r.s.engineIdleLimit = time.Minute
+	r.s.llmClient = llm.NewClient("vllm", r.eng.URL, 300*time.Millisecond)
+	r.eng.Next(fakeengine.Hang())
+	before, _ := r.outcomes()
+	start := time.Now()
+	if status, body := r.call(t, `{"model":"fake/model"}`, nil); status == http.StatusOK {
+		t.Fatalf("status 200, body %s, from an engine that never replied", body)
+	}
+	r.awaitSlotsFree(t, "after a plain answer that never came")
+	if d := time.Since(start); d > 3*time.Second {
+		t.Fatalf("the slot came back after %v with an engine timeout of 300ms", d)
+	}
+	if got := r.awaitOutcomes(t, before, 1); got[0] == "completed" {
+		t.Fatal("an answer that never came was recorded as completed")
+	}
+	r.eng.AwaitIdle(t)
+	if reqs := r.eng.Requests(); !reqs[0].Cancelled {
+		t.Fatal("the engine request was not cancelled")
 	}
 }
 

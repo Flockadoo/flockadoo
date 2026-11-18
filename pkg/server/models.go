@@ -54,8 +54,8 @@ type Server struct {
 	// sessionQueueLimit is how many returning turns may wait for a slot at
 	// once; beyond it a turn is refused at once. Zero means the default.
 	sessionQueueLimit int
-	// engineIdleLimit ends an engine answer that sends nothing for this
-	// long; zero means defaultEngineIdleLimit.
+	// engineIdleLimit ends a streamed engine answer that sends nothing for
+	// this long; zero means defaultEngineIdleLimit.
 	engineIdleLimit time.Duration
 	// sessions remembers recent X-Session-Key values so a returning
 	// conversation can wait for a slot. There is no per-session lock:

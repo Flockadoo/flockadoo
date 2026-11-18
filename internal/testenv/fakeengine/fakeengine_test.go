@@ -261,6 +261,33 @@ func TestStatusPassesTheCodeAndBody(t *testing.T) {
 	}
 }
 
+// Delay holds the whole answer, status line included, as a plain answer
+// does while it is generated; a client that gives up first cancels it.
+func TestDelayHoldsTheFirstByte(t *testing.T) {
+	e := fakeengine.VLLM(t)
+	e.Next(fakeengine.Complete("late", fakeengine.Usage{PromptTokens: 1, CompletionTokens: 1}).Delay(200 * time.Millisecond))
+	start := time.Now()
+	status, body := post(t, e.URL+"/v1/chat/completions", `{"model":"m","messages":[]}`)
+	if d := time.Since(start); d < 200*time.Millisecond {
+		t.Fatalf("answered after %v, before the 200ms delay", d)
+	}
+	if status != http.StatusOK || !strings.Contains(body, `"late"`) {
+		t.Fatalf("got %d %s, want the completion after the delay", status, body)
+	}
+
+	e.Next(fakeengine.Complete("never", fakeengine.Usage{}).Delay(time.Minute))
+	client := &http.Client{Timeout: 100 * time.Millisecond}
+	resp, err := client.Post(e.URL+"/v1/chat/completions", "application/json", strings.NewReader(`{"model":"m","messages":[]}`))
+	if err == nil {
+		_ = resp.Body.Close()
+		t.Fatal("a delayed answer arrived before its delay")
+	}
+	e.AwaitIdle(t)
+	if reqs := e.Requests(); len(reqs) != 2 || !reqs[1].Cancelled {
+		t.Fatalf("requests = %+v, want the second cancelled when the client gave up", reqs)
+	}
+}
+
 func TestHangNeverAnswers(t *testing.T) {
 	e := fakeengine.VLLM(t)
 	e.Next(fakeengine.Hang())
