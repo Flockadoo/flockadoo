@@ -85,8 +85,8 @@ func (s *Server) handleEmbeddings(w http.ResponseWriter, r *http.Request) {
 	s.handleInference(w, r, "/v1/embeddings")
 }
 
-// defaultEngineIdleLimit ends an engine answer that sends nothing for this
-// long. It is longer than the node's own limits on a stream (120 s to the
+// defaultEngineIdleLimit ends a streamed engine answer that sends nothing for
+// this long. It is longer than the node's own limits on a stream (120 s to the
 // first token, 60 s between tokens), so the node's verdict comes first; this
 // one bounds what the node does not (finding STR-1).
 const defaultEngineIdleLimit = 180 * time.Second
@@ -212,8 +212,15 @@ func (s *Server) relayRequest(w http.ResponseWriter, r *http.Request, llmPath st
 	if idle <= 0 {
 		idle = defaultEngineIdleLimit
 	}
-	watchdog := time.AfterFunc(idle, func() { cancelEngine(errStalled) })
-	defer watchdog.Stop()
+	// The watchdog bounds a stream only (finding STR-1): its engine client
+	// has no timeout. A plain answer sends nothing until it is generated, so
+	// its silence is normal; the engine client's timeout (llm_timeout_seconds)
+	// and the node's own limit bound it.
+	var watchdog *time.Timer
+	if env.Stream {
+		watchdog = time.AfterFunc(idle, func() { cancelEngine(errStalled) })
+		defer watchdog.Stop()
+	}
 
 	llmResp, err := s.llmClient.ForwardRequest(engineCtx, llmPath, body, env.Stream)
 	if err != nil {
@@ -237,7 +244,9 @@ func (s *Server) relayRequest(w http.ResponseWriter, r *http.Request, llmPath st
 	flusher, _ := w.(http.Flusher)
 	buf := make([]byte, 4096)
 	for {
-		watchdog.Reset(idle)
+		if watchdog != nil {
+			watchdog.Reset(idle)
+		}
 		n, readErr := llmResp.Body.Read(buf)
 		if n > 0 {
 			if _, writeErr := w.Write(buf[:n]); writeErr != nil {
