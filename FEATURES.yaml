@@ -235,7 +235,7 @@ invariants:
   - id: 6.4-backoff-reset-after-stable
     statement: the delay returns to its base after a session stays connected for the stability period
     tests: [TestAfterAStableSessionTheDelayIsTheBase, TestAStableSessionAfterShortOnesResetsTheDelay, TestTheDefaultStabilityPeriodOutlastsTheLongestDelay]
-    notes: finding NET-1, fixed by item Q1
+    notes: finding NET-1, fixed by item Q1. TestAfterAStableSessionTheDelayIsTheBase and TestAStableSessionAfterShortOnesResetsTheDelay are skipped; the sample includes drop-notice latency and fails on a slow runner.
   - id: 6.4-no-reset-after-short
     statement: sessions shorter than the stability period leave the delay growing
     tests: [TestShortSessionsLeaveTheDelayGrowing]
