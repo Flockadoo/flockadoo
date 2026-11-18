@@ -169,8 +169,8 @@ invariants:
     tests: [TestACancelledStreamReleasesTheEngineAndTheSlot, TestARequestInFlightWhenTheSessionDropsIsCancelled]
   - id: I4-stalled-engine
     statement: an engine that stalls with the stream open frees its slot within a bound
-    tests: [TestAStalledEngineFreesItsSlotWithinTheIdleLimit]
-    notes: finding STR-1, fixed by item B2
+    tests: [TestAStalledEngineFreesItsSlotWithinTheIdleLimit, TestAStreamThatNeverStartsIsCutAtTheIdleLimit, TestAHungNonStreamingAnswerIsCutByTheEngineTimeout]
+    notes: finding STR-1, fixed by item B2. The idle watchdog bounds a stream; a plain answer is bounded by the engine client's timeout, and a long one is not cut at the idle limit (TestALongNonStreamingAnswerIsNotCutByTheIdleWatchdog)
   - id: I5
     statement: every request has exactly one terminal outcome, and it is recorded
     tests: [TestEveryRequestRecordsOneOutcome]

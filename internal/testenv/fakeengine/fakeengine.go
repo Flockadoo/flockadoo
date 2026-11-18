@@ -361,15 +361,22 @@ func writeJSON(w http.ResponseWriter, status int, v any) {
 // Usage is the token count an answer reports.
 type Usage struct{ PromptTokens, CompletionTokens int }
 
-// Response is one scripted answer. Build it with the functions below; Slow,
-// Partial and Stall change how a stream is delivered.
+// Response is one scripted answer. Build it with the functions below; Delay
+// holds the first byte, and Slow, Partial and Stall change how a stream is
+// delivered.
 type Response struct {
 	build       func(path, model string) (status int, contentType string, body []byte, events [][]byte)
+	delay       time.Duration // wait before the first byte
 	gap         time.Duration
 	cutAfter    int // abort the connection after this many events; -1 never
 	stallAfter  int // hold the stream open after this many events; -1 never
 	hang, crash bool
 }
+
+// Delay waits d before sending anything, the status line included. A plain
+// (non-streaming) answer is like this for its whole generation: nothing is
+// written until it is finished. The wait ends early if the client goes away.
+func (r Response) Delay(d time.Duration) Response { r.delay = d; return r }
 
 func newResponse(build func(path, model string) (int, string, []byte, [][]byte)) Response {
 	return Response{build: build, cutAfter: -1, stallAfter: -1}
@@ -395,6 +402,15 @@ func (r Response) serve(e *Engine, w http.ResponseWriter, req *http.Request, mod
 	if r.crash {
 		e.crash()
 		panic(http.ErrAbortHandler)
+	}
+	if r.delay > 0 {
+		timer := time.NewTimer(r.delay)
+		select {
+		case <-timer.C:
+		case <-ctx.Done():
+			timer.Stop()
+			return
+		}
 	}
 	status, contentType, body, events := r.build(req.URL.Path, model)
 	w.Header().Set("Content-Type", contentType)
