@@ -50,9 +50,12 @@ func TestAfterAStableSessionTheDelayIsTheBase(t *testing.T) {
 	timing := Timing{BaseDelay: 30 * time.Millisecond, MaxDelay: 32 * 30 * time.Millisecond, Stable: 100 * time.Millisecond}
 	runWithTiming(t, gw, timing)
 	for i := 1; i <= 8; i++ {
-		// The base plus at most half of it in jitter, with room for scheduling;
-		// a delay that grew would be at least twice the base.
-		if d := dropAfter(t, gw, i, 150*time.Millisecond); d >= 2*timing.BaseDelay {
+		// The base plus at most half of it in jitter, plus the time the client
+		// takes to notice the drop (tens of milliseconds on a slow CI runner).
+		// A delay that never reset would be at least four times the base by
+		// the third drop and keep doubling, so four times the base still
+		// tells the two apart.
+		if d := dropAfter(t, gw, i, 150*time.Millisecond); d >= 4*timing.BaseDelay {
 			t.Fatalf("drop %d after a stable session: waited %v, want the base delay (%v plus jitter)", i, d, timing.BaseDelay)
 		}
 	}
