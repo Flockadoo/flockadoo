@@ -425,9 +425,9 @@ func ensureBins(ctx context.Context) (string, error) {
 	return cli, nil
 }
 
-// installBinary downloads url, checks it against sum, and only then
-// installs it at dest, root-owned. A file that does not match is never
-// written to dest.
+// installBinary downloads url, checks it against sum, copies it as root next
+// to dest, checks that root-owned copy against sum again, and only then moves
+// it to dest. A file that does not match is never written to dest.
 func installBinary(ctx context.Context, url, sum, dest string) error {
 	if err := rejectSymlink(dest); err != nil {
 		return err
@@ -437,57 +437,66 @@ func installBinary(ctx context.Context, url, sum, dest string) error {
 		return err
 	}
 	defer func() { _ = os.Remove(src) }()
-	if euid() == 0 {
-		return copyFile(src, dest, 0o755)
-	}
 	in, err := os.Open(src)
 	if err != nil {
 		return err
 	}
 	defer func() { _ = in.Close() }()
 	tmp := dest + ".tmp"
-	if err := runSudo(ctx, "rm", "-f", tmp); err != nil {
+	if err := runRoot(ctx, "rm", "-f", tmp); err != nil {
 		return err
 	}
-	cmd := exec.CommandContext(ctx, "sudo", "-n", "--", "tee", tmp)
-	cmd.Stdin = in
-	cmd.Stdout = io.Discard
-	cmd.Stderr = os.Stderr
-	if err := cmd.Run(); err != nil {
-		_ = runSudo(ctx, "rm", "-f", tmp)
+	if err := writeRoot(ctx, in, tmp); err != nil {
+		_ = runRoot(ctx, "rm", "-f", tmp)
 		return fmt.Errorf("install %s: %w", dest, err)
 	}
-	if err := runSudo(ctx, "mv", "-f", tmp, dest); err != nil {
-		return err
+	for _, args := range [][]string{{"chmod", "0755", tmp}, {"chown", "root:root", tmp}} {
+		if err := runRoot(ctx, args...); err != nil {
+			_ = runRoot(ctx, "rm", "-f", tmp)
+			return err
+		}
 	}
-	if err := runSudo(ctx, "chmod", "0755", dest); err != nil {
-		return err
+	// The download was checked as it arrived, in a file the provider's user
+	// owns, and any process of that user can change it after the check. This
+	// copy is root's, in a directory the user cannot write (lockDownDir), so
+	// checking it here checks the bytes that will run as root.
+	if !download.Matches(tmp, sum) {
+		_ = runRoot(ctx, "rm", "-f", tmp)
+		return fmt.Errorf("install %s: %w", dest, download.ErrMismatch)
 	}
-	return runSudo(ctx, "chown", "root:root", dest)
+	return runRoot(ctx, "mv", "-f", tmp, dest)
 }
 
-// copyFile writes src to dest through a temporary file and a rename.
-func copyFile(src, dest string, mode os.FileMode) error {
-	in, err := os.Open(src)
-	if err != nil {
-		return err
+// runRoot runs a command as root, and writeRoot writes in to a new file at
+// path as root: directly when this process is root, through sudo -n
+// otherwise. installBinary does everything that needs root through these
+// two, so tests, which cannot use sudo, replace them.
+var (
+	runRoot   = runSudo
+	writeRoot = writeAsRoot
+)
+
+func writeAsRoot(ctx context.Context, in io.Reader, path string) error {
+	if euid() == 0 {
+		out, err := os.OpenFile(path, os.O_CREATE|os.O_TRUNC|os.O_WRONLY, 0o600)
+		if err != nil {
+			return err
+		}
+		if _, err := io.Copy(out, in); err != nil {
+			_ = out.Close()
+			return err
+		}
+		return out.Close()
 	}
-	defer func() { _ = in.Close() }()
-	tmp := dest + ".tmp"
-	out, err := os.OpenFile(tmp, os.O_CREATE|os.O_TRUNC|os.O_WRONLY, mode)
-	if err != nil {
-		return err
+	var stderr bytes.Buffer
+	cmd := exec.CommandContext(ctx, "sudo", "-n", "--", "tee", path) //nolint:gosec // G204: sudo and tee are fixed; path is <dest>.tmp in the root-owned install directory this package builds
+	cmd.Stdin = in
+	cmd.Stdout = io.Discard
+	cmd.Stderr = &stderr
+	if err := cmd.Run(); err != nil {
+		return fmt.Errorf("sudo tee %s: %w: %s", path, err, strings.TrimSpace(stderr.String()))
 	}
-	if _, err := io.Copy(out, in); err != nil {
-		_ = out.Close()
-		_ = os.Remove(tmp)
-		return err
-	}
-	if err := out.Close(); err != nil {
-		_ = os.Remove(tmp)
-		return err
-	}
-	return os.Rename(tmp, dest)
+	return nil
 }
 
 func runSudo(ctx context.Context, args ...string) error {
