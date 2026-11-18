@@ -72,6 +72,9 @@ type Client struct {
 	// OnState, if set, is called after every change of State.
 	OnState func(State)
 
+	// sleep, if set, replaces the wait between dials (see wait).
+	sleep func(ctx context.Context, d time.Duration) bool
+
 	connected atomic.Bool
 	up        chan error
 
@@ -174,7 +177,7 @@ func (c *Client) Run(ctx context.Context) error {
 		}
 		c.setState(Backoff, reason)
 		wait := backoff + time.Duration(rand.Int63n(int64(backoff/2)+1))
-		if !sleep(ctx, wait) {
+		if !c.wait(ctx, wait) {
 			return ctx.Err()
 		}
 		backoff = min(backoff*2, timing.MaxDelay)
@@ -277,6 +280,15 @@ func (c *closeCatcher) err() error {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 	return c.first
+}
+
+// wait waits d before the next dial. It is the one place Run waits, so the
+// tests, which set c.sleep, see each delay Run chose and still wait it.
+func (c *Client) wait(ctx context.Context, d time.Duration) bool {
+	if c.sleep != nil {
+		return c.sleep(ctx, d)
+	}
+	return sleep(ctx, d)
 }
 
 func sleep(ctx context.Context, d time.Duration) bool {
