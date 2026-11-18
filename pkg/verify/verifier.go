@@ -37,6 +37,18 @@ type Verifier struct {
 	resultTTL time.Duration                // RefreshAfter
 	grace     time.Duration
 	states    map[string]*modelState
+	// engineRefusal, when set, refuses every request: the running engine is a
+	// release Inferoute does not support (engine.MinVLLMVersion).
+	engineRefusal string
+}
+
+// SetEngineRefusal refuses every request with reason while it is set, whatever
+// the node said about the model. The health reporter sets it when the running
+// engine is older than Inferoute supports and clears it ("") once it is not.
+func (v *Verifier) SetEngineRefusal(reason string) {
+	v.mu.Lock()
+	v.engineRefusal = reason
+	v.mu.Unlock()
 }
 
 // Verdict is what the relay may do for a model now (plan item B3).
@@ -102,6 +114,7 @@ func (v *Verifier) currentKey(model string) (entryID, root string, stats map[str
 // Verdict is the whole policy, read from state with no call to the node
 // (decision DC2):
 //
+//	the running engine is unsupported (SetEngineRefusal) -> Refuse (403)
 //	no answer for this model's current key         -> Unavailable (503)
 //	the last answer was not "verified"             -> Refuse (403)
 //	answered less than RefreshAfter+Grace ago      -> Serve
@@ -109,6 +122,12 @@ func (v *Verifier) currentKey(model string) (entryID, root string, stats map[str
 //
 // A model outside the catalog, or whose weights are not on disk, is refused.
 func (v *Verifier) Verdict(model string) (Verdict, string) {
+	v.mu.Lock()
+	refusal := v.engineRefusal
+	v.mu.Unlock()
+	if refusal != "" {
+		return Refuse, refusal
+	}
 	entryID, _, stats, err := v.currentKey(model)
 	if err != nil {
 		return Refuse, err.Error()

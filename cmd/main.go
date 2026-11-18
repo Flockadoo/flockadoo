@@ -224,6 +224,13 @@ func main() {
 		}
 	}
 	llmClient := llm.NewClient(cfg.PlatformType(), llmURL, cfg.LLMTimeout())
+	// A worker's own rank is headless; the master's setup checks the release.
+	if !cfg.EnrolledWorker() {
+		if msg := engineVersionWarning(ctx, cfg, llmClient); msg != "" {
+			fmt.Fprintf(os.Stderr, "warning: the client will not serve through this engine: %s\n", msg)
+			logger.Error("Not serving: the running engine is not supported", zap.String("reason", msg))
+		}
+	}
 
 	catalog := verify.NewCatalog(cfg.Provider.URL, cfg.PlatformType())
 	var modelVerifier *verify.Verifier
@@ -693,6 +700,21 @@ func deploymentFingerprint(ctx context.Context, cfg *config.Config, llmClient ll
 	// with the config's parsers, so turning one on is a new deployment too.
 	fp += "|" + cfg.Provider.ToolCallParser + "|" + cfg.Provider.ReasoningParser
 	return fp
+}
+
+// engineVersionWarning is why the client will not serve through the engine
+// already running (a vLLM older than engine.MinVLLMVersion), or "".
+func engineVersionWarning(ctx context.Context, cfg *config.Config, client llm.Client) string {
+	kind, ok := engine.ParseKind(cfg.Provider.Engine)
+	if !ok {
+		return ""
+	}
+	probe, cancel := context.WithTimeout(ctx, 5*time.Second)
+	defer cancel()
+	if err := engine.CheckVersion(kind, runningEngineVersion(probe, cfg, client)); err != nil {
+		return err.Error()
+	}
+	return ""
 }
 
 // runningEngineVersion asks the running engine for its release: /version on

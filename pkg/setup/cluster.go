@@ -282,15 +282,13 @@ func refreshClusterEngine(ctx context.Context, cfg *config.Config) error {
 	if !ok {
 		return fmt.Errorf("unknown engine %q", cfg.Provider.Engine)
 	}
-	spec := engine.ServeSpec(kind, engine.BinPath(kind, cfg.Provider.EngineBin), cfg.Provider.Model, firstNonEmpty(cfg.Provider.HFRepo, cfg.Provider.Model), engine.ServeOpts{
-		ToolCallParser:     cfg.Provider.ToolCallParser,
-		ReasoningParser:    cfg.Provider.ReasoningParser,
-		MaxModelLen:        cfg.Provider.MaxModelLen,
-		RopeType:           cfg.Provider.RopeType,
-		RopeBaseContextLen: cfg.Provider.RopeBaseContextLen,
-		GGUFFile:           cfg.Provider.GGUFFile,
-		Task:               cfg.Provider.Task,
-	})
+	serveOpts := engine.ServeOptsFromConfig(cfg)
+	if kind != engine.KindLlamaCpp {
+		if err := serveOpts.Validate(); err != nil {
+			return fmt.Errorf("%w. Run inferoute-client setup again to save the model's current settings", err)
+		}
+	}
+	spec := engine.ServeSpec(kind, engine.BinPath(kind, cfg.Provider.EngineBin), cfg.Provider.Model, firstNonEmpty(cfg.Provider.HFRepo, cfg.Provider.Model), serveOpts)
 	next := inferscale.Apply(spec, remote)
 	cfg.Provider.EngineArgs = next.Args
 	cfg.Provider.EngineEnv = next.Env

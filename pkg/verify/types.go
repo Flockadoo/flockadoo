@@ -35,6 +35,7 @@ type CatalogEntry struct {
 	MaxModelLen            *int64   `json:"max_model_len,omitempty"`
 	RopeType               *string  `json:"rope_type,omitempty"`
 	RopeBaseContextLen     *int64   `json:"rope_base_context_len,omitempty"`
+	RopeTheta              *float64 `json:"rope_theta,omitempty"`
 	KVCacheBytesPerToken   *int64   `json:"kv_cache_bytes_per_token,omitempty"`
 	RecommendedConcurrency *int32   `json:"recommended_concurrency,omitempty"`
 	Engines                []string `json:"engines,omitempty"`
