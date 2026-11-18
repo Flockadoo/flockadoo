@@ -1,3 +1,8 @@
+//go:build !windows
+
+// The cluster code is Linux only, and on Windows every root operation
+// refuses (root_windows.go), so installBinary cannot run there.
+
 package inferscale
 
 import (
