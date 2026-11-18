@@ -298,13 +298,16 @@ func (v *Verifier) measureWithCache(alias, root string) (files []FileMeasurement
 	}
 
 	v.mu.Lock()
-	defer v.mu.Unlock()
-
 	prev, hadCache := v.cache[alias]
 	if hadCache && fileStatsEqual(prev.stats, currentStats) {
-		return prev.files, false, nil
+		files = prev.files
+		v.mu.Unlock()
+		return files, false, nil
 	}
+	v.mu.Unlock()
 
+	// Hash outside the lock. Verdict takes it on the request path, and a full
+	// GGUF or pytorch shard outlasts the node's deadline.
 	if v.serviceType == "llama_cpp" {
 		entry, _ := v.catalog.Get(alias)
 		files, err = measureGGUF(root, hfRepoForCatalog(alias, entry), ggufName(entry))
@@ -315,7 +318,9 @@ func (v *Verifier) measureWithCache(alias, root string) (files []FileMeasurement
 		return nil, false, err
 	}
 
+	v.mu.Lock()
 	v.cache[alias] = &fingerprintCache{files: files, stats: currentStats}
+	v.mu.Unlock()
 	return files, hadCache, nil
 }
 
