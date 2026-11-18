@@ -6,11 +6,13 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"os"
+	"strings"
 	"testing"
 
 	"github.com/sentnl/inferoute-node/inferoute-client/internal/config"
 	"github.com/sentnl/inferoute-node/inferoute-client/pkg/llm"
 	"github.com/sentnl/inferoute-node/inferoute-client/pkg/logger"
+	"github.com/sentnl/inferoute-node/inferoute-client/pkg/verify"
 	"go.uber.org/zap"
 )
 
@@ -87,6 +89,66 @@ func TestHealthReportCarriesEngineAndVersion(t *testing.T) {
 				t.Fatalf("asked llama-server = %v, want %v", asked, tc.wantLlama)
 			}
 		})
+	}
+}
+
+// newRefusalVerifier is a verifier whose node is never reached; only its
+// engine refusal is under test.
+func newRefusalVerifier() *verify.Verifier {
+	return verify.NewVerifier(verify.NewCatalog("http://127.0.0.1:1", "vllm"), verify.NewServerClient("http://127.0.0.1:1", "k"), "vllm", "", "")
+}
+
+// A vLLM below the minimum serves no model through Inferoute: the health
+// report advertises none (the node deactivates what a push leaves out) and the
+// verifier refuses every request with the reason. The version is still sent.
+func TestAnOldEngineIsNotAdvertised(t *testing.T) {
+	models := &llm.ListModelsResponse{Models: []llm.Model{{ID: "Qwen/Qwen2.5-7B-Instruct"}}}
+	for _, engineName := range []string{"vllm", "vllm-metal"} {
+		cfg := &config.Config{}
+		cfg.Provider.Engine = engineName
+		r := NewReporter(cfg, nil, versionedLLM{stubLLM: stubLLM{models: models}, version: "0.29.2"})
+		v := newRefusalVerifier()
+		r.SetVerifier(v)
+		report, err := r.GetHealthReport(context.Background())
+		if err != nil {
+			t.Fatal(err)
+		}
+		if len(report.Data) != 0 {
+			t.Fatalf("%s 0.29.2: advertised %d models", engineName, len(report.Data))
+		}
+		if report.EngineVersion != "0.29.2" {
+			t.Fatalf("%s: engine_version = %q", engineName, report.EngineVersion)
+		}
+		verdict, why := v.Verdict("Qwen/Qwen2.5-7B-Instruct")
+		if verdict != verify.Refuse || !strings.Contains(why, "0.30.0 or newer") {
+			t.Fatalf("%s: verdict = %v %q, want a refusal naming the minimum", engineName, verdict, why)
+		}
+	}
+}
+
+// A supported release, a llama.cpp build, and a version that cannot be read
+// are all advertised, and an earlier refusal is lifted.
+func TestASupportedEngineIsAdvertised(t *testing.T) {
+	models := &llm.ListModelsResponse{Models: []llm.Model{{ID: "Qwen/Qwen2.5-7B-Instruct"}}}
+	for _, tc := range []struct{ engine, version string }{
+		{"vllm", "0.34.0"}, {"vllm", "0.30.0"}, {"vllm-metal", "0.33.0"}, {"llama_cpp", "b11770"}, {"vllm", ""},
+	} {
+		cfg := &config.Config{}
+		cfg.Provider.Engine = tc.engine
+		r := NewReporter(cfg, nil, versionedLLM{stubLLM: stubLLM{models: models}, version: tc.version})
+		v := newRefusalVerifier()
+		v.SetEngineRefusal("vLLM 0.29.2 is older than 0.30.0")
+		r.SetVerifier(v)
+		report, err := r.GetHealthReport(context.Background())
+		if err != nil {
+			t.Fatal(err)
+		}
+		if len(report.Data) != 1 {
+			t.Fatalf("%s %q: advertised %d models, want 1", tc.engine, tc.version, len(report.Data))
+		}
+		if _, why := v.Verdict("Qwen/Qwen2.5-7B-Instruct"); strings.Contains(why, "0.30.0") {
+			t.Fatalf("%s %q: the refusal stayed: %q", tc.engine, tc.version, why)
+		}
 	}
 }
 

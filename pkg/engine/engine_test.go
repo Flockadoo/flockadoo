@@ -2,6 +2,7 @@ package engine
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"net"
 	"net/http"
@@ -80,6 +81,7 @@ func TestServeSpecWithOpts(t *testing.T) {
 		MaxModelLen:        131072,
 		RopeType:           "yarn",
 		RopeBaseContextLen: 32768,
+		RopeTheta:          1000000,
 	})
 	join := strings.Join(yarn.Args, " ")
 	for _, s := range []string{
@@ -133,6 +135,127 @@ func TestServeSpecWithOpts(t *testing.T) {
 // vLLM sends a reasoning model's thinking apart from its answer only when it
 // is started with --reasoning-parser from the catalog. llama.cpp splits
 // thinking out by itself once its chat templates are on (--jinja).
+func flagValue(args []string, name string) string {
+	for i := 0; i+1 < len(args); i++ {
+		if args[i] == name {
+			return args[i+1]
+		}
+	}
+	return ""
+}
+
+// vLLM applies --hf-overrides with setattr after the config is loaded. On
+// transformers 5 a rope_scaling dict replaces rope_parameters and leaves
+// rope_theta None, and vLLM crashes at load (peipei, vLLM 0.34.0, 2026-11-18).
+// The override is the whole rope_parameters dict, theta included.
+func TestYarnOverrideIsACompleteRopeParametersDict(t *testing.T) {
+	t.Parallel()
+	spec := ServeSpec(KindVLLM, "vllm", "Qwen/Qwen2.5-7B-Instruct", "Qwen/Qwen2.5-7B-Instruct", ServeOpts{
+		MaxModelLen:        131072,
+		RopeType:           "yarn",
+		RopeBaseContextLen: 32768,
+		RopeTheta:          1000000,
+	})
+	want := `{"rope_parameters":{"factor":4,"original_max_position_embeddings":32768,"rope_theta":1000000,"rope_type":"yarn"}}`
+	if got := flagValue(spec.Args, "--hf-overrides"); got != want {
+		t.Fatalf("--hf-overrides = %s\nwant            %s", got, want)
+	}
+	if strings.Join(spec.Env, " ") != "VLLM_ALLOW_LONG_MAX_MODEL_LEN=1" {
+		t.Fatalf("env = %v", spec.Env)
+	}
+	// The display form pastes into a shell as one argument.
+	if !strings.Contains(spec.Display(), `--hf-overrides "{\"rope_parameters\":`) {
+		t.Fatalf("display = %s", spec.Display())
+	}
+}
+
+// A YaRN row without rope_theta (a catalog from an older node, or a config
+// saved before the field) gets no override and no long-context switch: vLLM
+// then refuses the long --max-model-len itself instead of serving a model with
+// broken positions. Validate says what is wrong.
+func TestRopeRowWithoutThetaIsRefused(t *testing.T) {
+	t.Parallel()
+	opts := ServeOpts{MaxModelLen: 131072, RopeType: "yarn", RopeBaseContextLen: 32768}
+	spec := ServeSpec(KindVLLM, "vllm", "Qwen/Qwen2.5-7B-Instruct", "Qwen/Qwen2.5-7B-Instruct", opts)
+	if flagValue(spec.Args, "--hf-overrides") != "" {
+		t.Fatalf("partial override sent: %v", spec.Args)
+	}
+	if len(spec.Env) != 0 {
+		t.Fatalf("long-context switch without YaRN: %v", spec.Env)
+	}
+	err := opts.Validate()
+	if !errors.Is(err, ErrIncompleteRope) || !strings.Contains(err.Error(), "rope_theta") {
+		t.Fatalf("Validate = %v", err)
+	}
+	// Complete, and none at all, are both fine.
+	opts.RopeTheta = 1000000
+	if err := opts.Validate(); err != nil {
+		t.Fatalf("complete: %v", err)
+	}
+	if err := (ServeOpts{MaxModelLen: 131072}).Validate(); err != nil {
+		t.Fatalf("no rope: %v", err)
+	}
+}
+
+func TestServeOptsFromCatalogCopiesRopeTheta(t *testing.T) {
+	t.Parallel()
+	yarn, base, maxLen, theta := "yarn", int64(32768), int64(131072), 1000000.0
+	opts := ServeOptsFromCatalog(verify.CatalogEntry{
+		Alias: "Qwen/Qwen2.5-7B-Instruct", MaxModelLen: &maxLen,
+		RopeType: &yarn, RopeBaseContextLen: &base, RopeTheta: &theta,
+	})
+	if opts.RopeType != "yarn" || opts.RopeBaseContextLen != 32768 || opts.RopeTheta != 1000000 {
+		t.Fatalf("opts = %+v", opts)
+	}
+}
+
+// Auto-start, the cluster refresh and printSavedCommand rebuild the command
+// from the saved config through one helper, so no field is left behind.
+func TestServeOptsFromConfigCarriesEveryServeFlag(t *testing.T) {
+	t.Parallel()
+	cfg := &config.Config{}
+	cfg.Provider.ToolCallParser = "hermes"
+	cfg.Provider.ReasoningParser = "deepseek_r1"
+	cfg.Provider.MaxModelLen = 131072
+	cfg.Provider.RopeType = "yarn"
+	cfg.Provider.RopeBaseContextLen = 32768
+	cfg.Provider.RopeTheta = 1000000
+	cfg.Provider.GGUFFile = "m.gguf"
+	cfg.Provider.Task = "chat"
+	want := ServeOpts{
+		ToolCallParser: "hermes", ReasoningParser: "deepseek_r1", MaxModelLen: 131072,
+		RopeType: "yarn", RopeBaseContextLen: 32768, RopeTheta: 1000000,
+		GGUFFile: "m.gguf", Task: "chat",
+	}
+	if got := ServeOptsFromConfig(cfg); got != want {
+		t.Fatalf("ServeOptsFromConfig = %+v\nwant %+v", got, want)
+	}
+}
+
+// A config saved before rope_theta existed cannot start the engine; the
+// operator is told to run setup again, which saves the catalog's theta.
+func TestSpecFromConfigRefusesAnIncompleteRopeRow(t *testing.T) {
+	t.Parallel()
+	cfg := &config.Config{}
+	cfg.Provider.Engine = "vllm"
+	cfg.Provider.Model = "Qwen/Qwen2.5-7B-Instruct"
+	cfg.Provider.MaxModelLen = 131072
+	cfg.Provider.RopeType = "yarn"
+	cfg.Provider.RopeBaseContextLen = 32768
+	_, err := SpecFromConfig(cfg)
+	if !errors.Is(err, ErrIncompleteRope) || !strings.Contains(err.Error(), "inferoute-client setup") {
+		t.Fatalf("SpecFromConfig = %v", err)
+	}
+	cfg.Provider.RopeTheta = 1000000
+	spec, err := SpecFromConfig(cfg)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(flagValue(spec.Args, "--hf-overrides"), `"rope_theta":1000000`) {
+		t.Fatalf("args = %v", spec.Args)
+	}
+}
+
 func TestServeSpecReasoningParser(t *testing.T) {
 	t.Parallel()
 

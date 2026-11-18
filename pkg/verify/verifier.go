@@ -39,6 +39,9 @@ type Verifier struct {
 	states    map[string]*modelState
 }
 
+// SetEngineRefusal is a stub with today's behaviour: it does nothing.
+func (v *Verifier) SetEngineRefusal(reason string) {}
+
 // Verdict is what the relay may do for a model now (plan item B3).
 type Verdict int
 

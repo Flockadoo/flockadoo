@@ -142,6 +142,7 @@ func TestSaveRoundTrip(t *testing.T) {
 	in.Provider.MaxModelLen = 131072
 	in.Provider.RopeType = "yarn"
 	in.Provider.RopeBaseContextLen = 32768
+	in.Provider.RopeTheta = 1000000
 
 	if err := Save(path, in); err != nil {
 		t.Fatalf("Save: %v", err)
@@ -160,7 +161,7 @@ func TestSaveRoundTrip(t *testing.T) {
 		t.Errorf("EngineBin = %q, want %q", out.Provider.EngineBin, in.Provider.EngineBin)
 	}
 	if out.Provider.ToolCallParser != "hermes" || out.Provider.ReasoningParser != "qwen3" || out.Provider.MaxModelLen != 131072 ||
-		out.Provider.RopeType != "yarn" || out.Provider.RopeBaseContextLen != 32768 {
+		out.Provider.RopeType != "yarn" || out.Provider.RopeBaseContextLen != 32768 || out.Provider.RopeTheta != 1000000 {
 		t.Errorf("serve flags = %+v", out.Provider)
 	}
 	if out.Provider.GGUFFile != "qwen2.5-7b-instruct-q4_k_m.gguf" {

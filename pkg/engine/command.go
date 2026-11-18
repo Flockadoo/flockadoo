@@ -2,11 +2,13 @@ package engine
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"net"
 	"strconv"
 	"strings"
 
+	"github.com/sentnl/inferoute-node/inferoute-client/internal/config"
 	"github.com/sentnl/inferoute-node/inferoute-client/pkg/verify"
 )
 
@@ -28,9 +30,30 @@ type ServeOpts struct {
 	MaxModelLen        int64
 	RopeType           string
 	RopeBaseContextLen int64
+	RopeTheta          float64
 	GGUFFile           string
 	// Task is chat or embedding. llama.cpp needs --embeddings to serve /v1/embeddings.
 	Task string
+}
+
+// ErrIncompleteRope is a stub (scaffolding).
+var ErrIncompleteRope = errors.New("incomplete rope settings")
+
+// Validate is a stub with today's behaviour: nothing is checked.
+func (o ServeOpts) Validate() error { return nil }
+
+// ServeOptsFromConfig is a stub with today's behaviour: the fields the two
+// hand-copied literals copy today.
+func ServeOptsFromConfig(cfg *config.Config) ServeOpts {
+	return ServeOpts{
+		ToolCallParser:     cfg.Provider.ToolCallParser,
+		ReasoningParser:    cfg.Provider.ReasoningParser,
+		MaxModelLen:        cfg.Provider.MaxModelLen,
+		RopeType:           cfg.Provider.RopeType,
+		RopeBaseContextLen: cfg.Provider.RopeBaseContextLen,
+		GGUFFile:           cfg.Provider.GGUFFile,
+		Task:               cfg.Provider.Task,
+	}
 }
 
 // ServeOptsFromCatalog maps public catalog fields onto ServeOpts.

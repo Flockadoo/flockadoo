@@ -68,10 +68,11 @@ type Config struct {
 		ToolCallParser string `yaml:"tool_call_parser,omitempty"`
 		// ReasoningParser is vLLM's --reasoning-parser for a model that
 		// thinks before it answers; on llama.cpp it turns on --jinja.
-		ReasoningParser    string `yaml:"reasoning_parser,omitempty"`
-		MaxModelLen        int64  `yaml:"max_model_len,omitempty"`
-		RopeType           string `yaml:"rope_type,omitempty"`
-		RopeBaseContextLen int64  `yaml:"rope_base_context_len,omitempty"`
+		ReasoningParser    string  `yaml:"reasoning_parser,omitempty"`
+		MaxModelLen        int64   `yaml:"max_model_len,omitempty"`
+		RopeType           string  `yaml:"rope_type,omitempty"`
+		RopeBaseContextLen int64   `yaml:"rope_base_context_len,omitempty"`
+		RopeTheta          float64 `yaml:"rope_theta,omitempty"`
 		// HFRepo is the HuggingFace id when it differs from Model (alias).
 		HFRepo string `yaml:"hf_repo,omitempty"`
 		// GGUFFile is the HuggingFace filename llama.cpp serves.

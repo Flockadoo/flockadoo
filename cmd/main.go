@@ -695,6 +695,11 @@ func deploymentFingerprint(ctx context.Context, cfg *config.Config, llmClient ll
 	return fp
 }
 
+// engineVersionWarning is a stub with today's behaviour: no warning.
+func engineVersionWarning(ctx context.Context, cfg *config.Config, client llm.Client) string {
+	return ""
+}
+
 // runningEngineVersion asks the running engine for its release: /version on
 // vLLM, /props on llama.cpp. An engine client without the lookup gives "".
 func runningEngineVersion(ctx context.Context, cfg *config.Config, client llm.Client) string {
