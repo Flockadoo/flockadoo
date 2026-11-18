@@ -425,9 +425,9 @@ func ensureBins(ctx context.Context) (string, error) {
 	return cli, nil
 }
 
-// installBinary downloads url, checks it against sum, and only then
-// installs it at dest, root-owned. A file that does not match is never
-// written to dest.
+// installBinary downloads url, checks it against sum, copies it as root next
+// to dest, checks that root-owned copy against sum again, and only then moves
+// it to dest. A file that does not match is never written to dest.
 func installBinary(ctx context.Context, url, sum, dest string) error {
 	if err := rejectSymlink(dest); err != nil {
 		return err
@@ -450,13 +450,21 @@ func installBinary(ctx context.Context, url, sum, dest string) error {
 		_ = runRoot(ctx, "rm", "-f", tmp)
 		return fmt.Errorf("install %s: %w", dest, err)
 	}
-	if err := runRoot(ctx, "mv", "-f", tmp, dest); err != nil {
-		return err
+	for _, args := range [][]string{{"chmod", "0755", tmp}, {"chown", "root:root", tmp}} {
+		if err := runRoot(ctx, args...); err != nil {
+			_ = runRoot(ctx, "rm", "-f", tmp)
+			return err
+		}
 	}
-	if err := runRoot(ctx, "chmod", "0755", dest); err != nil {
-		return err
+	// The download was checked as it arrived, in a file the provider's user
+	// owns, and any process of that user can change it after the check. This
+	// copy is root's, in a directory the user cannot write (lockDownDir), so
+	// checking it here checks the bytes that will run as root.
+	if !download.Matches(tmp, sum) {
+		_ = runRoot(ctx, "rm", "-f", tmp)
+		return fmt.Errorf("install %s: %w", dest, download.ErrMismatch)
 	}
-	return runRoot(ctx, "chown", "root:root", dest)
+	return runRoot(ctx, "mv", "-f", tmp, dest)
 }
 
 // runRoot runs a command as root, and writeRoot writes in to a new file at
