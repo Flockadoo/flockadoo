@@ -10,7 +10,7 @@ import (
 
 func TestBinPathExpandsBareVLLM(t *testing.T) {
 	if runtime.GOOS == "windows" {
-		t.Skip("venv path is Unix")
+		t.Skip("venv path is Unix") //nolint:forbidigo // platform-specific: Unix only
 	}
 	home := t.TempDir()
 	t.Setenv("HOME", home)
@@ -38,7 +38,7 @@ func TestBinPathExpandsBareVLLM(t *testing.T) {
 
 func TestRunnableBinBrokenShebang(t *testing.T) {
 	if runtime.GOOS == "windows" {
-		t.Skip("shebang exec is Unix-only")
+		t.Skip("shebang exec is Unix-only") //nolint:forbidigo // platform-specific: Unix only
 	}
 	dir := t.TempDir()
 	dead := filepath.Join(dir, "missing-python")
@@ -61,7 +61,7 @@ func TestRunnableBinBrokenShebang(t *testing.T) {
 
 func TestRunnableBinWorkingShebang(t *testing.T) {
 	if runtime.GOOS == "windows" {
-		t.Skip("shebang exec is Unix-only")
+		t.Skip("shebang exec is Unix-only") //nolint:forbidigo // platform-specific: Unix only
 	}
 	dir := t.TempDir()
 	script := filepath.Join(dir, "ok")
@@ -75,7 +75,7 @@ func TestRunnableBinWorkingShebang(t *testing.T) {
 
 func TestRunnableBinEnvShebang(t *testing.T) {
 	if runtime.GOOS == "windows" {
-		t.Skip("shebang exec is Unix-only")
+		t.Skip("shebang exec is Unix-only") //nolint:forbidigo // platform-specific: Unix only
 	}
 	dir := t.TempDir()
 	script := filepath.Join(dir, "ok")
@@ -89,7 +89,7 @@ func TestRunnableBinEnvShebang(t *testing.T) {
 
 func TestRunnableBinDanglingSymlinkInterpreter(t *testing.T) {
 	if runtime.GOOS == "windows" {
-		t.Skip("shebang exec is Unix-only")
+		t.Skip("shebang exec is Unix-only") //nolint:forbidigo // platform-specific: Unix only
 	}
 	dir := t.TempDir()
 	missing := filepath.Join(dir, "python3.12-gone")
@@ -108,7 +108,7 @@ func TestRunnableBinDanglingSymlinkInterpreter(t *testing.T) {
 
 func TestStartDetachedBrokenShebangMessage(t *testing.T) {
 	if runtime.GOOS == "windows" {
-		t.Skip("shebang exec is Unix-only")
+		t.Skip("shebang exec is Unix-only") //nolint:forbidigo // platform-specific: Unix only
 	}
 	dir := t.TempDir()
 	script := filepath.Join(dir, "vllm")

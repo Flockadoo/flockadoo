@@ -122,5 +122,5 @@ func LoadOfflineCatalog(path, providerType string) ([]verify.CatalogEntry, error
 }
 
 func engineCatalogType() string {
-	return engine.CatalogType(engine.CompatKind(runtime.GOOS, ""))
+	return engine.CatalogType(engine.CompatKind(runtime.GOOS, "")) //nolint:forbidigo // the catalog for the host's engine (PLAT-2, item H1)
 }

@@ -489,7 +489,7 @@ func applyModel(cfg *config.Config, opts Options, kind engine.Kind, platformURL 
 		_, _ = fmt.Fprintf(io.Out, "Filtered to %d models supported by %s\n", len(entries), engine.Label(kind))
 	}
 
-	hw, hwErr := compat.Detect()
+	hw, hwErr := compat.Detect(context.WithoutCancel(ctx)) // no time limit on detection, as before
 	if hwErr != nil {
 		_, _ = fmt.Fprintf(io.Err, "hardware detection warning: %v\n", hwErr)
 	}

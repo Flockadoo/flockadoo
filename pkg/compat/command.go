@@ -2,10 +2,10 @@ package compat
 
 import (
 	"context"
+	"errors"
 	"flag"
 	"fmt"
-	"os"
-	"runtime"
+	"io"
 	"strings"
 	"time"
 
@@ -42,10 +42,10 @@ type Options struct {
 	ShowTooLarge   bool
 }
 
-// Run parses args and prints the compatibility report.
-func Run(args []string) error {
+// Run parses args and prints the compatibility report to stdout.
+func Run(ctx context.Context, args []string, stdout, stderr io.Writer) error {
 	fs := flag.NewFlagSet("compatibility", flag.ContinueOnError)
-	fs.SetOutput(os.Stderr)
+	fs.SetOutput(stderr)
 
 	opts := Options{
 		ShowTooLarge: true,
@@ -57,11 +57,11 @@ func Run(args []string) error {
 	fs.BoolVar(&opts.JSON, "json", false, "Emit JSON output")
 	showTooLarge := fs.Bool("show-too-large", true, "Include too_large models in the model list")
 	fs.Usage = func() {
-		fmt.Fprint(os.Stderr, compatibilityHelp)
+		_, _ = fmt.Fprint(stderr, compatibilityHelp)
 	}
 
 	if err := fs.Parse(args); err != nil {
-		if err == flag.ErrHelp {
+		if errors.Is(err, flag.ErrHelp) {
 			return nil
 		}
 		return err
@@ -91,32 +91,32 @@ func Run(args []string) error {
 		opts.CatalogURL = config.ResolvePlatformURL("", "")
 	}
 
-	return Execute(opts)
+	return Execute(ctx, opts, stdout)
 }
 
-// Execute runs detection + scoring with the given options.
-func Execute(opts Options) error {
-	hw, err := Detect()
+// Execute runs detection + scoring with the given options and writes the report to out.
+func Execute(ctx context.Context, opts Options, out io.Writer) error {
+	hw, err := Detect(ctx)
 	if err != nil {
 		return fmt.Errorf("hardware detection: %w", err)
 	}
 
-	ctx, cancel := context.WithTimeout(context.Background(), 45*time.Second)
+	ctx, cancel := context.WithTimeout(ctx, 45*time.Second)
 	defer cancel()
 
 	catalogEntries, err := loadEntries(ctx, opts)
 	if err != nil {
 		return err
 	}
-	catalogEntries = filterEntriesForHost(catalogEntries, opts.Engine, runtime.GOOS)
+	catalogEntries = filterEntriesForHost(catalogEntries, opts.Engine, hw.OS)
 
-	results := scoreEntriesForHost(hw, catalogEntries, opts.Engine, runtime.GOOS)
+	results := scoreEntriesForHost(hw, catalogEntries, opts.Engine, hw.OS)
 	report := BuildReport(hw, results, opts.ShowTooLarge)
 
 	if opts.JSON {
-		return WriteJSON(os.Stdout, report)
+		return WriteJSON(out, report)
 	}
-	return WriteTable(os.Stdout, report)
+	return WriteTable(out, report)
 }
 
 func loadEntries(ctx context.Context, opts Options) ([]verify.CatalogEntry, error) {

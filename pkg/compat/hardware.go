@@ -1,6 +1,7 @@
 package compat
 
 import (
+	"context"
 	"fmt"
 	"os/exec"
 	"runtime"
@@ -39,10 +40,10 @@ type Hardware struct {
 
 // Detect probes local hardware for Linux/Windows NVIDIA and macOS (Apple Silicon/Intel).
 // It never hard-fails solely because a GPU is missing; CPU/system-RAM fallbacks are used.
-func Detect() (*Hardware, error) {
+func Detect(ctx context.Context) (*Hardware, error) {
 	hw := &Hardware{
-		OS:   runtime.GOOS,
-		Arch: runtime.GOARCH,
+		OS:   runtime.GOOS,   //nolint:forbidigo // detection records the host platform (PLAT-2, item H1)
+		Arch: runtime.GOARCH, //nolint:forbidigo // detection records the host platform (PLAT-2, item H1)
 	}
 
 	ram, err := systemRAMBytes()
@@ -52,19 +53,19 @@ func Detect() (*Hardware, error) {
 		hw.SystemRAMBytes = ram
 	}
 
-	switch runtime.GOOS {
+	switch hw.OS {
 	case "darwin":
-		if err := detectDarwin(hw); err != nil {
+		if err := detectDarwin(ctx, hw); err != nil {
 			hw.Warnings = append(hw.Warnings, err.Error())
 			fallbackSystemMemory(hw, "macOS GPU detection failed; using system RAM")
 		}
 	case "linux", "windows":
-		if err := detectNVIDIA(hw); err != nil {
+		if err := detectNVIDIA(ctx, hw); err != nil {
 			hw.Warnings = append(hw.Warnings, err.Error())
 			fallbackSystemMemory(hw, "NVIDIA GPU not detected; scoring against system RAM (slow/CPU path)")
 		}
 	default:
-		fallbackSystemMemory(hw, fmt.Sprintf("unsupported OS %s; using system RAM if available", runtime.GOOS))
+		fallbackSystemMemory(hw, fmt.Sprintf("unsupported OS %s; using system RAM if available", hw.OS))
 	}
 
 	if hw.UsableBytes <= 0 && hw.SystemRAMBytes > 0 {
@@ -96,8 +97,8 @@ func fallbackSystemMemory(hw *Hardware, warning string) {
 // appleSiliconUsableFraction is a conservative share of unified memory for model weights + runtime.
 const appleSiliconUsableFraction = 0.65
 
-func detectDarwin(hw *Hardware) error {
-	productName, coreCount, err := parseSystemProfilerGPU()
+func detectDarwin(ctx context.Context, hw *Hardware) error {
+	productName, coreCount, err := parseSystemProfilerGPU(ctx)
 	if err != nil {
 		return err
 	}
@@ -109,7 +110,7 @@ func detectDarwin(hw *Hardware) error {
 	hw.CUDAVersion = "N/A"
 	hw.GPUCount = 1
 
-	isAppleSilicon := runtime.GOARCH == "arm64" ||
+	isAppleSilicon := hw.Arch == "arm64" ||
 		strings.Contains(strings.ToLower(productName), "apple")
 
 	if isAppleSilicon {
@@ -118,7 +119,7 @@ func detectDarwin(hw *Hardware) error {
 		hw.MemoryTotalBytes = hw.SystemRAMBytes
 		hw.UsableBytes = int64(float64(hw.SystemRAMBytes) * appleSiliconUsableFraction)
 		if hw.SystemRAMBytes <= 0 {
-			return fmt.Errorf("Apple Silicon detected but system RAM is unknown")
+			return fmt.Errorf("Apple Silicon detected but system RAM is unknown") //nolint:staticcheck // ST1005: the message starts with a proper noun
 		}
 		return nil
 	}
@@ -129,11 +130,11 @@ func detectDarwin(hw *Hardware) error {
 	return nil
 }
 
-func parseSystemProfilerGPU() (productName string, coreCount int, err error) {
+func parseSystemProfilerGPU(ctx context.Context) (productName string, coreCount int, err error) {
 	if _, lookErr := exec.LookPath("system_profiler"); lookErr != nil {
 		return "", 0, fmt.Errorf("system_profiler not found: %w", lookErr)
 	}
-	cmd := exec.Command("system_profiler", "SPDisplaysDataType")
+	cmd := exec.CommandContext(ctx, "system_profiler", "SPDisplaysDataType")
 	output, err := cmd.Output()
 	if err != nil {
 		return "", 0, fmt.Errorf("system_profiler: %w", err)
@@ -166,18 +167,18 @@ func parseSystemProfilerGPU() (productName string, coreCount int, err error) {
 	return productName, coreCount, nil
 }
 
-func detectNVIDIA(hw *Hardware) error {
+func detectNVIDIA(ctx context.Context, hw *Hardware) error {
 	if _, err := exec.LookPath("nvidia-smi"); err != nil {
 		return fmt.Errorf("nvidia-smi not found: %w", err)
 	}
-	cmd := exec.Command("nvidia-smi", "--query-gpu=name,driver_version,memory.total,memory.used,memory.free,uuid", "--format=csv,noheader,nounits")
+	cmd := exec.CommandContext(ctx, "nvidia-smi", "--query-gpu=name,driver_version,memory.total,memory.used,memory.free,uuid", "--format=csv,noheader,nounits")
 	exechide.Apply(cmd)
 	output, err := cmd.Output()
 	if err != nil {
 		return fmt.Errorf("nvidia-smi: %w", err)
 	}
 
-	cudaVersion := queryCUDAVersion()
+	cudaVersion := queryCUDAVersion(ctx)
 
 	type gpuRow struct {
 		name   string
@@ -242,8 +243,8 @@ func detectNVIDIA(hw *Hardware) error {
 	return nil
 }
 
-func queryCUDAVersion() string {
-	cmd := exec.Command("nvidia-smi")
+func queryCUDAVersion(ctx context.Context) string {
+	cmd := exec.CommandContext(ctx, "nvidia-smi")
 	exechide.Apply(cmd)
 	out, err := cmd.Output()
 	if err != nil {

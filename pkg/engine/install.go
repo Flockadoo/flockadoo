@@ -51,7 +51,7 @@ func vllmRequirement(version string) string {
 }
 
 func installVLLM(ctx context.Context, version string, w io.Writer) error {
-	if runtime.GOOS == "windows" {
+	if runtime.GOOS == "windows" { //nolint:forbidigo // platform branch in shared code (PLAT-2, item H1)
 		return fmt.Errorf("vLLM is not supported on Windows (see %s)", vllmDocsURL)
 	}
 	home, err := os.UserHomeDir()
@@ -96,7 +96,7 @@ func findUV(home, pathHit string) string {
 		return pathHit
 	}
 	local := filepath.Join(home, ".local", "bin", "uv")
-	if runtime.GOOS == "windows" {
+	if runtime.GOOS == "windows" { //nolint:forbidigo // platform branch in shared code (PLAT-2, item H1)
 		local += ".exe"
 	}
 	if fileExists(local) {
@@ -126,7 +126,7 @@ func ensureUV(ctx context.Context, w io.Writer, home string) (string, error) {
 func checkTorchCUDA(ctx context.Context, w io.Writer, venv string) error {
 	if _, err := exec.LookPath("nvidia-smi"); err != nil {
 		_, _ = fmt.Fprintln(w, "Skipping PyTorch CUDA check (nvidia-smi not found).")
-		return nil
+		return nil //nolint:nilerr // no NVIDIA driver: the check does not apply
 	}
 	_, _ = fmt.Fprintln(w, "Checking the NVIDIA driver can load PyTorch...")
 	if err := run(ctx, w, venvExe(venv, "python"), "-c", "import torch; torch.cuda.init()"); err != nil {
@@ -141,11 +141,11 @@ func checkTorchCUDA(ctx context.Context, w io.Writer, venv string) error {
 func downloadKernels(ctx context.Context, w io.Writer, venv string) error {
 	if _, err := exec.LookPath("nvidia-smi"); err != nil {
 		_, _ = fmt.Fprintln(w, "Skipping vLLM kernel download (nvidia-smi not found).")
-		return nil
+		return nil //nolint:nilerr // no NVIDIA driver: no kernels to download
 	}
 	_, _ = fmt.Fprintln(w, "Downloading FlashInfer kernels...")
 	vllm := venvExe(venv, "vllm")
-	help, _ := exec.CommandContext(ctx, vllm, "-h").CombinedOutput()
+	help, _ := exec.CommandContext(ctx, vllm, "-h").CombinedOutput() //nolint:gosec // G204: vllm is the venv's own executable, which setup installed
 	// vLLM 0.33 has no download-kernels subcommand. Later releases wrap this CLI.
 	if cliHasSubcommand(string(help), "download-kernels") {
 		if err := run(ctx, w, vllm, "download-kernels"); err != nil {
@@ -154,7 +154,7 @@ func downloadKernels(ctx context.Context, w io.Writer, venv string) error {
 		return nil
 	}
 	py := venvExe(venv, "python")
-	cmd := exec.CommandContext(ctx, py, "-m", "flashinfer", "download-kernels")
+	cmd := exec.CommandContext(ctx, py, "-m", "flashinfer", "download-kernels") //nolint:gosec // G204: py is the venv's own python, which setup installed
 	cmd.Stdout = w
 	cmd.Stderr = w
 	// FlashInfer refuses to import when an older cubin is already installed.
@@ -166,7 +166,7 @@ func downloadKernels(ctx context.Context, w io.Writer, venv string) error {
 }
 
 func venvExe(venv, name string) string {
-	if runtime.GOOS == "windows" {
+	if runtime.GOOS == "windows" { //nolint:forbidigo // platform branch in shared code (PLAT-2, item H1)
 		return filepath.Join(venv, "Scripts", name+".exe")
 	}
 	return filepath.Join(venv, "bin", name)
@@ -213,25 +213,28 @@ func replaceVenvDir(w io.Writer, venv string) error {
 }
 
 func run(ctx context.Context, w io.Writer, name string, args ...string) error {
-	cmd := exec.CommandContext(ctx, name, args...)
+	cmd := exec.CommandContext(ctx, name, args...) //nolint:gosec // G204: callers pass the installer's own commands (uv, the venv's python)
 	cmd.Stdout = w
 	cmd.Stderr = w
 	return cmd.Run()
 }
 
 func runScript(ctx context.Context, w io.Writer, url string) error {
-	cmd := exec.CommandContext(ctx, "bash", "-c", "curl -fsSL "+url+" | bash")
+	cmd := exec.CommandContext(ctx, "bash", "-c", "curl -fsSL "+url+" | bash") //nolint:gosec // G204: url is one of this package's fixed installer URLs (uvInstallURL, vllmMetalInstallURL)
 	cmd.Stdout = w
 	cmd.Stderr = w
 	return cmd.Run()
 }
 
-func download(ctx context.Context, url, dest string) error {
+// downloadClient bounds an engine download, such as a llama.cpp release archive.
+var downloadClient = &http.Client{Timeout: 30 * time.Minute}
+
+func download(ctx context.Context, url, dest string) (err error) {
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
 	if err != nil {
 		return err
 	}
-	resp, err := http.DefaultClient.Do(req)
+	resp, err := downloadClient.Do(req)
 	if err != nil {
 		return fmt.Errorf("download %s: %w", url, err)
 	}
@@ -243,7 +246,12 @@ func download(ctx context.Context, url, dest string) error {
 	if err != nil {
 		return err
 	}
-	defer f.Close()
+	// A failed Close can lose written data, so it is an error too.
+	defer func() {
+		if cerr := f.Close(); err == nil {
+			err = cerr
+		}
+	}()
 	_, err = io.Copy(f, resp.Body)
 	return err
 }

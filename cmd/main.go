@@ -77,7 +77,7 @@ func main() {
 
 	// Subcommands that must not start the provider daemon.
 	if len(os.Args) > 1 && os.Args[1] == "compatibility" {
-		if err := compat.Run(os.Args[2:]); err != nil {
+		if err := compat.Run(context.Background(), os.Args[2:], os.Stdout, os.Stderr); err != nil {
 			fmt.Fprintf(os.Stderr, "compatibility: %v\n", err)
 			os.Exit(1)
 		}
@@ -443,7 +443,7 @@ func runUpdate(args []string) error {
 	}
 	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Minute)
 	defer cancel()
-	return update.Apply(ctx, platform, *checkOnly)
+	return update.Apply(ctx, platform, *checkOnly, os.Stdout)
 }
 
 func watchClientVersion(ctx context.Context, platformURL string) {

@@ -3,7 +3,6 @@ package engine
 import (
 	"context"
 	"fmt"
-	"os"
 	"time"
 
 	"github.com/sentnl/inferoute-node/inferoute-client/internal/config"
@@ -25,8 +24,7 @@ func StartAndWait(ctx context.Context, cfg *config.Config, logDir string) error 
 	}
 	if PortOpen(ctx, url) {
 		if err := WaitHealthy(ctx, kind, url, 2*time.Second, nil); err != nil {
-			fmt.Fprintf(os.Stderr, "engine already bound at %s but not ready yet; check %s\n", url, LogPath(logDir))
-			return err
+			return fmt.Errorf("engine already bound at %s but not ready yet; check %s: %w", url, LogPath(logDir), err)
 		}
 		return nil
 	}
@@ -69,8 +67,7 @@ func StartAndWait(ctx context.Context, cfg *config.Config, logDir string) error 
 		errWait = WaitHealthy(ctx, kind, probeURL, 2*time.Second, exited)
 	}
 	if errWait != nil {
-		fmt.Fprintf(os.Stderr, "engine started but not ready yet; check %s\n", LogPath(logDir))
-		return errWait
+		return fmt.Errorf("engine started but not ready yet; check %s: %w", LogPath(logDir), errWait)
 	}
 	return nil
 }
