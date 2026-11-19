@@ -162,6 +162,7 @@ func (w *Watcher) measure(ctx context.Context, fp string) {
 		}
 	}
 	res := Result{
+		Method:      countMethod,
 		Fingerprint: fp,
 		Concurrency: best,
 		MeasuredAt:  time.Now().UTC(),
