@@ -376,6 +376,12 @@ func callJSON(ctx context.Context, client *http.Client, method, url, key string,
 	return resp.StatusCode, raw, nil
 }
 
+// jsonPrompt is the JSON probes' question. JSON mode needs the prompt to ask
+// for JSON, or a model can stream whitespace until max_tokens (OpenAI's
+// guidance); DeepSeek-R1-Distill-Qwen-7B on vLLM 0.34 did for "Reply with ok."
+// and answered valid JSON when asked. It names the keys the schema requires.
+const jsonPrompt = `Reply with a JSON object with two keys: ok set to true and name set to "ping".`
+
 func probeBody(model, name string) map[string]any {
 	body := map[string]any{
 		"model":    model,
@@ -408,8 +414,10 @@ func probeBody(model, name string) map[string]any {
 			body["tool_choice"] = "required"
 		}
 	case "json_object":
+		body["messages"] = []map[string]string{{"role": "user", "content": jsonPrompt}}
 		body["response_format"] = map[string]any{"type": "json_object"}
 	case "json_schema":
+		body["messages"] = []map[string]string{{"role": "user", "content": jsonPrompt}}
 		body["response_format"] = map[string]any{
 			"type": "json_schema",
 			"json_schema": map[string]any{

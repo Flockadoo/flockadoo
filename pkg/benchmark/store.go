@@ -7,8 +7,15 @@ import (
 	"time"
 )
 
+// countMethod is how a Result's tokens were counted. 2 counts a reasoning
+// model's thinking; a result saved by an older count (no method) was wrong for
+// every reasoning model, so it is measured again.
+const countMethod = 2
+
 // Result is the cached measurement for one deployment fingerprint.
 type Result struct {
+	// Method is the countMethod the result was measured with.
+	Method      int           `json:"method,omitempty"`
 	Fingerprint string        `json:"fingerprint"`
 	Concurrency int           `json:"concurrency"`
 	MeasuredAt  time.Time     `json:"measured_at"`
@@ -33,7 +40,7 @@ func load(configPath string) (Result, bool) {
 		return Result{}, false
 	}
 	var got Result
-	if json.Unmarshal(raw, &got) != nil || got.Concurrency < 1 {
+	if json.Unmarshal(raw, &got) != nil || got.Concurrency < 1 || got.Method != countMethod {
 		return Result{}, false
 	}
 	return got, true

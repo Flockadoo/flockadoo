@@ -66,6 +66,32 @@ func RunLevel(ctx context.Context, client *http.Client, baseURL, model string, n
 	return res
 }
 
+// generated is true when a stream chunk carries generated text: the answer,
+// or a reasoning model's thinking, which vLLM sends as delta.reasoning and
+// llama.cpp as delta.reasoning_content. The empty role chunk an engine sends
+// first is not a token. Counting only content timed a reasoning model's
+// thinking with almost none of its tokens.
+func generated(data string) bool {
+	var chunk struct {
+		Choices []struct {
+			Delta struct {
+				Content          string `json:"content"`
+				Reasoning        string `json:"reasoning"`
+				ReasoningContent string `json:"reasoning_content"`
+			} `json:"delta"`
+		} `json:"choices"`
+	}
+	if json.Unmarshal([]byte(data), &chunk) != nil {
+		return false
+	}
+	for _, c := range chunk.Choices {
+		if c.Delta.Content != "" || c.Delta.Reasoning != "" || c.Delta.ReasoningContent != "" {
+			return true
+		}
+	}
+	return false
+}
+
 func streamOnce(ctx context.Context, client *http.Client, baseURL, model string) (one struct {
 	ttft   time.Duration
 	decode float64
@@ -110,7 +136,7 @@ func streamOnce(ctx context.Context, client *http.Client, baseURL, model string)
 		if data == "[DONE]" {
 			break
 		}
-		if !strings.Contains(data, `"content"`) {
+		if !generated(data) {
 			continue
 		}
 		one.tokens++
