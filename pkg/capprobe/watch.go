@@ -105,6 +105,14 @@ func (w *Watcher) Loop(ctx context.Context) {
 			outcomes = w.fresh()
 			w.softFails = [probeCount]int{}
 			seen = fp
+			// Nothing to check (an embedding model): report the deployment
+			// at once, which registers it and drops the last one's results.
+			if !needsRetry(outcomes) {
+				dirty = true
+				if w.Note != nil {
+					w.Note(Label(outcomes))
+				}
+			}
 		}
 		candidate = ""
 
@@ -171,6 +179,12 @@ func (w *Watcher) Loop(ctx context.Context) {
 // fresh is a deployment's outcomes before any check has run.
 func (w *Watcher) fresh() []Outcome {
 	outcomes := make([]Outcome, probeCount)
+	if w.Embedding {
+		for i := range outcomes {
+			outcomes[i] = NotApplicable
+		}
+		return outcomes
+	}
 	if !w.Reasons {
 		outcomes[reasoningCheck] = NotApplicable
 	}
