@@ -11,9 +11,9 @@ import (
 
 func promptLine(in io.Reader, out io.Writer, question, def string) (string, error) {
 	if def != "" {
-		fmt.Fprintf(out, "%s [%s]: ", question, def)
+		_, _ = fmt.Fprintf(out, "%s [%s]: ", question, def)
 	} else {
-		fmt.Fprintf(out, "%s: ", question)
+		_, _ = fmt.Fprintf(out, "%s: ", question)
 	}
 	sc := bufio.NewScanner(in)
 	if !sc.Scan() {

@@ -363,7 +363,7 @@ func callJSON(ctx context.Context, client *http.Client, method, url, key string,
 	if err != nil {
 		return 0, nil, err
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 	raw, err := io.ReadAll(io.LimitReader(resp.Body, 1<<20))
 	if err != nil {
 		return resp.StatusCode, nil, err
@@ -474,7 +474,7 @@ func probe(ctx context.Context, client *http.Client, base, model, name string) p
 	if err != nil {
 		return probeResult{outcome: Unverified}
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 	rawBody, _ := io.ReadAll(io.LimitReader(resp.Body, 1<<20))
 	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
 		return probeResult{outcome: classifyStatus(resp.StatusCode)}

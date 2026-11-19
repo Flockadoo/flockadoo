@@ -29,7 +29,7 @@ func TestRoundTripSetsVersionHeaders(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	if gotVer != "1.2.3" {
 		t.Fatalf("version header = %q", gotVer)
@@ -85,7 +85,7 @@ func TestUpgradeRequiredRestoresBody(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 	raw, err := io.ReadAll(resp.Body)
 	if err != nil {
 		t.Fatal(err)

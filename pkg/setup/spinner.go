@@ -24,7 +24,7 @@ func spinWhile(out io.Writer, msg func() string, fn func() error) error {
 		out = os.Stdout
 	}
 	if !writerIsTTY(out) {
-		fmt.Fprintln(out, msg()+"...")
+		_, _ = fmt.Fprintln(out, msg()+"...")
 		return fn()
 	}
 
@@ -44,13 +44,13 @@ func spinWhile(out io.Writer, msg func() string, fn func() error) error {
 		defer tick.Stop()
 		draw := func() {
 			line := fitWidth(fmt.Sprintf("%c %s", frames[i%len(frames)], msg()), width)
-			fmt.Fprintf(out, "\r\033[K%s", line)
+			_, _ = fmt.Fprintf(out, "\r\033[K%s", line)
 		}
 		draw()
 		for {
 			select {
 			case <-stop:
-				fmt.Fprint(out, "\r\033[K")
+				_, _ = fmt.Fprint(out, "\r\033[K")
 				return
 			case <-tick.C:
 				i++

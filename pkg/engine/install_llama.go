@@ -41,7 +41,7 @@ func installLlamaWindows(ctx context.Context, w io.Writer) error {
 	if err := os.MkdirAll(dir, 0o755); err != nil {
 		return err
 	}
-	fmt.Fprintf(w, "Installing llama.cpp %s into %s...\n", llamaCppRelease, dir)
+	_, _ = fmt.Fprintf(w, "Installing llama.cpp %s into %s...\n", llamaCppRelease, dir)
 	binURL := llamaReleaseBase + "/llama-" + llamaCppRelease + "-bin-win-cuda-12.4-x64.zip"
 	cudaURL := llamaReleaseBase + "/cudart-llama-bin-win-cuda-12.4-x64.zip"
 	if err := downloadAndExtract(ctx, w, binURL, dir); err != nil {
@@ -58,7 +58,7 @@ func installLlamaDarwin(ctx context.Context, w io.Writer) error {
 	if err := os.MkdirAll(dir, 0o755); err != nil {
 		return err
 	}
-	fmt.Fprintf(w, "Installing llama.cpp %s into %s...\n", llamaCppRelease, dir)
+	_, _ = fmt.Fprintf(w, "Installing llama.cpp %s into %s...\n", llamaCppRelease, dir)
 	url := llamaReleaseBase + "/llama-" + llamaCppRelease + "-bin-macos-arm64.tar.gz"
 	return downloadAndExtract(ctx, w, url, dir)
 }
@@ -88,7 +88,7 @@ func downloadAndExtract(ctx context.Context, w io.Writer, url, dest string) erro
 	if err := tmp.Close(); err != nil {
 		return err
 	}
-	fmt.Fprintf(w, "Downloading %s\n", url)
+	_, _ = fmt.Fprintf(w, "Downloading %s\n", url)
 	if err := download(ctx, url, tmpName); err != nil {
 		return err
 	}
@@ -103,7 +103,7 @@ func extractZip(src, dest string) error {
 	if err != nil {
 		return err
 	}
-	defer r.Close()
+	defer func() { _ = r.Close() }()
 	for _, f := range r.File {
 		if f.FileInfo().IsDir() {
 			continue
@@ -122,12 +122,12 @@ func extractTarGz(src, dest string) error {
 	if err != nil {
 		return err
 	}
-	defer f.Close()
+	defer func() { _ = f.Close() }()
 	gz, err := gzip.NewReader(f)
 	if err != nil {
 		return err
 	}
-	defer gz.Close()
+	defer func() { _ = gz.Close() }()
 	tr := tar.NewReader(gz)
 	for {
 		hdr, err := tr.Next()
@@ -158,7 +158,7 @@ func writeArchiveFile(dest, name string, mode os.FileMode, open func() (io.ReadC
 	if err != nil {
 		return err
 	}
-	defer rc.Close()
+	defer func() { _ = rc.Close() }()
 	outPath := filepath.Join(dest, name)
 	out, err := os.OpenFile(outPath, os.O_CREATE|os.O_TRUNC|os.O_WRONLY, modeOrExec(mode))
 	if err != nil {

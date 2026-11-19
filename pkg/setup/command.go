@@ -99,7 +99,7 @@ func Run(args []string) error {
 		return err
 	}
 	if closer != nil {
-		defer closer.Close()
+		defer func() { _ = closer.Close() }()
 	}
 	return Execute(opts, Streams{In: in, Out: os.Stdout, Err: os.Stderr})
 }

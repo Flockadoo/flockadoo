@@ -117,9 +117,9 @@ func spawnDetachedIfNeeded(dashboardURL string) bool {
 		os.Exit(1)
 	}
 
-	fmt.Fprintln(os.Stdout, "Inferoute Client is running in the notification area.")
-	fmt.Fprintf(os.Stdout, "Dashboard: %s\n", dashboardURL)
-	fmt.Fprintln(os.Stdout, "Right-click the Inferoute icon to open the dashboard or quit.")
+	_, _ = fmt.Fprintln(os.Stdout, "Inferoute Client is running in the notification area.")
+	_, _ = fmt.Fprintf(os.Stdout, "Dashboard: %s\n", dashboardURL)
+	_, _ = fmt.Fprintln(os.Stdout, "Right-click the Inferoute icon to open the dashboard or quit.")
 	return true
 }
 

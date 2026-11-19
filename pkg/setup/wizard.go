@@ -64,9 +64,9 @@ func Execute(opts Options, io Streams) error {
 	inferscale.WithWait = func(msg string, fn func() error) error {
 		return SpinWhile(io.Out, msg, fn)
 	}
-	fmt.Fprintln(io.Out, "=== Inferoute Client Setup ===")
-	fmt.Fprintf(io.Out, "Config: %s\n", path)
-	fmt.Fprintf(io.Out, "API:    %s\n\n", platformURL)
+	_, _ = fmt.Fprintln(io.Out, "=== Inferoute Client Setup ===")
+	_, _ = fmt.Fprintf(io.Out, "Config: %s\n", path)
+	_, _ = fmt.Fprintf(io.Out, "API:    %s\n\n", platformURL)
 
 	if err := applyAPIKey(cfg, opts, io); err != nil {
 		return err
@@ -92,7 +92,7 @@ func Execute(opts Options, io Streams) error {
 		printCluster(io.Out, plan)
 		if plan.Role == "worker" {
 			if msg := mixedGPUWarning(localGPUProduct(), plan.MasterGPU); msg != "" {
-				fmt.Fprintln(io.Err, msg)
+				_, _ = fmt.Fprintln(io.Err, msg)
 			}
 		}
 	} else {
@@ -161,7 +161,7 @@ func Execute(opts Options, io Streams) error {
 						// wrong (or now-missing) vLLM after a failed reinstall.
 						return fmt.Errorf("install %s: %w", release, err)
 					}
-					fmt.Fprintf(io.Err, "install failed: %v\n", err)
+					_, _ = fmt.Fprintf(io.Err, "install failed: %v\n", err)
 					autoStart = false
 				} else {
 					detected = detectEngine(kind)
@@ -189,23 +189,23 @@ func Execute(opts Options, io Streams) error {
 			doInstall = ok
 		}
 		if doInstall {
-			fmt.Fprintf(io.Out, "Installing %s...\n", engine.Label(kind))
+			_, _ = fmt.Fprintf(io.Out, "Installing %s...\n", engine.Label(kind))
 			if err := installEngine(context.Background(), kind, pinned, io.Out); err != nil {
 				if plan.Role == "worker" {
 					return fmt.Errorf("install %s: %w", engine.Label(kind), err)
 				}
-				fmt.Fprintf(io.Err, "install failed: %v\n", err)
+				_, _ = fmt.Fprintf(io.Err, "install failed: %v\n", err)
 				autoStart = false
 			} else {
 				detected = detectEngine(kind)
 			}
 		} else {
 			autoStart = false
-			fmt.Fprintf(io.Out, "Skipping install. You can install %s later and re-run inferoute-client setup.\n", kind)
+			_, _ = fmt.Fprintf(io.Out, "Skipping install. You can install %s later and re-run inferoute-client setup.\n", kind)
 		}
 	}
 	if detected.Found {
-		fmt.Fprintf(io.Out, "Found %s at %s\n", kind, detected.Bin)
+		_, _ = fmt.Fprintf(io.Out, "Found %s at %s\n", kind, detected.Bin)
 	}
 	bin := engine.BinPath(kind, firstNonEmpty(detected.Bin, cfg.Provider.EngineBin))
 	if filepath.IsAbs(bin) {
@@ -259,21 +259,21 @@ func Execute(opts Options, io Streams) error {
 		if saveErr := config.Save(path, cfg); saveErr != nil {
 			return saveErr
 		}
-		fmt.Fprintf(io.Out, "\nWrote %s\n", path)
-		fmt.Fprintf(io.Err, "Setup did not finish: %s is not serving yet (see %s).\n", engine.Label(kind), engine.LogPath(cfg.Logging.LogDir))
-		fmt.Fprintf(io.Err, "Leave the engine running, then re-run: inferoute-client setup\n")
+		_, _ = fmt.Fprintf(io.Out, "\nWrote %s\n", path)
+		_, _ = fmt.Fprintf(io.Err, "Setup did not finish: %s is not serving yet (see %s).\n", engine.Label(kind), engine.LogPath(cfg.Logging.LogDir))
+		_, _ = fmt.Fprintf(io.Err, "Leave the engine running, then re-run: inferoute-client setup\n")
 		return err
 	}
 
 	if err := config.Save(path, cfg); err != nil {
 		return err
 	}
-	fmt.Fprintf(io.Out, "\nWrote %s\n", path)
-	fmt.Fprintln(io.Out, "\nStart the Inferoute client:")
-	fmt.Fprintln(io.Out, "  inferoute-client")
-	fmt.Fprintf(io.Out, "  inferoute-client --config %s\n", path)
-	fmt.Fprintln(io.Out, "\nRe-run this wizard anytime:")
-	fmt.Fprintln(io.Out, "  inferoute-client setup")
+	_, _ = fmt.Fprintf(io.Out, "\nWrote %s\n", path)
+	_, _ = fmt.Fprintln(io.Out, "\nStart the Inferoute client:")
+	_, _ = fmt.Fprintln(io.Out, "  inferoute-client")
+	_, _ = fmt.Fprintf(io.Out, "  inferoute-client --config %s\n", path)
+	_, _ = fmt.Fprintln(io.Out, "\nRe-run this wizard anytime:")
+	_, _ = fmt.Fprintln(io.Out, "  inferoute-client setup")
 	return nil
 }
 
@@ -291,7 +291,7 @@ func applyAPIKey(cfg *config.Config, opts Options, io Streams) error {
 		cfg.Provider.NodeToken = ""
 		cfg.Provider.ClusterMode = ""
 	} else if cfg.EnrolledWorker() {
-		fmt.Fprintln(io.Out, "This machine is already in the cluster.")
+		_, _ = fmt.Fprintln(io.Out, "This machine is already in the cluster.")
 		return nil
 	}
 	key := explicit
@@ -344,10 +344,10 @@ func applyEngine(cfg *config.Config, opts Options, io Streams) (engine.Kind, err
 
 	selectable := make([]engine.Option, 0)
 	def := 1
-	fmt.Fprintln(io.Out, "Inference engine:")
+	_, _ = fmt.Fprintln(io.Out, "Inference engine:")
 	for _, o := range engine.HostOptions() {
 		if o.Unavailable != "" {
-			fmt.Fprintf(io.Out, "     %s — unavailable: %s\n", o.Label, o.Unavailable)
+			_, _ = fmt.Fprintf(io.Out, "     %s — unavailable: %s\n", o.Label, o.Unavailable)
 			continue
 		}
 		selectable = append(selectable, o)
@@ -355,7 +355,7 @@ func applyEngine(cfg *config.Config, opts Options, io Streams) (engine.Kind, err
 		if string(o.Kind) == cfg.Provider.Engine {
 			def = n
 		}
-		fmt.Fprintf(io.Out, "  %d) %s\n", n, o.Label)
+		_, _ = fmt.Fprintf(io.Out, "  %d) %s\n", n, o.Label)
 	}
 	if len(selectable) == 0 {
 		return "", fmt.Errorf("no engines available on this machine")
@@ -378,13 +378,13 @@ func resolveEngine(goos, name string) (engine.Kind, error) {
 func printCluster(out io.Writer, plan clusterSettings) {
 	name := firstNonEmpty(plan.Name, "this cluster")
 	if plan.Role == "worker" {
-		fmt.Fprintf(out, "\nJoining cluster %s\n", name)
+		_, _ = fmt.Fprintf(out, "\nJoining cluster %s\n", name)
 	} else {
-		fmt.Fprintf(out, "\nCluster %s\n", name)
+		_, _ = fmt.Fprintf(out, "\nCluster %s\n", name)
 	}
-	fmt.Fprintf(out, "Model: %s\n", modelLabel(plan))
+	_, _ = fmt.Fprintf(out, "Model: %s\n", modelLabel(plan))
 	if plan.VLLMVersion != "" {
-		fmt.Fprintf(out, "vLLM: %s\n", plan.VLLMVersion)
+		_, _ = fmt.Fprintf(out, "vLLM: %s\n", plan.VLLMVersion)
 	}
 }
 
@@ -448,7 +448,7 @@ func clusterEntry(opts Options, kind engine.Kind, platformURL string, plan clust
 		})
 	}
 	if err != nil {
-		fmt.Fprintf(io.Err, "catalog unavailable (%v); serving %s without catalog flags\n", err, plan.Model)
+		_, _ = fmt.Fprintf(io.Err, "catalog unavailable (%v); serving %s without catalog flags\n", err, plan.Model)
 		return fallback
 	}
 	entries = verify.FilterByEngine(entries, string(kind))
@@ -476,7 +476,7 @@ func applyModel(cfg *config.Config, opts Options, kind engine.Kind, platformURL 
 			return fetchErr
 		})
 		if err == nil {
-			fmt.Fprintf(io.Out, "Loaded %d models from %s\n", len(entries), platformURL)
+			_, _ = fmt.Fprintf(io.Out, "Loaded %d models from %s\n", len(entries), platformURL)
 		}
 	}
 	if err != nil {
@@ -486,12 +486,12 @@ func applyModel(cfg *config.Config, opts Options, kind engine.Kind, platformURL 
 	before := len(entries)
 	entries = verify.FilterByEngine(entries, string(kind))
 	if before > 0 && len(entries) < before {
-		fmt.Fprintf(io.Out, "Filtered to %d models supported by %s\n", len(entries), engine.Label(kind))
+		_, _ = fmt.Fprintf(io.Out, "Filtered to %d models supported by %s\n", len(entries), engine.Label(kind))
 	}
 
 	hw, hwErr := compat.Detect()
 	if hwErr != nil {
-		fmt.Fprintf(io.Err, "hardware detection warning: %v\n", hwErr)
+		_, _ = fmt.Fprintf(io.Err, "hardware detection warning: %v\n", hwErr)
 	}
 	results := compat.ScoreModels(hw, entries, kind)
 	report := compat.BuildReport(hw, results, false)
@@ -516,7 +516,7 @@ func applyModel(cfg *config.Config, opts Options, kind engine.Kind, platformURL 
 		return verify.CatalogEntry{}, fmt.Errorf("--model is required with --yes")
 	}
 
-	fmt.Fprintln(io.Out, "\nModels that should fit this machine:")
+	_, _ = fmt.Fprintln(io.Out, "\nModels that should fit this machine:")
 	if err := compat.WriteTable(io.Out, report); err != nil {
 		return verify.CatalogEntry{}, err
 	}
@@ -581,27 +581,27 @@ const (
 )
 
 func printClusterStart(out io.Writer, role string, spec engine.Spec) {
-	fmt.Fprintf(out, "\n%s\n", formatSpec(spec))
+	_, _ = fmt.Fprintf(out, "\n%s\n", formatSpec(spec))
 	if role == "worker" {
-		fmt.Fprintln(out, "Run this after the master is up. Then start inferoute-client.")
-		fmt.Fprintln(out, docsClusterWorker)
+		_, _ = fmt.Fprintln(out, "Run this after the master is up. Then start inferoute-client.")
+		_, _ = fmt.Fprintln(out, docsClusterWorker)
 		return
 	}
-	fmt.Fprintln(out, "Start vLLM first using the command above. Workers join once the master is running and waiting. Then start inferoute-client.")
-	fmt.Fprintln(out, docsClusterMaster)
+	_, _ = fmt.Fprintln(out, "Start vLLM first using the command above. Workers join once the master is running and waiting. Then start inferoute-client.")
+	_, _ = fmt.Fprintln(out, docsClusterMaster)
 }
 
 func maybeStart(kind engine.Kind, spec engine.Spec, cfg *config.Config, opts Options, haveBin bool, io Streams) error {
 	if opts.NoStart || !haveBin {
-		fmt.Fprintf(io.Out, "\nTo serve this model later:\n  %s\n", formatSpec(spec))
+		_, _ = fmt.Fprintf(io.Out, "\nTo serve this model later:\n  %s\n", formatSpec(spec))
 		return nil
 	}
 
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 	if engine.Healthy(ctx, kind, cfg.Provider.LLMURL) {
-		fmt.Fprintf(io.Out, "\n%s is already running at %s.\n", kind, cfg.Provider.LLMURL)
-		fmt.Fprintf(io.Out, "To serve the chosen model, run:\n  %s\n", formatSpec(spec))
+		_, _ = fmt.Fprintf(io.Out, "\n%s is already running at %s.\n", kind, cfg.Provider.LLMURL)
+		_, _ = fmt.Fprintf(io.Out, "To serve the chosen model, run:\n  %s\n", formatSpec(spec))
 		return nil
 	}
 	model := strings.TrimSpace(cfg.Provider.Model)
@@ -611,7 +611,7 @@ func maybeStart(kind engine.Kind, spec engine.Spec, cfg *config.Config, opts Opt
 	waitMsg := fmt.Sprintf("Waiting for %s to finish downloading and start serving at %s", model, cfg.Provider.LLMURL)
 
 	if engine.PortOpen(ctx, cfg.Provider.LLMURL) {
-		fmt.Fprintf(io.Out, "\n%s is already starting at %s (port in use).\n", kind, cfg.Provider.LLMURL)
+		_, _ = fmt.Fprintf(io.Out, "\n%s is already starting at %s (port in use).\n", kind, cfg.Provider.LLMURL)
 		waitCtx, waitCancel := context.WithTimeout(context.Background(), engine.DefaultDownloadTimeout)
 		defer waitCancel()
 		err := SpinWhile(io.Out, waitMsg, func() error {
@@ -620,11 +620,11 @@ func maybeStart(kind engine.Kind, spec engine.Spec, cfg *config.Config, opts Opt
 		if err != nil {
 			return fmt.Errorf("%w (see %s)", err, engine.LogPath(cfg.Logging.LogDir))
 		}
-		fmt.Fprintf(io.Out, "Engine is ready at %s.\n", cfg.Provider.LLMURL)
+		_, _ = fmt.Fprintf(io.Out, "Engine is ready at %s.\n", cfg.Provider.LLMURL)
 		return nil
 	}
 
-	fmt.Fprintf(io.Out, "\n%s\n", formatSpec(spec))
+	_, _ = fmt.Fprintf(io.Out, "\n%s\n", formatSpec(spec))
 	startNow := opts.Yes
 	if !opts.Yes {
 		ok, err := promptYes(io.In, io.Out, fmt.Sprintf("Start %s with this model now?", kind), true)
@@ -637,7 +637,7 @@ func maybeStart(kind engine.Kind, spec engine.Spec, cfg *config.Config, opts Opt
 		return nil
 	}
 
-	fmt.Fprintf(io.Out, "Starting %s...\n", kind)
+	_, _ = fmt.Fprintf(io.Out, "Starting %s...\n", kind)
 	logPath := engine.LogPath(cfg.Logging.LogDir)
 	exited, err := engine.StartDetached(spec, logPath)
 	if err != nil {
@@ -650,7 +650,7 @@ func maybeStart(kind engine.Kind, spec engine.Spec, cfg *config.Config, opts Opt
 	}); err != nil {
 		return fmt.Errorf("%w (see %s)", err, logPath)
 	}
-	fmt.Fprintf(io.Out, "Engine is ready at %s.\n", cfg.Provider.LLMURL)
+	_, _ = fmt.Fprintf(io.Out, "Engine is ready at %s.\n", cfg.Provider.LLMURL)
 	return nil
 }
 

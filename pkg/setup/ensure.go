@@ -61,14 +61,14 @@ func ensureOnStart(ctx context.Context, cfg *config.Config, io Streams, interact
 	}
 
 	if engine.Healthy(ctx, kind, url) {
-		fmt.Fprintf(io.Out, "%s is running at %s.\n", label, url)
+		_, _ = fmt.Fprintf(io.Out, "%s is running at %s.\n", label, url)
 		return nil
 	}
 
 	join := engine.MasterJoinAddr(cfg.Provider.EngineArgs)
 	if join != "" && !engine.PortOpen(ctx, url) && engine.PortOpen(ctx, "http://"+join) {
 		joined, need := engine.WorkerSlots(onlinePeers(), engine.NNodes(cfg.Provider.EngineArgs))
-		fmt.Fprintf(io.Out, "Waiting for workers to join (%d/%d).\n", joined, need)
+		_, _ = fmt.Fprintf(io.Out, "Waiting for workers to join (%d/%d).\n", joined, need)
 		return nil
 	}
 
@@ -77,14 +77,14 @@ func ensureOnStart(ctx context.Context, cfg *config.Config, io Streams, interact
 		waitMsg = fmt.Sprintf("Waiting for the master to accept other nodes at tcp://%s", join)
 	}
 	if engine.PortOpen(ctx, url) {
-		fmt.Fprintf(io.Out, "%s is already starting at %s.\n", label, url)
+		_, _ = fmt.Fprintf(io.Out, "%s is already starting at %s.\n", label, url)
 		err := SpinWhile(io.Out, waitMsg, func() error {
 			return engine.WaitHealthy(ctx, kind, url, 2*time.Second, nil)
 		})
 		if err != nil {
 			return fmt.Errorf("%w (see %s)", err, engine.LogPath(cfg.Logging.LogDir))
 		}
-		fmt.Fprintf(io.Out, "%s is ready at %s.\n", label, url)
+		_, _ = fmt.Fprintf(io.Out, "%s is ready at %s.\n", label, url)
 		return nil
 	}
 
@@ -92,12 +92,12 @@ func ensureOnStart(ctx context.Context, cfg *config.Config, io Streams, interact
 	if bin == "" {
 		detected := engine.Detect(kind)
 		if detected.Unusable != "" {
-			fmt.Fprintf(io.Out, "%s at %s cannot run (%s).\n", label, detected.Bin, detected.Unusable)
-			fmt.Fprintln(io.Out, "Fix it with: inferoute-client setup")
+			_, _ = fmt.Fprintf(io.Out, "%s at %s cannot run (%s).\n", label, detected.Bin, detected.Unusable)
+			_, _ = fmt.Fprintln(io.Out, "Fix it with: inferoute-client setup")
 			return nil
 		}
-		fmt.Fprintf(io.Out, "%s is not installed and is not running at %s.\n", label, url)
-		fmt.Fprintln(io.Out, "Install it with: inferoute-client setup")
+		_, _ = fmt.Fprintf(io.Out, "%s is not installed and is not running at %s.\n", label, url)
+		_, _ = fmt.Fprintln(io.Out, "Install it with: inferoute-client setup")
 		return nil
 	}
 
@@ -110,7 +110,7 @@ func ensureOnStart(ctx context.Context, cfg *config.Config, io Streams, interact
 		startNow = ok
 	}
 	if !startNow {
-		fmt.Fprintf(io.Out, "Skipping %s start. Inference will fail until it is serving at %s.\n", label, url)
+		_, _ = fmt.Fprintf(io.Out, "Skipping %s start. Inference will fail until it is serving at %s.\n", label, url)
 		return nil
 	}
 
@@ -122,32 +122,32 @@ func ensureOnStart(ctx context.Context, cfg *config.Config, io Streams, interact
 	}
 	if join != "" && !engine.PortOpen(ctx, url) {
 		joined, need := engine.WorkerSlots(onlinePeers(), engine.NNodes(cfg.Provider.EngineArgs))
-		fmt.Fprintf(io.Out, "Waiting for workers to join (%d/%d).\n", joined, need)
+		_, _ = fmt.Fprintf(io.Out, "Waiting for workers to join (%d/%d).\n", joined, need)
 		return nil
 	}
-	fmt.Fprintf(io.Out, "%s is ready at %s.\n", label, url)
+	_, _ = fmt.Fprintf(io.Out, "%s is ready at %s.\n", label, url)
 	return nil
 }
 
 func observeWorker(io Streams, kind engine.Kind, cfg *config.Config) error {
 	if engine.WorkerAlive(kind, cfg.Provider.EngineArgs) {
-		fmt.Fprintln(io.Out, "Worker is running. It joins the master and does not serve HTTP.")
+		_, _ = fmt.Fprintln(io.Out, "Worker is running. It joins the master and does not serve HTTP.")
 		return nil
 	}
 	printSavedCommand(io.Out, cfg, docsClusterWorker)
-	fmt.Fprintln(io.Out, "Start it in another terminal. This client keeps running.")
+	_, _ = fmt.Fprintln(io.Out, "Start it in another terminal. This client keeps running.")
 	return nil
 }
 
 func observeMaster(ctx context.Context, io Streams, kind engine.Kind, label, url string, cfg *config.Config) error {
 	switch state := engine.MasterState(ctx, kind, url, cfg.Provider.EngineArgs, onlinePeers()); state {
 	case "ready":
-		fmt.Fprintf(io.Out, "%s is ready at %s.\n", label, url)
+		_, _ = fmt.Fprintf(io.Out, "%s is ready at %s.\n", label, url)
 	case "not started":
 		printSavedCommand(io.Out, cfg, docsClusterMaster)
-		fmt.Fprintln(io.Out, "Start it in another terminal. This client keeps running.")
+		_, _ = fmt.Fprintln(io.Out, "Start it in another terminal. This client keeps running.")
 	default:
-		fmt.Fprintln(io.Out, state)
+		_, _ = fmt.Fprintln(io.Out, state)
 	}
 	return nil
 }
@@ -155,9 +155,9 @@ func observeMaster(ctx context.Context, io Streams, kind engine.Kind, label, url
 func printSavedCommand(out io.Writer, cfg *config.Config, docs string) {
 	spec, err := engine.SpecFromConfig(cfg)
 	if err != nil {
-		fmt.Fprintln(out, docs)
+		_, _ = fmt.Fprintln(out, docs)
 		return
 	}
-	fmt.Fprintln(out, spec.Display())
-	fmt.Fprintln(out, docs)
+	_, _ = fmt.Fprintln(out, spec.Display())
+	_, _ = fmt.Fprintln(out, docs)
 }

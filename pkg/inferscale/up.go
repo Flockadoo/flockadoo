@@ -19,7 +19,7 @@ import (
 
 // WithWait shows progress around a slow step. Setup replaces it with the spinner.
 var WithWait = func(msg string, fn func() error) error {
-	fmt.Fprintf(os.Stdout, "%s...\n", msg)
+	_, _ = fmt.Fprintf(os.Stdout, "%s...\n", msg)
 	return fn()
 }
 
@@ -85,7 +85,7 @@ func BringUp(ctx context.Context, loginServer, authKey string) (ip, nodeID strin
 	// A saved address is not a connection. Offline still has the old IPv4.
 	if st, err := readState(ctx, cli); err == nil && reuseOnlineNode(freshKey, st) {
 		clearAuthKey()
-		fmt.Fprintf(os.Stdout, "Inferscale address: %s\n", st.IP)
+		_, _ = fmt.Fprintf(os.Stdout, "Inferscale address: %s\n", st.IP)
 		return st.IP, st.ID, nil
 	}
 	if loginServer == "" && authKey == "" {
@@ -125,7 +125,7 @@ func BringUp(ctx context.Context, loginServer, authKey string) (ip, nodeID strin
 	}
 	ip, nodeID, err = waitOnline(ctx, cli)
 	if err == nil {
-		fmt.Fprintf(os.Stdout, "Inferscale address: %s\n", ip)
+		_, _ = fmt.Fprintf(os.Stdout, "Inferscale address: %s\n", ip)
 	}
 	return ip, nodeID, err
 }
@@ -183,7 +183,7 @@ func startDaemon(ctx context.Context, daemon string) error {
 		return fmt.Errorf("refusing to run %s as root: %w", daemon, err)
 	}
 	logf := openDaemonLog()
-	defer logf.Close()
+	defer func() { _ = logf.Close() }()
 	if euid() == 0 {
 		cmd := exec.Command(daemon)
 		cmd.Stdout = logf
@@ -304,7 +304,7 @@ func readFrom(path string, off int64) string {
 	if err != nil {
 		return ""
 	}
-	defer f.Close()
+	defer func() { _ = f.Close() }()
 	st, err := f.Stat()
 	if err != nil || st.Size() <= off {
 		return ""

@@ -69,7 +69,7 @@ func installVLLM(ctx context.Context, version string, w io.Writer) error {
 		return err
 	}
 	req := vllmRequirement(version)
-	fmt.Fprintf(w, "Creating vLLM venv at %s (Python %s)...\n", venv, vllmPython)
+	_, _ = fmt.Fprintf(w, "Creating vLLM venv at %s (Python %s)...\n", venv, vllmPython)
 	// --seed installs pip. FlashInfer's kernel download runs `python -m pip`.
 	// --clear replaces a venv left behind by a failed install; uv refuses to
 	// recreate one that already exists.
@@ -78,7 +78,7 @@ func installVLLM(ctx context.Context, version string, w io.Writer) error {
 	if err := run(ctx, w, uv, "venv", "--python", vllmPython, "--managed-python", "--seed", "--clear", venv); err != nil {
 		return err
 	}
-	fmt.Fprintln(w, "Installing vLLM (this can take several minutes)...")
+	_, _ = fmt.Fprintln(w, "Installing vLLM (this can take several minutes)...")
 	py := venvExe(venv, "python")
 	if err := run(ctx, w, uv, "pip", "install", "--python", py, req); err != nil {
 		return fmt.Errorf("vLLM pip install failed: %w (see %s)", err, vllmDocsURL)
@@ -109,7 +109,7 @@ func ensureUV(ctx context.Context, w io.Writer, home string) (string, error) {
 	if uv := findUV(home, lookPath("uv")); uv != "" {
 		return uv, nil
 	}
-	fmt.Fprintln(w, "Installing uv...")
+	_, _ = fmt.Fprintln(w, "Installing uv...")
 	if err := runScript(ctx, w, uvInstallURL); err != nil {
 		return "", fmt.Errorf("install uv: %w", err)
 	}
@@ -125,10 +125,10 @@ func ensureUV(ctx context.Context, w io.Writer, home string) (string, error) {
 // `vllm serve`, after the cluster has started waiting.
 func checkTorchCUDA(ctx context.Context, w io.Writer, venv string) error {
 	if _, err := exec.LookPath("nvidia-smi"); err != nil {
-		fmt.Fprintln(w, "Skipping PyTorch CUDA check (nvidia-smi not found).")
+		_, _ = fmt.Fprintln(w, "Skipping PyTorch CUDA check (nvidia-smi not found).")
 		return nil
 	}
-	fmt.Fprintln(w, "Checking the NVIDIA driver can load PyTorch...")
+	_, _ = fmt.Fprintln(w, "Checking the NVIDIA driver can load PyTorch...")
 	if err := run(ctx, w, venvExe(venv, "python"), "-c", "import torch; torch.cuda.init()"); err != nil {
 		return fmt.Errorf("PyTorch cannot use this NVIDIA driver: %w (see %s)", err, vllmDocsURL)
 	}
@@ -140,10 +140,10 @@ func checkTorchCUDA(ctx context.Context, w io.Writer, venv string) error {
 // driver and no CUDA toolkit die during warmup.
 func downloadKernels(ctx context.Context, w io.Writer, venv string) error {
 	if _, err := exec.LookPath("nvidia-smi"); err != nil {
-		fmt.Fprintln(w, "Skipping vLLM kernel download (nvidia-smi not found).")
+		_, _ = fmt.Fprintln(w, "Skipping vLLM kernel download (nvidia-smi not found).")
 		return nil
 	}
-	fmt.Fprintln(w, "Downloading FlashInfer kernels...")
+	_, _ = fmt.Fprintln(w, "Downloading FlashInfer kernels...")
 	vllm := venvExe(venv, "vllm")
 	help, _ := exec.CommandContext(ctx, vllm, "-h").CombinedOutput()
 	// vLLM 0.33 has no download-kernels subcommand. Later releases wrap this CLI.
@@ -194,7 +194,7 @@ func installVLLMMetal(ctx context.Context, w io.Writer) error {
 			return err
 		}
 	}
-	fmt.Fprintln(w, "Installing vLLM Metal via official install script...")
+	_, _ = fmt.Fprintln(w, "Installing vLLM Metal via official install script...")
 	return runScript(ctx, w, vllmMetalInstallURL)
 }
 
@@ -205,7 +205,7 @@ func replaceVenvDir(w io.Writer, venv string) error {
 		}
 		return err
 	}
-	fmt.Fprintf(w, "Removing existing venv at %s so uv can recreate it...\n", venv)
+	_, _ = fmt.Fprintf(w, "Removing existing venv at %s so uv can recreate it...\n", venv)
 	if err := os.RemoveAll(venv); err != nil {
 		return fmt.Errorf("remove %s: %w", venv, err)
 	}
@@ -235,7 +235,7 @@ func download(ctx context.Context, url, dest string) error {
 	if err != nil {
 		return fmt.Errorf("download %s: %w", url, err)
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 	if resp.StatusCode != http.StatusOK {
 		return fmt.Errorf("download %s: HTTP %d", url, resp.StatusCode)
 	}

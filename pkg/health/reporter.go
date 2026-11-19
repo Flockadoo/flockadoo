@@ -172,7 +172,7 @@ func (r *Reporter) SendHealthReport(ctx context.Context) error {
 	if err != nil {
 		return fmt.Errorf("failed to send request: %w", err)
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	// Check response status
 	if resp.StatusCode != http.StatusOK {
@@ -218,7 +218,7 @@ func (r *Reporter) sendNodeHealth(ctx context.Context, status string, gpuInfo *g
 	if err != nil {
 		return err
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 	if resp.StatusCode != http.StatusOK && resp.StatusCode != http.StatusNoContent {
 		msg, _ := io.ReadAll(io.LimitReader(resp.Body, 512))
 		return fmt.Errorf("node health: %s", bytes.TrimSpace(msg))

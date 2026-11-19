@@ -145,7 +145,7 @@ func fetchFromNode(ctx context.Context, platformURL string) (Release, error) {
 	if err != nil {
 		return Release{}, err
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 	if resp.StatusCode != http.StatusOK {
 		return Release{}, fmt.Errorf("GET /api/client/version returned %d", resp.StatusCode)
 	}
@@ -193,7 +193,7 @@ func download(ctx context.Context, url, dest string) error {
 	if err != nil {
 		return err
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 	if resp.StatusCode != http.StatusOK {
 		return fmt.Errorf("download %s returned %d", url, resp.StatusCode)
 	}
@@ -229,7 +229,7 @@ func verifyChecksum(ctx context.Context, rel Release, asset, zipPath string) err
 	if err != nil {
 		return err
 	}
-	defer f.Close()
+	defer func() { _ = f.Close() }()
 	h := sha256.New()
 	if _, err := io.Copy(h, f); err != nil {
 		return err
@@ -246,7 +246,7 @@ func unzipBinary(zipPath, dir string) (string, error) {
 	if err != nil {
 		return "", err
 	}
-	defer r.Close()
+	defer func() { _ = r.Close() }()
 	for _, f := range r.File {
 		if f.FileInfo().IsDir() {
 			continue
@@ -337,7 +337,7 @@ func copyRegularFile(src, dst string) error {
 	if err != nil {
 		return err
 	}
-	defer in.Close()
+	defer func() { _ = in.Close() }()
 	out, err := os.OpenFile(dst, os.O_CREATE|os.O_TRUNC|os.O_WRONLY, 0o755)
 	if err != nil {
 		return err

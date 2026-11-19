@@ -120,7 +120,7 @@ func streamOnce(ctx context.Context, client *http.Client, baseURL, model string)
 		one.err = err
 		return
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 	if resp.StatusCode != http.StatusOK {
 		one.err = fmt.Errorf("status %d", resp.StatusCode)
 		return

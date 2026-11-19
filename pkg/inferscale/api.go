@@ -108,7 +108,7 @@ func doJSON(base, method, path, token string, body any, dest any) error {
 	if err != nil {
 		return err
 	}
-	defer res.Body.Close()
+	defer func() { _ = res.Body.Close() }()
 	if res.StatusCode >= 300 {
 		msg, _ := io.ReadAll(io.LimitReader(res.Body, 512))
 		return fmt.Errorf("%s %s: %s", method, path, strings.TrimSpace(string(msg)))
