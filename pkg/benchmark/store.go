@@ -14,6 +14,9 @@ type Result struct {
 	MeasuredAt  time.Time     `json:"measured_at"`
 	Levels      []LevelResult `json:"levels"`
 	GPUBusy     bool          `json:"gpu_busy,omitempty"`
+	// Fallback is true when no level ran and Concurrency is the catalog's
+	// number or the engine's default, not a measurement.
+	Fallback bool `json:"fallback,omitempty"`
 }
 
 func pathFor(configPath string) string {

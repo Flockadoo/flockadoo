@@ -35,8 +35,11 @@ type Watcher struct {
 	Inflight    func() int32
 	Preemptions func(ctx context.Context) int64
 	Record      func(Result)
-	client      *http.Client
-	applied     bool
+	// Embedding is true when the catalog's task for the model is embedding:
+	// it is measured with /v1/embeddings requests, since it answers no chat.
+	Embedding bool
+	client    *http.Client
+	applied   bool
 	// drainPaused is set when a drain times out. The gate stays open until
 	// inflight hits zero so a long stream cannot pin the node shut.
 	drainPaused bool
@@ -115,6 +118,10 @@ func (w *Watcher) measure(ctx context.Context, fp string) {
 		logger.Warn("benchmark starting while the GPU looks busy; the result may be low")
 	}
 
+	run, pick := RunLevel, Pick
+	if w.Embedding {
+		run, pick = runEmbeddingLevel, pickEmbedding
+	}
 	var levels []LevelResult
 	for i, n := range Levels {
 		if w.Note != nil {
@@ -124,7 +131,7 @@ func (w *Watcher) measure(ctx context.Context, fp string) {
 		if w.Preemptions != nil {
 			before = w.Preemptions(ctx)
 		}
-		lvl := RunLevel(ctx, w.client, w.EngineURL, w.Model, n)
+		lvl := run(ctx, w.client, w.EngineURL, w.Model, n)
 		if w.Preemptions != nil {
 			lvl.Preemptions = int(w.Preemptions(ctx) - before)
 			if lvl.Preemptions < 0 {
@@ -132,14 +139,16 @@ func (w *Watcher) measure(ctx context.Context, fp string) {
 			}
 		}
 		levels = append(levels, lvl)
-		if Pick(levels) != n {
+		if pick(levels) != n {
 			break
 		}
 	}
-	best := Pick(levels)
+	best := pick(levels)
+	fallback := false
 	if best < 1 {
 		if len(levels) == 0 || levels[0].Errors > 0 {
 			best = w.fallback()
+			fallback = true
 			logger.Warn("benchmark failed; using the catalog recommendation", zap.Int("concurrency", best))
 		} else {
 			// n=1 completed but missed the quality bar (slow TTFT / decode).
@@ -153,6 +162,7 @@ func (w *Watcher) measure(ctx context.Context, fp string) {
 		MeasuredAt:  time.Now().UTC(),
 		Levels:      levels,
 		GPUBusy:     w.GPUBusy != nil && w.GPUBusy(),
+		Fallback:    fallback,
 	}
 	if err := save(w.ConfigPath, res); err != nil {
 		logger.Warn("could not save benchmark", zap.Error(err))
@@ -167,7 +177,11 @@ func (w *Watcher) finish(res Result) {
 		w.Apply(res.Concurrency)
 	}
 	if w.Note != nil {
-		w.Note("verified for " + itoa(res.Concurrency) + " concurrent")
+		if res.Fallback {
+			w.Note("failed; using " + itoa(res.Concurrency) + " concurrent (not measured)")
+		} else {
+			w.Note("verified for " + itoa(res.Concurrency) + " concurrent")
+		}
 	}
 	if w.Record != nil {
 		w.Record(res)

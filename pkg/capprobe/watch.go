@@ -47,6 +47,10 @@ type Watcher struct {
 	// reasoning model only from providers whose engine sends its thinking
 	// apart from the answer.
 	Reasons bool
+	// Embedding is true when the catalog's task for the model is embedding.
+	// Every check is a chat request, so none applies: the deployment is
+	// registered and reported with no capability, and the engine is not asked.
+	Embedding bool
 
 	// Waits. Zero uses the defaults; tests shorten them.
 	BusyWait  time.Duration
@@ -101,6 +105,14 @@ func (w *Watcher) Loop(ctx context.Context) {
 			outcomes = w.fresh()
 			w.softFails = [probeCount]int{}
 			seen = fp
+			// Nothing to check (an embedding model): report the deployment
+			// at once, which registers it and drops the last one's results.
+			if !needsRetry(outcomes) {
+				dirty = true
+				if w.Note != nil {
+					w.Note(Label(outcomes))
+				}
+			}
 		}
 		candidate = ""
 
@@ -167,6 +179,12 @@ func (w *Watcher) Loop(ctx context.Context) {
 // fresh is a deployment's outcomes before any check has run.
 func (w *Watcher) fresh() []Outcome {
 	outcomes := make([]Outcome, probeCount)
+	if w.Embedding {
+		for i := range outcomes {
+			outcomes[i] = NotApplicable
+		}
+		return outcomes
+	}
 	if !w.Reasons {
 		outcomes[reasoningCheck] = NotApplicable
 	}

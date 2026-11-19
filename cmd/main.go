@@ -605,6 +605,8 @@ func startCapacity(ctx context.Context, cfg *config.Config, configPath, llmURL s
 		// A reasoning model is checked for its thinking coming back apart
 		// from the answer; the node routes it only to providers that pass.
 		Reasons: cfg.Provider.ReasoningParser != "",
+		// The checks are chat requests; an embedding model answers none.
+		Embedding: engine.IsEmbedding(cfg.Provider.Task),
 	}).Loop(ctx)
 
 	if !benchmarks {
@@ -659,6 +661,8 @@ func startCapacity(ctx context.Context, cfg *config.Config, configPath, llmURL s
 			}
 			return *got.Preemptions
 		},
+		// An embedding model answers no chat; it is measured with embeddings.
+		Embedding: engine.IsEmbedding(cfg.Provider.Task),
 		Record: func(res benchmark.Result) {
 			reporter.SetBenchmark(&health.BenchmarkSummary{
 				Concurrency: res.Concurrency,
