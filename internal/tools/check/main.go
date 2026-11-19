@@ -19,8 +19,8 @@ import (
 )
 
 func main() {
-	lintBase := flag.String("lint-base", "origin/main",
-		"lint only what changed since the merge base with this revision (plan 18.5); empty lints the whole codebase")
+	lintBase := flag.String("lint-base", "",
+		"lint only what changed since the merge base with this revision; empty, the default, lints the whole codebase (plan item L1)")
 	flag.Parse()
 
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt)

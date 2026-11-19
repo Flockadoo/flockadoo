@@ -1,9 +1,8 @@
 # Lint gate for inferoute-client. Plan: inferoute-plans/client_reliability_audit_3d9b52e7.plan.md,
 # section 18.
 #
-# Only changed lines are judged until item L1 clears the baseline (section 18.5):
-# the check command passes --new-from-merge-base. Each structural item leaves the
-# packages it touches clean and adds its depguard rules with the package.
+# The whole codebase is judged (item L1 cleared the baseline, section 18.5). Each
+# structural item adds its depguard rules with the package it creates.
 #
 # A deliberate exception is a //nolint with the linter's name and a reason.
 # Run: go run ./internal/tools/check   (or golangci-lint run ./... for everything)
