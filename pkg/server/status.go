@@ -55,8 +55,11 @@ type StatusSnapshot struct {
 	Peers            string        `json:"peers,omitempty"`
 	Cluster          string        `json:"cluster,omitempty"`
 	Nodes            string        `json:"nodes,omitempty"`
-	EngineNote       string        `json:"engine_note,omitempty"`
-	CapabilityLine   string        `json:"capability_line,omitempty"`
+	// NotServing is why the running engine is refused (too old), so the
+	// client advertises no model; empty while it serves.
+	NotServing     string `json:"not_serving,omitempty"`
+	EngineNote     string `json:"engine_note,omitempty"`
+	CapabilityLine string `json:"capability_line,omitempty"`
 	// Connection and ConnectionReason are the tunnel's state and why (plan
 	// item C1, decision DC8).
 	Connection       string `json:"connection,omitempty"`
@@ -78,7 +81,9 @@ func (s *Server) snapshot() StatusSnapshot {
 
 	lastUpdateStr := "Never"
 	var models []StatusModel
+	notServing := ""
 	if s.healthReporter != nil {
+		notServing = s.healthReporter.EngineRefusal()
 		if lastUpdate := s.healthReporter.GetLastUpdateTime(); !lastUpdate.IsZero() {
 			lastUpdateStr = lastUpdate.Format("2006-01-02 15:04:05")
 		}
@@ -152,6 +157,7 @@ func (s *Server) snapshot() StatusSnapshot {
 		Peers:            peers,
 		Cluster:          cluster,
 		Nodes:            nodes,
+		NotServing:       notServing,
 		EngineNote:       s.engineNoteText(),
 		CapabilityLine:   s.capabilitiesText(),
 	}
