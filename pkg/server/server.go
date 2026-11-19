@@ -434,6 +434,9 @@ func (s *Server) redrawConsole() {
 		statusColor = "\033[1;33m"
 	}
 	buf.WriteString(fmt.Sprintf("\033[1;35mSession Status                \033[0m%s%s\033[0m\n", statusColor, snap.SessionStatus))
+	if snap.NotServing != "" {
+		fmt.Fprintf(&buf, "\033[1;35m%-30s\033[0m\033[1;31m%s\033[0m\n", "Not serving", snap.NotServing)
+	}
 	if snap.EngineNote != "" {
 		buf.WriteString(fmt.Sprintf("\033[1;35mBenchmark                     \033[0m%s\n", snap.EngineNote))
 	}

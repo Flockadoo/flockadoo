@@ -300,6 +300,14 @@ func (r *Reporter) engineRefusal(kind, version string) string {
 	return refusal
 }
 
+// EngineRefusal is why the running engine was refused at the last report, or ""
+// when it may serve, for the local status display.
+func (r *Reporter) EngineRefusal() string {
+	r.refusalMu.Lock()
+	defer r.refusalMu.Unlock()
+	return r.lastRefusal
+}
+
 // engineVersioner is the engine client's version lookup (llm.VLLMClient).
 type engineVersioner interface {
 	EngineVersion(ctx context.Context, llamaServer bool) string

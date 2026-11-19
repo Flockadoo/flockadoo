@@ -4,15 +4,18 @@ import (
 	"context"
 	"encoding/json"
 	"github.com/sentnl/inferoute-node/inferoute-client/internal/relay"
+	"io"
 	"net"
 	"net/http"
 	"net/http/httptest"
+	"os"
 	"strings"
 	"testing"
 	"time"
 
 	"github.com/sentnl/inferoute-node/inferoute-client/internal/config"
 	"github.com/sentnl/inferoute-node/inferoute-client/pkg/health"
+	"github.com/sentnl/inferoute-node/inferoute-client/pkg/llm"
 )
 
 func TestHandleDashboard(t *testing.T) {
@@ -131,6 +134,110 @@ func TestRecentRequestsAreInferenceOnly(t *testing.T) {
 	}
 	if len(snap.RecentRequests) != 1 || snap.RecentRequests[0].Path != "/v1/chat/completions" {
 		t.Fatalf("recent = %+v", snap.RecentRequests)
+	}
+}
+
+// versionedEngine serves one model and reports its release, as a running
+// vLLM or vLLM Metal does.
+type versionedEngine struct {
+	fakeLLM
+	version string
+}
+
+func (e *versionedEngine) ListModels(context.Context) (*llm.ListModelsResponse, error) {
+	return &llm.ListModelsResponse{Models: []llm.Model{{ID: "Qwen/Qwen2.5-3B-Instruct"}}}, nil
+}
+
+func (e *versionedEngine) EngineVersion(context.Context, bool) string { return e.version }
+
+// engineServer is a server whose health reporter has just reported on a
+// running vLLM Metal of the given release.
+func engineServer(t *testing.T, eng *versionedEngine) *Server {
+	t.Helper()
+	s := newTestServer("http://unused", eng)
+	s.config.Provider.Engine = "vllm-metal"
+	s.healthReporter = health.NewReporter(s.config, nil, eng)
+	if _, err := s.healthReporter.GetHealthReport(context.Background()); err != nil {
+		t.Fatal(err)
+	}
+	return s
+}
+
+// statusJSON is /api/status as the browser dashboard reads it.
+func statusJSON(t *testing.T, s *Server) map[string]any {
+	t.Helper()
+	rec := httptest.NewRecorder()
+	s.handleStatus(rec, httptest.NewRequest(http.MethodGet, "/api/status", nil))
+	var out map[string]any
+	if err := json.Unmarshal(rec.Body.Bytes(), &out); err != nil {
+		t.Fatal(err)
+	}
+	return out
+}
+
+// consoleOutput is what the terminal console draws.
+func consoleOutput(t *testing.T, s *Server) string {
+	t.Helper()
+	r, w, err := os.Pipe()
+	if err != nil {
+		t.Fatal(err)
+	}
+	stdout := os.Stdout
+	os.Stdout = w
+	s.consoleUI = true
+	s.redrawConsole()
+	os.Stdout = stdout
+	_ = w.Close()
+	out, err := io.ReadAll(r)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return string(out)
+}
+
+// An engine too old to serve is refused (the report carries no models and the
+// node marks the cluster unhealthy). The console and the status API say so and
+// why, instead of showing the session online and the model approved.
+func TestTheStatusSaysWhyTheEngineIsNotServing(t *testing.T) {
+	s := engineServer(t, &versionedEngine{version: "0.28.0"})
+
+	reason, _ := statusJSON(t, s)["not_serving"].(string)
+	for _, want := range []string{"vLLM Metal 0.28.0", "0.30.0 or newer", "inferoute-client setup"} {
+		if !strings.Contains(reason, want) {
+			t.Errorf("/api/status not_serving = %q, want it to contain %q", reason, want)
+		}
+	}
+
+	console := consoleOutput(t, s)
+	if !strings.Contains(console, "Not serving") || !strings.Contains(console, "vLLM Metal 0.28.0") {
+		t.Errorf("the console does not say the engine is not serving:\n%s", console)
+	}
+}
+
+// A supported engine shows no refusal, and one that is upgraded while the
+// client runs clears the refusal it showed.
+func TestASupportedEngineShowsNoRefusal(t *testing.T) {
+	eng := &versionedEngine{version: "0.28.0"}
+	s := engineServer(t, eng)
+	eng.version = "0.33.0"
+	if _, err := s.healthReporter.GetHealthReport(context.Background()); err != nil {
+		t.Fatal(err)
+	}
+
+	if reason, ok := statusJSON(t, s)["not_serving"]; ok {
+		t.Fatalf("/api/status not_serving = %q for a supported engine", reason)
+	}
+	if console := consoleOutput(t, s); strings.Contains(console, "Not serving") {
+		t.Fatalf("the console says not serving for a supported engine:\n%s", console)
+	}
+}
+
+// The browser dashboard draws the refusal from /api/status.
+func TestTheDashboardShowsTheEngineRefusal(t *testing.T) {
+	rec := httptest.NewRecorder()
+	newTestServer("http://unused", &fakeLLM{}).handleDashboard(rec, httptest.NewRequest(http.MethodGet, "/", nil))
+	if !strings.Contains(rec.Body.String(), "s.not_serving") {
+		t.Fatal("the dashboard does not render not_serving")
 	}
 }
 
