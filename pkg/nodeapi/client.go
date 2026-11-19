@@ -159,14 +159,14 @@ func (t *versionTransport) RoundTrip(req *http.Request) (*http.Response, error) 
 	}
 	if resp.StatusCode == http.StatusUpgradeRequired {
 		raw, readErr := io.ReadAll(io.LimitReader(resp.Body, 8192))
-		resp.Body.Close()
+		_ = resp.Body.Close()
 		if readErr != nil {
 			resp.Body = io.NopCloser(bytes.NewReader(nil))
 			NoteRequired("", "", "")
-			return resp, nil
+			return resp, nil //nolint:nilerr // the 426 is the answer; an unreadable body only loses its version details
 		}
 		resp.Body = io.NopCloser(bytes.NewReader(raw))
-		ParseUpgrade(resp.StatusCode, raw)
+		_ = ParseUpgrade(resp.StatusCode, raw) // records the required version; the caller sees the 426
 	}
 	return resp, nil
 }

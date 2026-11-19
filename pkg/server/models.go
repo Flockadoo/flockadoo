@@ -35,8 +35,8 @@ type Server struct {
 	// console is the terminal dashboard's writer; nil turns it off.
 	console io.Writer
 	// ctx is the client's lifetime, from CreateServer.
-	ctx context.Context
-	consoleMu     sync.Mutex
+	ctx       context.Context
+	consoleMu sync.Mutex
 	// gate admits requests to the engine; the count lives inside it (plan
 	// item B1). admit creates it on first use.
 	gateOnce   sync.Once

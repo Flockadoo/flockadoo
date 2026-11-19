@@ -46,7 +46,7 @@ func gpuMemoryLimit(ramBytes, wiredLimitMB int64) int64 {
 }
 
 func sysctlInt(ctx context.Context, name string) int64 {
-	out, err := exec.CommandContext(ctx, "sysctl", "-n", name).Output()
+	out, err := exec.CommandContext(ctx, "sysctl", "-n", name).Output() //nolint:gosec // G204: name is a fixed sysctl key from this file
 	if err != nil {
 		return 0
 	}

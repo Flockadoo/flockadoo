@@ -176,7 +176,7 @@ func (c *Client) Run(ctx context.Context) error {
 			}
 		}
 		c.setState(Backoff, reason)
-		wait := backoff + time.Duration(rand.Int63n(int64(backoff/2)+1))
+		wait := backoff + time.Duration(rand.Int63n(int64(backoff/2)+1)) //nolint:gosec // G404: reconnect jitter needs no cryptographic randomness
 		if !c.wait(ctx, wait) {
 			return ctx.Err()
 		}
@@ -212,7 +212,7 @@ func (c *Client) session(ctx context.Context, wsURL string, timing Timing) (last
 	header := http.Header{}
 	header.Set("Authorization", "Bearer "+c.APIKey)
 	header.Set(nodeapi.HeaderClientVersion, version.Version)
-	conn, resp, err := websocket.Dial(dialCtx, wsURL, &websocket.DialOptions{HTTPHeader: header})
+	conn, resp, err := websocket.Dial(dialCtx, wsURL, &websocket.DialOptions{HTTPHeader: header}) //nolint:bodyclose // websocket.Dial owns the body: "You never need to close resp.Body yourself"
 	if resp != nil {
 		switch resp.StatusCode {
 		case http.StatusUnauthorized:

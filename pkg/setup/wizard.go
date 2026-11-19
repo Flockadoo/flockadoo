@@ -19,7 +19,7 @@ import (
 )
 
 // hostGOOS is runtime.GOOS; tests override it to cover Windows/macOS remap.
-var hostGOOS = runtime.GOOS
+var hostGOOS = runtime.GOOS //nolint:forbidigo // setup's one read of the platform; tests override hostGOOS
 
 // detectEngine and installEngine are replaced in tests.
 var (
@@ -143,7 +143,7 @@ func Execute(opts Options, io Streams) error {
 			}
 			reinstall := opts.Yes || plan.Role == "worker"
 			if !reinstall {
-				ok, err := promptYes(io.In, io.Out, question, true)
+				ok, err := promptYes(io.In, io.Out, question)
 				if err != nil {
 					return err
 				}
@@ -182,7 +182,7 @@ func Execute(opts Options, io Streams) error {
 			if detected.Unusable != "" {
 				q = fmt.Sprintf("%s at %s cannot run (%s). Reinstall it now?", engine.Label(kind), detected.Bin, detected.Unusable)
 			}
-			ok, err := promptYes(io.In, io.Out, q, true)
+			ok, err := promptYes(io.In, io.Out, q)
 			if err != nil {
 				return err
 			}
@@ -296,7 +296,7 @@ func applyAPIKey(cfg *config.Config, opts Options, io Streams) error {
 	}
 	key := explicit
 	if key == "" {
-		key = credential(os.Getenv("PROVIDER_API_KEY"))
+		key = credential(config.APIKeyFromEnv())
 	}
 	if key == "" {
 		key = credential(cfg.Provider.APIKey)
@@ -627,7 +627,7 @@ func maybeStart(kind engine.Kind, spec engine.Spec, cfg *config.Config, opts Opt
 	_, _ = fmt.Fprintf(io.Out, "\n%s\n", formatSpec(spec))
 	startNow := opts.Yes
 	if !opts.Yes {
-		ok, err := promptYes(io.In, io.Out, fmt.Sprintf("Start %s with this model now?", kind), true)
+		ok, err := promptYes(io.In, io.Out, fmt.Sprintf("Start %s with this model now?", kind))
 		if err != nil {
 			return err
 		}

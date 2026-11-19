@@ -60,7 +60,7 @@ func TestLatestHeaderMarksAvailable(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	resp.Body.Close()
+	_ = resp.Body.Close()
 
 	snap := State()
 	if snap.Status != UpdateAvailable || snap.Latest != "1.4.0" {

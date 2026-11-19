@@ -640,7 +640,7 @@ func TestDifferentJoinCodeClearsSavedToken(t *testing.T) {
 
 func TestWorkerWaitsForMasterVersion(t *testing.T) {
 	if engine.RuntimeKind(runtime.GOOS, engine.KindVLLM) != engine.KindVLLM {
-		t.Skip("this OS remaps vLLM")
+		t.Skip("this OS remaps vLLM") //nolint:forbidigo // platform-specific: this OS serves vLLM with another engine
 	}
 	singlePlan(t)
 	clusterPlan = func(*config.Config) (clusterSettings, error) {
@@ -669,7 +669,7 @@ func TestWorkerWaitsForMasterVersion(t *testing.T) {
 
 func TestWorkerWithInstalledVLLMStillWaitsForMasterVersion(t *testing.T) {
 	if engine.RuntimeKind(runtime.GOOS, engine.KindVLLM) != engine.KindVLLM {
-		t.Skip("this OS remaps vLLM")
+		t.Skip("this OS remaps vLLM") //nolint:forbidigo // platform-specific: this OS serves vLLM with another engine
 	}
 	singlePlan(t)
 	clusterPlan = func(*config.Config) (clusterSettings, error) {
@@ -712,7 +712,7 @@ func fakeVersionBin(t *testing.T, version string) string {
 
 func TestWorkerInstallFailureDoesNotJoin(t *testing.T) {
 	if engine.RuntimeKind(runtime.GOOS, engine.KindVLLM) != engine.KindVLLM {
-		t.Skip("this OS remaps vLLM")
+		t.Skip("this OS remaps vLLM") //nolint:forbidigo // platform-specific: this OS serves vLLM with another engine
 	}
 	singlePlan(t)
 	clusterPlan = func(*config.Config) (clusterSettings, error) {
@@ -752,7 +752,7 @@ func TestWorkerInstallFailureDoesNotJoin(t *testing.T) {
 
 func TestWorkerMissingInstallFailureDoesNotJoin(t *testing.T) {
 	if engine.RuntimeKind(runtime.GOOS, engine.KindVLLM) != engine.KindVLLM {
-		t.Skip("this OS remaps vLLM")
+		t.Skip("this OS remaps vLLM") //nolint:forbidigo // platform-specific: this OS serves vLLM with another engine
 	}
 	singlePlan(t)
 	clusterPlan = func(*config.Config) (clusterSettings, error) {
@@ -791,7 +791,7 @@ func TestWorkerMissingInstallFailureDoesNotJoin(t *testing.T) {
 
 func TestEnrolledWorkerProceedsWithoutPin(t *testing.T) {
 	if engine.RuntimeKind(runtime.GOOS, engine.KindVLLM) != engine.KindVLLM {
-		t.Skip("this OS remaps vLLM")
+		t.Skip("this OS remaps vLLM") //nolint:forbidigo // platform-specific: this OS serves vLLM with another engine
 	}
 	singlePlan(t)
 	clusterPlan = func(*config.Config) (clusterSettings, error) {

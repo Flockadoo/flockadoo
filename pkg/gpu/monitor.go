@@ -132,7 +132,7 @@ type Utilization struct {
 
 // NewMonitor creates a new GPU monitor
 func NewMonitor() (*Monitor, error) {
-	isMacOS := runtime.GOOS == "darwin"
+	isMacOS := runtime.GOOS == "darwin" //nolint:forbidigo // platform branch in shared code (PLAT-2, item H1)
 
 	if !isMacOS {
 		// Check if nvidia-smi is available on non-macOS systems

@@ -22,12 +22,12 @@ func ggufName(entry CatalogEntry) string {
 
 // DefaultLlamaCacheDir mirrors llama.cpp's cache directory.
 func DefaultLlamaCacheDir() (string, error) {
-	if v := strings.TrimSpace(os.Getenv("LLAMA_CACHE")); v != "" {
+	if v := strings.TrimSpace(os.Getenv("LLAMA_CACHE")); v != "" { //nolint:forbidigo // mirrors llama.cpp's own cache lookup, which reads this variable
 		return filepath.Abs(v)
 	}
-	switch runtime.GOOS {
+	switch runtime.GOOS { //nolint:forbidigo // mirrors llama.cpp, which picks its cache by platform (PLAT-2, item H1)
 	case "windows":
-		base := os.Getenv("LOCALAPPDATA")
+		base := os.Getenv("LOCALAPPDATA") //nolint:forbidigo // mirrors llama.cpp's own cache lookup, which reads this variable
 		if base == "" {
 			return "", fmt.Errorf("LOCALAPPDATA is unset")
 		}
@@ -39,7 +39,7 @@ func DefaultLlamaCacheDir() (string, error) {
 		}
 		return filepath.Join(home, "Library", "Caches", "llama.cpp"), nil
 	default:
-		if v := strings.TrimSpace(os.Getenv("XDG_CACHE_HOME")); v != "" {
+		if v := strings.TrimSpace(os.Getenv("XDG_CACHE_HOME")); v != "" { //nolint:forbidigo // mirrors llama.cpp's own cache lookup, which reads this variable
 			return filepath.Join(v, "llama.cpp"), nil
 		}
 		home, err := os.UserHomeDir()

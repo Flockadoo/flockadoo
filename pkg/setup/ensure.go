@@ -103,7 +103,7 @@ func ensureOnStart(ctx context.Context, cfg *config.Config, io Streams, interact
 
 	startNow := cfg.Provider.AutoStart
 	if interactive {
-		ok, err := promptYes(io.In, io.Out, fmt.Sprintf("%s is not running at %s. Start it now?", label, url), true)
+		ok, err := promptYes(io.In, io.Out, fmt.Sprintf("%s is not running at %s. Start it now?", label, url))
 		if err != nil {
 			return err
 		}

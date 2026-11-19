@@ -2,6 +2,7 @@ package setup
 
 import (
 	"bufio"
+	"errors"
 	"fmt"
 	"io"
 	"os"
@@ -29,31 +30,23 @@ func promptLine(in io.Reader, out io.Writer, question, def string) (string, erro
 	return s, nil
 }
 
-func promptYes(in io.Reader, out io.Writer, question string, defYes bool) (bool, error) {
-	hint := "y/N"
-	if defYes {
-		hint = "Y/n"
-	}
-	s, err := promptLine(in, out, question+" ("+hint+")", "")
-	if err != nil && err != io.EOF {
+// promptYes asks a yes/no question that defaults to yes.
+func promptYes(in io.Reader, out io.Writer, question string) (bool, error) {
+	s, err := promptLine(in, out, question+" (Y/n)", "")
+	if err != nil && !errors.Is(err, io.EOF) {
 		return false, err
 	}
-	if s == "" {
-		return defYes, nil
-	}
 	switch strings.ToLower(s) {
-	case "y", "yes":
-		return true, nil
 	case "n", "no":
 		return false, nil
 	default:
-		return defYes, nil
+		return true, nil
 	}
 }
 
 func promptChoice(in io.Reader, out io.Writer, n, def int) (int, error) {
 	s, err := promptLine(in, out, fmt.Sprintf("Choose 1-%d", n), strconv.Itoa(def))
-	if err != nil && err != io.EOF {
+	if err != nil && !errors.Is(err, io.EOF) {
 		return 0, err
 	}
 	i, convErr := strconv.Atoi(strings.TrimSpace(s))

@@ -19,15 +19,15 @@ import (
 
 // WithWait shows progress around a slow step. Setup replaces it with the spinner.
 var WithWait = func(msg string, fn func() error) error {
-	_, _ = fmt.Fprintf(os.Stdout, "%s...\n", msg)
+	_, _ = fmt.Fprintf(os.Stdout, "%s...\n", msg) //nolint:forbidigo // bring-up runs inside setup, on the operator's terminal (QUAL-8, item K1)
 	return fn()
 }
 
 // BringUp installs the pinned binaries, starts inferscaled, and joins the tailnet.
 // authKey is empty when this machine already joined.
 func BringUp(ctx context.Context, loginServer, authKey string) (ip, nodeID string, err error) {
-	if runtime.GOOS != "linux" {
-		return "", "", fmt.Errorf("inferscale needs a Linux TUN; this machine is %s", runtime.GOOS)
+	if goos := runtime.GOOS; goos != "linux" { //nolint:forbidigo // platform branch in shared code (PLAT-2, item H1)
+		return "", "", fmt.Errorf("inferscale needs a Linux TUN; this machine is %s", goos)
 	}
 	// Exchange already spent the join code. The key has to be on disk before
 	// download or sudo can fail and the next run passes "".
@@ -85,7 +85,7 @@ func BringUp(ctx context.Context, loginServer, authKey string) (ip, nodeID strin
 	// A saved address is not a connection. Offline still has the old IPv4.
 	if st, err := readState(ctx, cli); err == nil && reuseOnlineNode(freshKey, st) {
 		clearAuthKey()
-		_, _ = fmt.Fprintf(os.Stdout, "Inferscale address: %s\n", st.IP)
+		_, _ = fmt.Fprintf(os.Stdout, "Inferscale address: %s\n", st.IP) //nolint:forbidigo // bring-up runs inside setup, on the operator's terminal (QUAL-8, item K1)
 		return st.IP, st.ID, nil
 	}
 	if loginServer == "" && authKey == "" {
@@ -109,7 +109,7 @@ func BringUp(ctx context.Context, loginServer, authKey string) (ip, nodeID strin
 	// The rejection text lands in the daemon log and, when the CLI prints it, on stderr.
 	logAt := fileSize(daemonLogPath())
 	var stderr bytes.Buffer
-	cmd.Stderr = io.MultiWriter(os.Stderr, &stderr)
+	cmd.Stderr = io.MultiWriter(os.Stderr, &stderr) //nolint:forbidigo // bring-up runs inside setup, on the operator's terminal (QUAL-8, item K1)
 	if err := WithWait("Joining the tailnet", func() error {
 		if err := cmd.Run(); err != nil {
 			if authKeyRejected(stderr.String(), readFrom(daemonLogPath(), logAt)) {
@@ -125,7 +125,7 @@ func BringUp(ctx context.Context, loginServer, authKey string) (ip, nodeID strin
 	}
 	ip, nodeID, err = waitOnline(ctx, cli)
 	if err == nil {
-		_, _ = fmt.Fprintf(os.Stdout, "Inferscale address: %s\n", ip)
+		_, _ = fmt.Fprintf(os.Stdout, "Inferscale address: %s\n", ip) //nolint:forbidigo // bring-up runs inside setup, on the operator's terminal (QUAL-8, item K1)
 	}
 	return ip, nodeID, err
 }
@@ -171,10 +171,10 @@ func commandAsRoot(ctx context.Context, name string, args ...string) (*exec.Cmd,
 		return nil, fmt.Errorf("refusing to run %s as root: %w", name, err)
 	}
 	bin, argv := rootArgv(euid(), name, args...)
-	cmd := exec.CommandContext(ctx, bin, argv...)
+	cmd := exec.CommandContext(ctx, bin, argv...) //nolint:gosec // G204: name passed rootOwned, or is a fixed command from this package; bin is name or sudo
 	cmd.Stdin = os.Stdin
-	cmd.Stdout = os.Stdout
-	cmd.Stderr = os.Stderr
+	cmd.Stdout = os.Stdout //nolint:forbidigo // sudo and the root command talk to the operator's terminal during setup (QUAL-8, item K1)
+	cmd.Stderr = os.Stderr //nolint:forbidigo // sudo and the root command talk to the operator's terminal during setup (QUAL-8, item K1)
 	return cmd, nil
 }
 
@@ -185,14 +185,14 @@ func startDaemon(ctx context.Context, daemon string) error {
 	logf := openDaemonLog()
 	defer func() { _ = logf.Close() }()
 	if euid() == 0 {
-		cmd := exec.Command(daemon)
+		cmd := exec.Command(daemon) //nolint:forbidigo,noctx // the daemon outlives this process; a context would kill it when setup returns
 		cmd.Stdout = logf
 		cmd.Stderr = logf
 		detach(cmd)
 		return cmd.Start()
 	}
 	// -b asks for nothing (sudo -n) and backgrounds inferscaled after auth.
-	cmd := exec.CommandContext(ctx, "sudo", "-n", "-b", "--", daemon)
+	cmd := exec.CommandContext(ctx, "sudo", "-n", "-b", "--", daemon) //nolint:gosec // G204: daemon passed rootOwned above
 	cmd.Stdin = os.Stdin
 	cmd.Stdout = logf
 	cmd.Stderr = logf
@@ -267,7 +267,7 @@ func clearAuthKey() {
 	if err != nil {
 		return
 	}
-	os.Remove(path)
+	_ = os.Remove(path)
 }
 
 // authKeyRejected is true when Headscale refused this key. Other up failures
@@ -316,7 +316,7 @@ func readFrom(path string, off int64) string {
 	}
 	b := make([]byte, st.Size()-start)
 	n, err := f.ReadAt(b, start)
-	if n == 0 || (err != nil && err != io.EOF) {
+	if n == 0 || (err != nil && !errors.Is(err, io.EOF)) {
 		return ""
 	}
 	return string(b[:n])
@@ -501,9 +501,9 @@ func writeAsRoot(ctx context.Context, in io.Reader, path string) error {
 
 func runSudo(ctx context.Context, args ...string) error {
 	bin, argv := rootArgv(euid(), args[0], args[1:]...)
-	cmd := exec.CommandContext(ctx, bin, argv...)
-	cmd.Stdout = os.Stdout
-	cmd.Stderr = os.Stderr
+	cmd := exec.CommandContext(ctx, bin, argv...) //nolint:gosec // G204: name passed rootOwned, or is a fixed command from this package; bin is name or sudo
+	cmd.Stdout = os.Stdout                        //nolint:forbidigo // sudo and the root command talk to the operator's terminal during setup (QUAL-8, item K1)
+	cmd.Stderr = os.Stderr                        //nolint:forbidigo // sudo and the root command talk to the operator's terminal during setup (QUAL-8, item K1)
 	if err := cmd.Run(); err != nil {
 		return fmt.Errorf("sudo %s: %w", args[0], err)
 	}
@@ -526,7 +526,11 @@ func ensureDaemon(ctx context.Context, cli string) error {
 		} else {
 			last = err
 		}
-		time.Sleep(200 * time.Millisecond)
+		select {
+		case <-ctx.Done():
+			return ctx.Err()
+		case <-time.After(200 * time.Millisecond):
+		}
 	}
 	msg := "inferscaled did not answer"
 	if tail := tailFile(daemonLogPath(), 800); tail != "" {
@@ -692,7 +696,7 @@ func Tailnet(ctx context.Context) (ip string, onlinePeers int) {
 	}
 	ctx, cancel := context.WithTimeout(ctx, 2*time.Second)
 	defer cancel()
-	out, err := exec.CommandContext(ctx, cli, "status", "--json").Output()
+	out, err := exec.CommandContext(ctx, cli, "status", "--json").Output() //nolint:gosec // G204: cli is trustedCLI's root-owned binary
 	if err != nil {
 		ip, _ = ipv4(ctx, cli)
 		return ip, 0
