@@ -41,6 +41,41 @@ func TestProbeAsksForARepeatableAnswer(t *testing.T) {
 	}
 }
 
+// JSON mode needs the prompt to ask for JSON (OpenAI's guidance): without it
+// a model may stream whitespace until max_tokens. DeepSeek-R1-Distill-Qwen-7B
+// on vLLM 0.34 did that for "Reply with ok.", and answered valid JSON when
+// asked for it. The schema probe names every key the schema requires.
+func TestJSONProbesAskForJSON(t *testing.T) {
+	ask := func(name string) string {
+		msgs, _ := probeBody("m", name)["messages"].([]map[string]string)
+		if len(msgs) != 1 {
+			t.Fatalf("%s: messages = %v", name, msgs)
+		}
+		return msgs[0]["content"]
+	}
+	for _, name := range []string{"json_object", "json_schema"} {
+		if text := ask(name); !strings.Contains(text, "JSON") {
+			t.Errorf("%s probe asks %q, want it to ask for JSON", name, text)
+		}
+	}
+	rf, _ := probeBody("m", "json_schema")["response_format"].(map[string]any)
+	js, _ := rf["json_schema"].(map[string]any)
+	schema, _ := js["schema"].(map[string]any)
+	required, _ := schema["required"].([]string)
+	if len(required) == 0 {
+		t.Fatal("the schema probe requires no keys")
+	}
+	for _, key := range required {
+		if text := ask("json_schema"); !strings.Contains(text, key) {
+			t.Errorf("schema probe asks %q, want it to name the required key %q", text, key)
+		}
+	}
+	// The other probes keep their prompts.
+	if text := ask("logprobs"); text != "Reply with ok." {
+		t.Errorf("logprobs probe asks %q", text)
+	}
+}
+
 // probeName says which of the five checks an engine request is.
 func probeName(body map[string]any) string {
 	switch {
