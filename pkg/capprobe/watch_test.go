@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"sync"
 	"sync/atomic"
 	"testing"
@@ -507,4 +508,92 @@ func TestNoProbeWithoutASlot(t *testing.T) {
 	}
 	granted.Store(true)
 	waitFor(t, "probe once a slot is granted", func() bool { return calls() > 0 })
+}
+
+// noChatEngine counts every request and answers none of them with a 2xx, 400
+// or 422, as the Mac mini's vLLM Metal serving baai/bge-m3 evidently did: all
+// five checks stayed unverified and were retried for as long as it ran.
+func noChatEngine(t *testing.T) (*httptest.Server, func() int) {
+	t.Helper()
+	var calls atomic.Int32
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		calls.Add(1)
+		w.WriteHeader(http.StatusNotFound)
+		_, _ = w.Write([]byte(`{"detail":"Not Found"}`))
+	}))
+	t.Cleanup(srv.Close)
+	return srv, func() int { return int(calls.Load()) }
+}
+
+// notes records every status line the watcher shows.
+type notes struct {
+	mu    sync.Mutex
+	lines []string
+}
+
+func (n *notes) note(line string) {
+	n.mu.Lock()
+	defer n.mu.Unlock()
+	n.lines = append(n.lines, line)
+}
+
+func (n *notes) all() []string {
+	n.mu.Lock()
+	defer n.mu.Unlock()
+	return append([]string(nil), n.lines...)
+}
+
+// Every check is a chat request, and an embedding model answers no chat. Its
+// deployment is still registered and reported, so the node drops the last
+// model's results (I9), with no capability in the report (I8). The engine is
+// not asked, the report is not repeated, and the console shows no
+// "unverified, retrying" line.
+func TestAnEmbeddingModelIsNotProbed(t *testing.T) {
+	engine, calls := noChatEngine(t)
+	platform := &fakePlatform{}
+	lines := &notes{}
+	runWatcher(t, &Watcher{
+		EngineURL:   engine.URL,
+		PlatformURL: platform.server(t).URL,
+		Fingerprint: func() string { return "baai/bge-m3|vllm-metal|0.33.0" },
+		Note:        lines.note,
+		Embedding:   true,
+	})
+	waitFor(t, "the deployment registered and reported", func() bool {
+		rep, reports, registers := platform.last()
+		return registers == 1 && reports >= 1 && rep.Fingerprint == "baai/bge-m3|vllm-metal|0.33.0"
+	})
+	// Retry and watch waits are 5ms here: give the loop many rounds.
+	time.Sleep(100 * time.Millisecond)
+
+	if n := calls(); n != 0 {
+		t.Errorf("the engine was sent %d chat checks for an embedding model", n)
+	}
+	rep, reports, registers := platform.last()
+	if rep.Tools != nil || rep.ForcedTools != nil || rep.JSONObject != nil || rep.JSONSchema != nil || rep.Logprobs != nil || rep.Reasoning != nil {
+		t.Errorf("the report claims a capability for an embedding model: %+v", rep)
+	}
+	if reports != 1 || registers != 1 {
+		t.Errorf("reports=%d registers=%d, want the deployment reported once", reports, registers)
+	}
+	for _, line := range lines.all() {
+		if strings.Contains(line, "unverified") || strings.Contains(line, "testing") {
+			t.Errorf("the console showed %q for an embedding model", line)
+			break
+		}
+	}
+}
+
+// A chat model is still checked: all five results, which only the engine's
+// answers can give, are reported. This holds before the change too.
+func TestAChatModelIsStillProbed(t *testing.T) {
+	engine, _ := fakeEngine(t, nil)
+	platform := &fakePlatform{}
+	runWatcher(t, &Watcher{
+		EngineURL:   engine.URL,
+		PlatformURL: platform.server(t).URL,
+		Fingerprint: func() string { return "Qwen/Qwen2.5-3B-Instruct|vllm-metal|0.33.0" },
+		Embedding:   false,
+	})
+	waitFor(t, "a full report", func() bool { return fullReport(platform) })
 }

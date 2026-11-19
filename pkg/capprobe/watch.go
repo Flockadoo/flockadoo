@@ -47,6 +47,10 @@ type Watcher struct {
 	// reasoning model only from providers whose engine sends its thinking
 	// apart from the answer.
 	Reasons bool
+	// Embedding is true when the catalog's task for the model is embedding.
+	// Every check is a chat request, so none applies: the deployment is
+	// registered and reported with no capability, and the engine is not asked.
+	Embedding bool
 
 	// Waits. Zero uses the defaults; tests shorten them.
 	BusyWait  time.Duration

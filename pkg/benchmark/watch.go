@@ -35,8 +35,11 @@ type Watcher struct {
 	Inflight    func() int32
 	Preemptions func(ctx context.Context) int64
 	Record      func(Result)
-	client      *http.Client
-	applied     bool
+	// Embedding is true when the catalog's task for the model is embedding:
+	// it is measured with /v1/embeddings requests, since it answers no chat.
+	Embedding bool
+	client    *http.Client
+	applied   bool
 	// drainPaused is set when a drain times out. The gate stays open until
 	// inflight hits zero so a long stream cannot pin the node shut.
 	drainPaused bool
