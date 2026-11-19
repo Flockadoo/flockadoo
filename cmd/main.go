@@ -150,6 +150,9 @@ func main() {
 		fatal("%s", err.Error())
 	}
 
+	if _, err := os.Stat(*configPath); os.IsNotExist(err) {
+		fmt.Printf("Configuration file %s not found, using defaults\n", *configPath)
+	}
 	cfg, err := config.Load(*configPath)
 	if err != nil {
 		fatal("Failed to load configuration: %v", err)
@@ -167,7 +170,7 @@ func main() {
 	}
 
 	if !isTrayChild() {
-		if err := setup.EnsureOnStart(cfg, setup.Streams{In: os.Stdin, Out: os.Stdout, Err: os.Stderr}); err != nil {
+		if err := setup.EnsureOnStart(context.Background(), cfg, setup.Streams{In: os.Stdin, Out: os.Stdout, Err: os.Stderr}); err != nil {
 			fmt.Fprintf(os.Stderr, "warning: inference engine not ready: %v\n", err)
 		}
 	}
@@ -193,7 +196,7 @@ func main() {
 	// The configured logger may write to the same files; release the early
 	// one's handles so the two never rotate the same file.
 	_ = early.Close()
-	defer log.Logger.Sync()
+	defer func() { _ = log.Sync() }()
 
 	logger.Info("Starting Inferoute Provider Client",
 		zap.String("config_path", *configPath),
@@ -253,9 +256,9 @@ func main() {
 		go modelVerifier.RunRefresher(ctx, 15*time.Second, func() []string { return []string{cfg.Provider.Model} })
 	}
 
-	srv := server.CreateServer(cfg, gpuMonitor, healthReporter, modelVerifier)
-	if useTray {
-		srv.SetConsoleUI(false)
+	srv := server.CreateServer(ctx, cfg, gpuMonitor, healthReporter, modelVerifier)
+	if !useTray {
+		srv.SetConsole(os.Stdout)
 	}
 	startCapacity(ctx, cfg, *configPath, llmURL, llmClient, gpuMonitor, catalog, srv, healthReporter)
 
@@ -621,7 +624,7 @@ func startCapacity(ctx context.Context, cfg *config.Config, configPath, llmURL s
 			probe, cancel := context.WithTimeout(ctx, 2*time.Second)
 			defer cancel()
 			if cfg.Provider.ClusterMode == "master" {
-				_, online := inferscale.Tailnet()
+				_, online := inferscale.Tailnet(probe)
 				return engine.MasterState(probe, kind, llmURL, cfg.Provider.EngineArgs, online) == "ready"
 			}
 			return engine.Healthy(probe, kind, llmURL)
@@ -645,7 +648,7 @@ func startCapacity(ctx context.Context, cfg *config.Config, configPath, llmURL s
 			if gpuMonitor == nil {
 				return false
 			}
-			info, err := gpuMonitor.GetGPUInfo()
+			info, err := gpuMonitor.GetGPUInfo(ctx)
 			return err == nil && info != nil && info.Utilization > 20
 		},
 		Preemptions: func(c context.Context) int64 {
@@ -694,7 +697,7 @@ func deploymentFingerprint(ctx context.Context, cfg *config.Config, llmClient ll
 		}
 	}
 	if gpuMonitor != nil {
-		if info, err := gpuMonitor.GetGPUInfo(); err == nil && info != nil {
+		if info, err := gpuMonitor.GetGPUInfo(ctx); err == nil && info != nil {
 			fp += "|" + info.ProductName + "|" + fmt.Sprint(info.GPUCount)
 		}
 	}

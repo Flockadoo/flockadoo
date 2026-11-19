@@ -3,6 +3,7 @@
 package gpu
 
 import (
+	"context"
 	"runtime"
 	"testing"
 	"time"
@@ -20,7 +21,7 @@ func TestMacSensors(t *testing.T) {
 	t.Logf("sensors: power_draw_w=%.2f temperature_c=%.1f", powerW, tempC)
 
 	m := &Monitor{isMacOS: true, cacheTTL: gpuInfoCacheTTL}
-	info, err := m.GetGPUInfo()
+	info, err := m.GetGPUInfo(context.Background())
 	if err != nil {
 		t.Fatalf("GetGPUInfo: %v", err)
 	}

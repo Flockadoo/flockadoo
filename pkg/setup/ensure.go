@@ -14,8 +14,8 @@ import (
 // EnsureOnStart checks the configured inference engine before the dashboard.
 // Interactive TTYs prompt to start it when it is down; otherwise auto_start
 // decides. A spinner stays on stdout until the engine is serving.
-func EnsureOnStart(cfg *config.Config, io Streams) error {
-	ctx, cancel := context.WithTimeout(context.Background(), engine.DefaultDownloadTimeout)
+func EnsureOnStart(ctx context.Context, cfg *config.Config, io Streams) error {
+	ctx, cancel := context.WithTimeout(ctx, engine.DefaultDownloadTimeout)
 	defer cancel()
 	return ensureOnStart(ctx, cfg, io, interactiveReader(io.In))
 }
@@ -67,7 +67,7 @@ func ensureOnStart(ctx context.Context, cfg *config.Config, io Streams, interact
 
 	join := engine.MasterJoinAddr(cfg.Provider.EngineArgs)
 	if join != "" && !engine.PortOpen(ctx, url) && engine.PortOpen(ctx, "http://"+join) {
-		joined, need := engine.WorkerSlots(onlinePeers(), engine.NNodes(cfg.Provider.EngineArgs))
+		joined, need := engine.WorkerSlots(onlinePeers(ctx), engine.NNodes(cfg.Provider.EngineArgs))
 		_, _ = fmt.Fprintf(io.Out, "Waiting for workers to join (%d/%d).\n", joined, need)
 		return nil
 	}
@@ -121,7 +121,7 @@ func ensureOnStart(ctx context.Context, cfg *config.Config, io Streams, interact
 		return fmt.Errorf("%w (see %s)", err, engine.LogPath(cfg.Logging.LogDir))
 	}
 	if join != "" && !engine.PortOpen(ctx, url) {
-		joined, need := engine.WorkerSlots(onlinePeers(), engine.NNodes(cfg.Provider.EngineArgs))
+		joined, need := engine.WorkerSlots(onlinePeers(ctx), engine.NNodes(cfg.Provider.EngineArgs))
 		_, _ = fmt.Fprintf(io.Out, "Waiting for workers to join (%d/%d).\n", joined, need)
 		return nil
 	}
@@ -140,7 +140,7 @@ func observeWorker(io Streams, kind engine.Kind, cfg *config.Config) error {
 }
 
 func observeMaster(ctx context.Context, io Streams, kind engine.Kind, label, url string, cfg *config.Config) error {
-	switch state := engine.MasterState(ctx, kind, url, cfg.Provider.EngineArgs, onlinePeers()); state {
+	switch state := engine.MasterState(ctx, kind, url, cfg.Provider.EngineArgs, onlinePeers(ctx)); state {
 	case "ready":
 		_, _ = fmt.Fprintf(io.Out, "%s is ready at %s.\n", label, url)
 	case "not started":

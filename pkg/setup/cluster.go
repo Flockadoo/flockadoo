@@ -23,8 +23,8 @@ func credential(s string) string {
 	return strings.Trim(s, "`\"'")
 }
 
-func onlinePeers() int {
-	_, n := inferscale.Tailnet()
+func onlinePeers(ctx context.Context) int {
+	_, n := inferscale.Tailnet(ctx)
 	return n
 }
 
@@ -43,6 +43,7 @@ type clusterSettings struct {
 var clusterPlan = clusterPlanReal
 
 func clusterPlanReal(cfg *config.Config) (clusterSettings, error) {
+	ctx := context.Background() //nolint:forbidigo // the wizard has no caller context yet (CLU-4, item K1)
 	if cfg.EnrolledWorker() {
 		model := strings.TrimSpace(cfg.Provider.Model)
 		if model == "" {
@@ -51,7 +52,7 @@ func clusterPlanReal(cfg *config.Config) (clusterSettings, error) {
 		settings := clusterSettings{
 			Role: "worker", Model: model, ServiceType: firstNonEmpty(cfg.Provider.Engine, "vllm"),
 		}
-		remote, err := inferscale.FetchEngine(cfg.Provider.URL, cfg.Provider.NodeToken, true)
+		remote, err := inferscale.FetchEngine(ctx, cfg.Provider.URL, cfg.Provider.NodeToken, true)
 		if err == nil {
 			settings.VLLMVersion = remote.VLLMVersion
 			settings.MasterGPU = remote.MasterGPU
@@ -60,7 +61,7 @@ func clusterPlanReal(cfg *config.Config) (clusterSettings, error) {
 	}
 	key := credential(cfg.Provider.APIKey)
 	if strings.HasPrefix(key, "join-") {
-		info, err := inferscale.PreviewJoin(cfg.Provider.URL, key)
+		info, err := inferscale.PreviewJoin(ctx, cfg.Provider.URL, key)
 		if err != nil {
 			return clusterSettings{}, fmt.Errorf("join code: %w", err)
 		}
@@ -73,7 +74,7 @@ func clusterPlanReal(cfg *config.Config) (clusterSettings, error) {
 			VLLMVersion: info.VLLMVersion, MasterGPU: info.MasterGPU,
 		}, nil
 	}
-	sess, err := inferscale.FetchSession(cfg.Provider.URL, key)
+	sess, err := inferscale.FetchSession(ctx, cfg.Provider.URL, key)
 	if err != nil || sess.Mode != "multi" {
 		return clusterSettings{Role: "single"}, err
 	}
@@ -119,17 +120,17 @@ func dropIfRemoved(cfg *config.Config, err error) error {
 	return removedErr(err)
 }
 
-func resumeWorker(cfg *config.Config, spec *engine.Spec) error {
+func resumeWorker(ctx context.Context, cfg *config.Config, spec *engine.Spec) error {
 	token := cfg.Provider.NodeToken
-	remote, err := inferscale.FetchEngine(cfg.Provider.URL, token, true)
+	remote, err := inferscale.FetchEngine(ctx, cfg.Provider.URL, token, true)
 	if err != nil {
 		return dropIfRemoved(cfg, err)
 	}
-	ip, nodeID, err := inferscale.BringUp(context.Background(), remote.LoginServer, "")
+	ip, nodeID, err := inferscale.BringUp(ctx, remote.LoginServer, "")
 	if err != nil {
 		return err
 	}
-	if err := inferscale.ReportIP(cfg.Provider.URL, token, true, ip, nodeID, localGPU(), engine.InstalledVersion(context.Background(), spec.Bin)); err != nil { //nolint:forbidigo // the wizard has no caller context yet (CLU-4, item K1); InstalledVersion bounds the call itself
+	if err := inferscale.ReportIP(ctx, cfg.Provider.URL, token, true, ip, nodeID, localGPU(ctx), engine.InstalledVersion(ctx, spec.Bin)); err != nil {
 		return dropIfRemoved(cfg, err)
 	}
 	next := inferscale.Apply(*spec, remote)
@@ -142,22 +143,23 @@ func resumeWorker(cfg *config.Config, spec *engine.Spec) error {
 }
 
 func prepareClusterReal(cfg *config.Config, spec *engine.Spec) error {
+	ctx := context.Background() //nolint:forbidigo // the wizard has no caller context yet (CLU-4, item K1)
 	key := credential(cfg.Provider.APIKey)
 	cfg.Provider.APIKey = key
 	if cfg.EnrolledWorker() {
-		return resumeWorker(cfg, spec)
+		return resumeWorker(ctx, cfg, spec)
 	}
 	worker := strings.HasPrefix(key, "join-")
 	var login, auth, token, role string
 	if worker {
-		res, err := inferscale.Exchange(cfg.Provider.URL, key)
+		res, err := inferscale.Exchange(ctx, cfg.Provider.URL, key)
 		if err != nil {
 			return err
 		}
 		login, auth, token = res.LoginServer, res.AuthKey, res.NodeToken
 		role = "worker"
 	} else {
-		sess, err := inferscale.FetchSession(cfg.Provider.URL, key)
+		sess, err := inferscale.FetchSession(ctx, cfg.Provider.URL, key)
 		role = decideCluster(key, sess.Mode, err)
 		if role == "single" {
 			if err != nil {
@@ -173,7 +175,7 @@ func prepareClusterReal(cfg *config.Config, spec *engine.Spec) error {
 		}
 		login = sess.LoginServer
 		if cfg.Provider.NodeToken == "" {
-			res, err := inferscale.Enroll(cfg.Provider.URL, key)
+			res, err := inferscale.Enroll(ctx, cfg.Provider.URL, key)
 			if err != nil {
 				return err
 			}
@@ -185,10 +187,10 @@ func prepareClusterReal(cfg *config.Config, spec *engine.Spec) error {
 	if token != "" {
 		cfg.Provider.NodeToken = token
 	}
-	ip, nodeID, err := inferscale.BringUp(context.Background(), login, auth)
+	ip, nodeID, err := inferscale.BringUp(ctx, login, auth)
 	if err != nil && !worker && auth == "" {
 		// The previous attempt saved a node token before inferscale up ran.
-		res, enrollErr := inferscale.Enroll(cfg.Provider.URL, key)
+		res, enrollErr := inferscale.Enroll(ctx, cfg.Provider.URL, key)
 		if enrollErr != nil {
 			return err
 		}
@@ -196,7 +198,7 @@ func prepareClusterReal(cfg *config.Config, spec *engine.Spec) error {
 		if token != "" {
 			cfg.Provider.NodeToken = token
 		}
-		ip, nodeID, err = inferscale.BringUp(context.Background(), login, auth)
+		ip, nodeID, err = inferscale.BringUp(ctx, login, auth)
 	}
 	if err != nil {
 		return err
@@ -205,10 +207,10 @@ func prepareClusterReal(cfg *config.Config, spec *engine.Spec) error {
 	if worker {
 		bearer = cfg.Provider.NodeToken
 	}
-	if err := inferscale.ReportIP(cfg.Provider.URL, bearer, worker, ip, nodeID, localGPU(), engine.InstalledVersion(context.Background(), spec.Bin)); err != nil { //nolint:forbidigo // the wizard has no caller context yet (CLU-4, item K1); InstalledVersion bounds the call itself
+	if err := inferscale.ReportIP(ctx, cfg.Provider.URL, bearer, worker, ip, nodeID, localGPU(ctx), engine.InstalledVersion(ctx, spec.Bin)); err != nil {
 		return err
 	}
-	remote, err := inferscale.FetchEngine(cfg.Provider.URL, bearer, worker)
+	remote, err := inferscale.FetchEngine(ctx, cfg.Provider.URL, bearer, worker)
 	if err != nil {
 		return err
 	}
@@ -222,18 +224,18 @@ func prepareClusterReal(cfg *config.Config, spec *engine.Spec) error {
 
 // loginServer is the URL the daemon dials. The engine route has it once a
 // tailnet address is stored; otherwise the master session does.
-func loginServer(cfg *config.Config, worker bool) string {
+func loginServer(ctx context.Context, cfg *config.Config, worker bool) string {
 	bearer := cfg.Provider.APIKey
 	if worker {
 		bearer = cfg.Provider.NodeToken
 	}
-	if remote, err := inferscale.FetchEngine(cfg.Provider.URL, bearer, worker); err == nil && remote.LoginServer != "" {
+	if remote, err := inferscale.FetchEngine(ctx, cfg.Provider.URL, bearer, worker); err == nil && remote.LoginServer != "" {
 		return remote.LoginServer
 	}
 	if worker {
 		return ""
 	}
-	sess, err := inferscale.FetchSession(cfg.Provider.URL, cfg.Provider.APIKey)
+	sess, err := inferscale.FetchSession(ctx, cfg.Provider.URL, cfg.Provider.APIKey)
 	if err != nil {
 		return ""
 	}
@@ -257,21 +259,21 @@ func refreshClusterEngine(ctx context.Context, cfg *config.Config) error {
 	bearer := cfg.Provider.APIKey
 	if worker {
 		bearer = cfg.Provider.NodeToken
-		if _, err := inferscale.FetchEngine(cfg.Provider.URL, bearer, true); NodeRemoved(err) {
+		if _, err := inferscale.FetchEngine(ctx, cfg.Provider.URL, bearer, true); NodeRemoved(err) {
 			return removedErr(err)
 		}
 	}
-	ip, nodeID, err := inferscale.BringUp(ctx, loginServer(cfg, worker), "")
+	ip, nodeID, err := inferscale.BringUp(ctx, loginServer(ctx, cfg, worker), "")
 	if err != nil {
 		return err
 	}
-	if err := inferscale.ReportIP(cfg.Provider.URL, bearer, worker, ip, nodeID, localGPU(), engine.InstalledVersion(ctx, cfg.Provider.EngineBin)); err != nil { //nolint:contextcheck // the GPU query takes no context yet (CLU-4); H1 rebuilds it
+	if err := inferscale.ReportIP(ctx, cfg.Provider.URL, bearer, worker, ip, nodeID, localGPU(ctx), engine.InstalledVersion(ctx, cfg.Provider.EngineBin)); err != nil {
 		if NodeRemoved(err) {
 			return removedErr(err)
 		}
 		return err
 	}
-	remote, err := inferscale.FetchEngine(cfg.Provider.URL, bearer, worker)
+	remote, err := inferscale.FetchEngine(ctx, cfg.Provider.URL, bearer, worker)
 	if err != nil {
 		if NodeRemoved(err) {
 			return removedErr(err)

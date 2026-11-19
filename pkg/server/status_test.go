@@ -1,14 +1,13 @@
 package server
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"github.com/sentnl/inferoute-node/inferoute-client/internal/relay"
-	"io"
 	"net"
 	"net/http"
 	"net/http/httptest"
-	"os"
 	"strings"
 	"testing"
 	"time"
@@ -74,7 +73,7 @@ func TestSessionStatusWhileBenchmarking(t *testing.T) {
 	s := newTestServer("http://unused", &fakeLLM{})
 	s.SetBenchmarking(true)
 	s.SetEngineNote("benchmarking (1/5)")
-	snap := s.snapshot()
+	snap := s.snapshot(context.Background())
 	if snap.SessionStatus != "benchmarking" {
 		t.Fatalf("session = %q", snap.SessionStatus)
 	}
@@ -82,7 +81,7 @@ func TestSessionStatusWhileBenchmarking(t *testing.T) {
 		t.Fatalf("note = %q", snap.EngineNote)
 	}
 	s.SetBenchmarking(false)
-	if s.snapshot().SessionStatus != "online" {
+	if s.snapshot(context.Background()).SessionStatus != "online" {
 		t.Fatal("session should return to online")
 	}
 }
@@ -90,7 +89,7 @@ func TestSessionStatusWhileBenchmarking(t *testing.T) {
 func TestCapabilitiesStayOnline(t *testing.T) {
 	s := newTestServer("http://unused", &fakeLLM{})
 	s.SetCapabilities("testing - 2/5 checked (still serving requests)")
-	snap := s.snapshot()
+	snap := s.snapshot(context.Background())
 	if snap.SessionStatus != "online" {
 		t.Fatalf("session = %q", snap.SessionStatus)
 	}
@@ -106,7 +105,7 @@ func TestWorkerStatusUsesMasterURL(t *testing.T) {
 	s.config.Provider.LLMURL = "http://198.18.0.2:8000"
 	s.config.Provider.EngineArgs = []string{"--headless", "--master-addr", "198.18.0.1", "--port", "8000"}
 
-	if got := s.snapshot().LLMURL; got != "http://198.18.0.1:8000" {
+	if got := s.snapshot(context.Background()).LLMURL; got != "http://198.18.0.1:8000" {
 		t.Fatalf("llm_url = %q", got)
 	}
 }
@@ -118,8 +117,8 @@ func TestRecentRequestsAreInferenceOnly(t *testing.T) {
 	if rec.Code != http.StatusOK {
 		t.Fatalf("busy status = %d", rec.Code)
 	}
-	if len(s.snapshot().RecentRequests) != 0 {
-		t.Fatalf("busy request logged: %+v", s.snapshot().RecentRequests)
+	if len(s.snapshot(context.Background()).RecentRequests) != 0 {
+		t.Fatalf("busy request logged: %+v", s.snapshot(context.Background()).RecentRequests)
 	}
 
 	s.logRequest(http.MethodPost, "/v1/chat/completions", http.StatusOK, relay.Completed, time.Now())
@@ -178,21 +177,13 @@ func statusJSON(t *testing.T, s *Server) map[string]any {
 // consoleOutput is what the terminal console draws.
 func consoleOutput(t *testing.T, s *Server) string {
 	t.Helper()
-	r, w, err := os.Pipe()
-	if err != nil {
-		t.Fatal(err)
+	var out bytes.Buffer
+	s.console = &out
+	if s.ctx == nil {
+		s.ctx = context.Background()
 	}
-	stdout := os.Stdout
-	os.Stdout = w
-	s.consoleUI = true
 	s.redrawConsole()
-	os.Stdout = stdout
-	_ = w.Close()
-	out, err := io.ReadAll(r)
-	if err != nil {
-		t.Fatal(err)
-	}
-	return string(out)
+	return out.String()
 }
 
 // An engine too old to serve is refused (the report carries no models and the
@@ -260,7 +251,7 @@ func TestStartReturnsListenError(t *testing.T) {
 	cfg.Server.Host = "127.0.0.1"
 	cfg.Server.Port = port
 	cfg.Server.RequestTimeoutSeconds = 5
-	s := &Server{config: cfg}
+	s := &Server{config: cfg, ctx: context.Background()}
 	if err := s.Start(); err == nil {
 		t.Fatal("expected listen error when port is already taken")
 	}

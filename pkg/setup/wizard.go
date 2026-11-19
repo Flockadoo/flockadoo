@@ -190,7 +190,7 @@ func Execute(opts Options, io Streams) error {
 		}
 		if doInstall {
 			_, _ = fmt.Fprintf(io.Out, "Installing %s...\n", engine.Label(kind))
-			if err := installEngine(context.Background(), kind, pinned, io.Out); err != nil {
+			if err := installEngine(context.Background(), kind, pinned, io.Out); err != nil { //nolint:forbidigo // the wizard has no caller context yet (CLU-4, item K1)
 				if plan.Role == "worker" {
 					return fmt.Errorf("install %s: %w", engine.Label(kind), err)
 				}
@@ -404,19 +404,19 @@ func readGPUProduct() string {
 	if err != nil {
 		return ""
 	}
-	info, err := mon.GetGPUInfo()
+	info, err := mon.GetGPUInfo(context.Background()) //nolint:forbidigo // the wizard has no caller context yet (CLU-4, item K1)
 	if err != nil || info == nil || info.ProductName == "" || info.ProductName == "Unknown" {
 		return ""
 	}
 	return info.ProductName
 }
 
-func localGPU() *gpu.GPUInfo {
+func localGPU(ctx context.Context) *gpu.GPUInfo {
 	mon, err := gpu.NewMonitor()
 	if err != nil {
 		return nil
 	}
-	info, err := mon.GetGPUInfo()
+	info, err := mon.GetGPUInfo(ctx)
 	if err != nil || info == nil || info.ProductName == "" || info.ProductName == "Unknown" {
 		return nil
 	}
@@ -434,7 +434,7 @@ func modelLabel(plan clusterSettings) string {
 
 func clusterEntry(opts Options, kind engine.Kind, platformURL string, plan clusterSettings, io Streams) verify.CatalogEntry {
 	fallback := verify.CatalogEntry{Alias: plan.Model, ServiceType: "vllm"}
-	ctx, cancel := context.WithTimeout(context.Background(), 45*time.Second)
+	ctx, cancel := context.WithTimeout(context.Background(), 45*time.Second) //nolint:forbidigo // the wizard has no caller context yet (CLU-4, item K1)
 	defer cancel()
 	var entries []verify.CatalogEntry
 	var err error
@@ -461,7 +461,7 @@ func clusterEntry(opts Options, kind engine.Kind, platformURL string, plan clust
 }
 
 func applyModel(cfg *config.Config, opts Options, kind engine.Kind, platformURL string, io Streams) (verify.CatalogEntry, error) {
-	ctx, cancel := context.WithTimeout(context.Background(), 45*time.Second)
+	ctx, cancel := context.WithTimeout(context.Background(), 45*time.Second) //nolint:forbidigo // the wizard has no caller context yet (CLU-4, item K1)
 	defer cancel()
 
 	var entries []verify.CatalogEntry
@@ -597,7 +597,7 @@ func maybeStart(kind engine.Kind, spec engine.Spec, cfg *config.Config, opts Opt
 		return nil
 	}
 
-	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second) //nolint:forbidigo // the wizard has no caller context yet (CLU-4, item K1)
 	defer cancel()
 	if engine.Healthy(ctx, kind, cfg.Provider.LLMURL) {
 		_, _ = fmt.Fprintf(io.Out, "\n%s is already running at %s.\n", kind, cfg.Provider.LLMURL)
@@ -612,7 +612,7 @@ func maybeStart(kind engine.Kind, spec engine.Spec, cfg *config.Config, opts Opt
 
 	if engine.PortOpen(ctx, cfg.Provider.LLMURL) {
 		_, _ = fmt.Fprintf(io.Out, "\n%s is already starting at %s (port in use).\n", kind, cfg.Provider.LLMURL)
-		waitCtx, waitCancel := context.WithTimeout(context.Background(), engine.DefaultDownloadTimeout)
+		waitCtx, waitCancel := context.WithTimeout(context.Background(), engine.DefaultDownloadTimeout) //nolint:forbidigo // the wizard has no caller context yet (CLU-4, item K1)
 		defer waitCancel()
 		err := SpinWhile(io.Out, waitMsg, func() error {
 			return engine.WaitHealthy(waitCtx, kind, cfg.Provider.LLMURL, 2*time.Second, nil)
@@ -643,7 +643,7 @@ func maybeStart(kind engine.Kind, spec engine.Spec, cfg *config.Config, opts Opt
 	if err != nil {
 		return err
 	}
-	waitCtx, waitCancel := context.WithTimeout(context.Background(), engine.DefaultDownloadTimeout)
+	waitCtx, waitCancel := context.WithTimeout(context.Background(), engine.DefaultDownloadTimeout) //nolint:forbidigo // the wizard has no caller context yet (CLU-4, item K1)
 	defer waitCancel()
 	if err := SpinWhile(io.Out, waitMsg, func() error {
 		return engine.WaitHealthy(waitCtx, kind, cfg.Provider.LLMURL, 2*time.Second, exited)

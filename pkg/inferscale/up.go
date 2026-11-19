@@ -685,12 +685,12 @@ func ipv4(ctx context.Context, cli string) (string, error) {
 }
 
 // Tailnet is this machine's tailnet IPv4 and how many other nodes are online.
-func Tailnet() (ip string, onlinePeers int) {
+func Tailnet(ctx context.Context) (ip string, onlinePeers int) {
 	cli, err := trustedCLI()
 	if err != nil {
 		return "", 0
 	}
-	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+	ctx, cancel := context.WithTimeout(ctx, 2*time.Second)
 	defer cancel()
 	out, err := exec.CommandContext(ctx, cli, "status", "--json").Output()
 	if err != nil {
