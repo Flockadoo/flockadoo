@@ -1,6 +1,6 @@
 # Changelog
 
-## [Unreleased]
+## [0.44.0] - 2026-11-20
 
 - Inferoute is now Flockadoo, Inferscale is now Winglink, and a provider's cluster is now a flock: a Solo Flock is one machine, a Team Flock is a master and its workers. The binary is `flockadoo` (`flockadoo setup`, `flockadoo update`); the config is `~/.config/flockadoo/config.yaml`, where `provider.cluster_mode` is now `provider.flock_role`; the dashboard and the console say FLOCK STATUS, Platform URL and Engine. The client talks to `core.flockadoo.ai`, with the `X-Flockadoo-*` headers and a `flockadoo/<version>` User-Agent, and joins a Team Flock over Winglink (`winglink`, `winglinkd`, interface `winglink0`). Nothing keeps the old names: a machine on the old client is reinstalled.
 - Winglink, the network a flock runs on, is now installed from one pinned release, and every file is checked against the SHA-256 built into this client before it is installed or run. A download that does not match is deleted and joining a flock stops with an error; an installed binary that does not match the pin is replaced. `WINGLINK_VERSION` no longer changes which release is used. Until this build pins a release, joining a flock stops with "update the client".
