@@ -1,6 +1,7 @@
 package gpu
 
 import (
+	"context"
 	"errors"
 	"os"
 	"sync"
@@ -28,13 +29,13 @@ func TestGetGPUInfoCachesAndCopies(t *testing.T) {
 		return &GPUInfo{ProductName: "x", Utilization: 11, IsBusy: false}, nil
 	})
 
-	a, err := m.GetGPUInfo()
+	a, err := m.GetGPUInfo(context.Background())
 	if err != nil {
-		t.Fatalf("GetGPUInfo() first call: %v", err)
+		t.Fatalf("GetGPUInfo(context.Background()) first call: %v", err)
 	}
-	b, err := m.GetGPUInfo()
+	b, err := m.GetGPUInfo(context.Background())
 	if err != nil {
-		t.Fatalf("GetGPUInfo() cached call: %v", err)
+		t.Fatalf("GetGPUInfo(context.Background()) cached call: %v", err)
 	}
 	if got := n.Load(); got != 1 {
 		t.Errorf("queries = %d, want 1", got)
@@ -44,9 +45,9 @@ func TestGetGPUInfoCachesAndCopies(t *testing.T) {
 	}
 
 	a.IsBusy = true
-	c, err := m.GetGPUInfo()
+	c, err := m.GetGPUInfo(context.Background())
 	if err != nil {
-		t.Fatalf("GetGPUInfo() after mutation: %v", err)
+		t.Fatalf("GetGPUInfo(context.Background()) after mutation: %v", err)
 	}
 	if c.IsBusy {
 		t.Fatal("caller mutation of IsBusy leaked into cache")
@@ -60,12 +61,12 @@ func TestGetGPUInfoCacheExpires(t *testing.T) {
 		return &GPUInfo{ProductName: "x"}, nil
 	})
 
-	if _, err := m.GetGPUInfo(); err != nil {
-		t.Fatalf("GetGPUInfo() first call: %v", err)
+	if _, err := m.GetGPUInfo(context.Background()); err != nil {
+		t.Fatalf("GetGPUInfo(context.Background()) first call: %v", err)
 	}
 	time.Sleep(40 * time.Millisecond)
-	if _, err := m.GetGPUInfo(); err != nil {
-		t.Fatalf("GetGPUInfo() after expiry: %v", err)
+	if _, err := m.GetGPUInfo(context.Background()); err != nil {
+		t.Fatalf("GetGPUInfo(context.Background()) after expiry: %v", err)
 	}
 	if got := n.Load(); got != 2 {
 		t.Errorf("queries = %d, want 2 after TTL expiry", got)
@@ -80,10 +81,10 @@ func TestGetGPUInfoCachesError(t *testing.T) {
 		return nil, queryErr
 	})
 
-	_, err1 := m.GetGPUInfo()
-	_, err2 := m.GetGPUInfo()
+	_, err1 := m.GetGPUInfo(context.Background())
+	_, err2 := m.GetGPUInfo(context.Background())
 	if err1 == nil || err2 == nil {
-		t.Fatalf("GetGPUInfo() errors = %v, %v, want cached error", err1, err2)
+		t.Fatalf("GetGPUInfo(context.Background()) errors = %v, %v, want cached error", err1, err2)
 	}
 	if got := n.Load(); got != 1 {
 		t.Errorf("queries = %d, want 1 (error cached)", got)
@@ -109,7 +110,7 @@ func TestGetGPUInfoSerializesRefresh(t *testing.T) {
 		wg.Add(1)
 		go func() {
 			defer wg.Done()
-			if _, err := m.GetGPUInfo(); err != nil {
+			if _, err := m.GetGPUInfo(context.Background()); err != nil {
 				errs <- err
 			}
 		}()
@@ -124,7 +125,7 @@ func TestGetGPUInfoSerializesRefresh(t *testing.T) {
 	wg.Wait()
 	close(errs)
 	for err := range errs {
-		t.Errorf("GetGPUInfo() concurrent: %v", err)
+		t.Errorf("GetGPUInfo(context.Background()) concurrent: %v", err)
 	}
 	if got := n.Load(); got != 1 {
 		t.Errorf("queries = %d, want 1 (mutex serializes refresh)", got)

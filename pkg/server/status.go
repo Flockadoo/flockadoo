@@ -1,6 +1,7 @@
 package server
 
 import (
+	"context"
 	_ "embed"
 	"encoding/json"
 	"fmt"
@@ -66,7 +67,7 @@ type StatusSnapshot struct {
 	ConnectionReason string `json:"connection_reason,omitempty"`
 }
 
-func (s *Server) snapshot() StatusSnapshot {
+func (s *Server) snapshot(ctx context.Context) StatusSnapshot {
 	gpuInfo := &gpu.GPUInfo{
 		ProductName:   "Unknown",
 		DriverVersion: "Unknown",
@@ -74,7 +75,7 @@ func (s *Server) snapshot() StatusSnapshot {
 		GPUCount:      0,
 	}
 	if s.gpuMonitor != nil {
-		if info, err := s.gpuMonitor.GetGPUInfo(); err == nil && info != nil {
+		if info, err := s.gpuMonitor.GetGPUInfo(ctx); err == nil && info != nil {
 			gpuInfo = info
 		}
 	}
@@ -118,7 +119,7 @@ func (s *Server) snapshot() StatusSnapshot {
 	}
 
 	upd := nodeapi.State()
-	tailnetIP, online := inferscale.Tailnet()
+	tailnetIP, online := inferscale.Tailnet(ctx)
 	peers := ""
 	if online > 0 {
 		peers = fmt.Sprintf("%d online", online)
@@ -195,7 +196,7 @@ func (s *Server) handleDashboard(w http.ResponseWriter, r *http.Request) {
 func (s *Server) handleStatus(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	w.Header().Set("Cache-Control", "no-store")
-	_ = json.NewEncoder(w).Encode(s.snapshot())
+	_ = json.NewEncoder(w).Encode(s.snapshot(r.Context()))
 }
 
 func formatDuration(d time.Duration) string {

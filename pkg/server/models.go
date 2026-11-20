@@ -3,6 +3,7 @@ package server
 import (
 	"github.com/sentnl/inferoute-node/inferoute-client/internal/admission"
 	"github.com/sentnl/inferoute-node/inferoute-client/pkg/capacity"
+	"io"
 	"net/http"
 	"sync"
 	"time"
@@ -31,8 +32,11 @@ type Server struct {
 	stopped       bool
 	connector     *connect.Client
 	connectCancel context.CancelFunc
-	consoleUI     bool
-	consoleMu     sync.Mutex
+	// console is the terminal dashboard's writer; nil turns it off.
+	console io.Writer
+	// ctx is the client's lifetime, from CreateServer.
+	ctx       context.Context
+	consoleMu sync.Mutex
 	// gate admits requests to the engine; the count lives inside it (plan
 	// item B1). admit creates it on first use.
 	gateOnce   sync.Once

@@ -13,7 +13,7 @@ go run ./internal/tools/check     # gofmt, go mod tidy, vet for three targets, l
 go test ./pkg/server/             # one package
 ```
 
-The check needs golangci-lint v2.15.0 (`go install github.com/golangci/golangci-lint/v2/cmd/golangci-lint@v2.15.0`; PATH or GOPATH/bin). Lint judges only what changed since the merge base with `origin/main` until item L1 clears the old findings. The tests run with HOME pointed at an empty temporary directory, and the check fails if a test leaves a file there.
+The check needs golangci-lint v2.15.0 (`go install github.com/golangci/golangci-lint/v2/cmd/golangci-lint@v2.15.0`; PATH or GOPATH/bin). Lint judges the whole codebase (item L1 cleared the old findings); `-lint-base <rev>` judges only what changed since the merge base with that revision. The tests run with HOME pointed at an empty temporary directory, and the check fails if a test leaves a file there.
 
 ## Where code goes
 

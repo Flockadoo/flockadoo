@@ -61,7 +61,7 @@ func TestLogsStayInFiles(t *testing.T) {
 	l.Info("hello")
 	l.Error("boom")
 	_ = l.Sync()
-	w.Close()
+	_ = w.Close()
 
 	out, err := io.ReadAll(r)
 	if err != nil {

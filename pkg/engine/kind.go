@@ -142,5 +142,5 @@ func OptionsFor(goos, goarch string, hasNVIDIA bool) []Option {
 
 // HostOptions is OptionsFor(runtime.GOOS, runtime.GOARCH, HasNVIDIA()).
 func HostOptions() []Option {
-	return OptionsFor(runtime.GOOS, runtime.GOARCH, HasNVIDIA())
+	return OptionsFor(runtime.GOOS, runtime.GOARCH, HasNVIDIA()) //nolint:forbidigo // the host's options; OptionsFor is a pure function of goos and goarch (PLAT-2)
 }

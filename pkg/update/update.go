@@ -67,14 +67,14 @@ func Notice(rel Release) (message string, required bool) {
 }
 
 // Apply downloads the newest build, checks checksums.txt, and replaces this binary.
-// The caller must not be the running daemon.
-func Apply(ctx context.Context, platformURL string, checkOnly bool) error {
-	if os.Getenv("INFEROUTE_IN_DOCKER") == "1" {
-		fmt.Println("This client is running in Docker. Pull the latest image and restart the container.")
+// The caller must not be the running daemon. Progress goes to out.
+func Apply(ctx context.Context, platformURL string, checkOnly bool, out io.Writer) error {
+	if config.InDocker() {
+		_, _ = fmt.Fprintln(out, "This client is running in Docker. Pull the latest image and restart the container.")
 		return nil
 	}
 	var rel Release
-	err := setup.SpinWhile(os.Stdout, "Checking for updates", func() error {
+	err := setup.SpinWhile(out, "Checking for updates", func() error {
 		var ferr error
 		rel, ferr = FetchRelease(ctx, platformURL)
 		return ferr
@@ -83,11 +83,11 @@ func Apply(ctx context.Context, platformURL string, checkOnly bool) error {
 		return err
 	}
 	if !nodeapi.Newer(rel.Latest, version.Version) && !nodeapi.Newer(rel.Min, version.Version) {
-		fmt.Printf("inferoute-client %s is up to date.\n", version.Version)
+		_, _ = fmt.Fprintf(out, "inferoute-client %s is up to date.\n", version.Version)
 		return nil
 	}
 	msg, _ := Notice(rel)
-	fmt.Println(msg)
+	_, _ = fmt.Fprintln(out, msg)
 	if checkOnly {
 		return nil
 	}
@@ -102,15 +102,15 @@ func Apply(ctx context.Context, platformURL string, checkOnly bool) error {
 	if err != nil {
 		return err
 	}
-	defer os.RemoveAll(dir)
+	defer func() { _ = os.RemoveAll(dir) }()
 
 	zipPath := filepath.Join(dir, asset)
-	if err := setup.SpinWhile(os.Stdout, "Downloading "+asset, func() error {
+	if err := setup.SpinWhile(out, "Downloading "+asset, func() error {
 		return download(ctx, zipURL, zipPath)
 	}); err != nil {
 		return err
 	}
-	if err := setup.SpinWhile(os.Stdout, "Verifying checksum", func() error {
+	if err := setup.SpinWhile(out, "Verifying checksum", func() error {
 		return verifyChecksum(ctx, rel, asset, zipPath)
 	}); err != nil {
 		return err
@@ -122,7 +122,7 @@ func Apply(ctx context.Context, platformURL string, checkOnly bool) error {
 	if err := replaceExecutable(binPath); err != nil {
 		return err
 	}
-	fmt.Printf("Updated to %s. Restart inferoute-client.\n", rel.Latest)
+	_, _ = fmt.Fprintf(out, "Updated to %s. Restart inferoute-client.\n", rel.Latest)
 	return nil
 }
 
@@ -145,7 +145,7 @@ func fetchFromNode(ctx context.Context, platformURL string) (Release, error) {
 	if err != nil {
 		return Release{}, err
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 	if resp.StatusCode != http.StatusOK {
 		return Release{}, fmt.Errorf("GET /api/client/version returned %d", resp.StatusCode)
 	}
@@ -161,7 +161,7 @@ func fetchFromNode(ctx context.Context, platformURL string) (Release, error) {
 }
 
 func assetName() string {
-	return fmt.Sprintf("inferoute-client-%s-%s.zip", runtime.GOOS, runtime.GOARCH)
+	return fmt.Sprintf("inferoute-client-%s-%s.zip", runtime.GOOS, runtime.GOARCH) //nolint:forbidigo // the release asset for the platform this binary runs on (PLAT-2, item H1)
 }
 
 func assetURL(rel Release, asset string) string {
@@ -184,16 +184,19 @@ func checksumURL(rel Release) string {
 	return asset[:strings.LastIndex(asset, "/")+1] + "checksums.txt"
 }
 
-func download(ctx context.Context, url, dest string) error {
+// downloadClient bounds a release download; the binary is tens of megabytes.
+var downloadClient = &http.Client{Timeout: 10 * time.Minute}
+
+func download(ctx context.Context, url, dest string) (err error) {
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
 	if err != nil {
 		return err
 	}
-	resp, err := http.DefaultClient.Do(req)
+	resp, err := downloadClient.Do(req)
 	if err != nil {
 		return err
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 	if resp.StatusCode != http.StatusOK {
 		return fmt.Errorf("download %s returned %d", url, resp.StatusCode)
 	}
@@ -201,7 +204,12 @@ func download(ctx context.Context, url, dest string) error {
 	if err != nil {
 		return err
 	}
-	defer f.Close()
+	// A failed Close can lose written data, so it is an error too.
+	defer func() {
+		if cerr := f.Close(); err == nil {
+			err = cerr
+		}
+	}()
 	_, err = io.Copy(f, resp.Body)
 	return err
 }
@@ -229,7 +237,7 @@ func verifyChecksum(ctx context.Context, rel Release, asset, zipPath string) err
 	if err != nil {
 		return err
 	}
-	defer f.Close()
+	defer func() { _ = f.Close() }()
 	h := sha256.New()
 	if _, err := io.Copy(h, f); err != nil {
 		return err
@@ -246,7 +254,7 @@ func unzipBinary(zipPath, dir string) (string, error) {
 	if err != nil {
 		return "", err
 	}
-	defer r.Close()
+	defer func() { _ = r.Close() }()
 	for _, f := range r.File {
 		if f.FileInfo().IsDir() {
 			continue
@@ -258,11 +266,11 @@ func unzipBinary(zipPath, dir string) (string, error) {
 		dest := filepath.Join(dir, "inferoute-client.new")
 		out, err := os.OpenFile(dest, os.O_CREATE|os.O_WRONLY|os.O_TRUNC, 0o755)
 		if err != nil {
-			src.Close()
+			_ = src.Close()
 			return "", err
 		}
-		_, copyErr := io.Copy(out, src)
-		src.Close()
+		_, copyErr := io.Copy(out, src) //nolint:gosec // G110: the archive matched the release's checksums.txt before it is opened; whoever could publish a bomb could publish any binary
+		_ = src.Close()
 		closeErr := out.Close()
 		if copyErr != nil {
 			return "", copyErr
@@ -293,22 +301,22 @@ func replaceExecutable(newPath string) error {
 	if err := moveFile(newPath, staged); err != nil {
 		return fmt.Errorf("install new binary: %w", err)
 	}
-	if runtime.GOOS == "windows" {
+	if runtime.GOOS == "windows" { //nolint:forbidigo // Windows cannot replace a running executable (PLAT-2, item H1)
 		old := exe + ".old"
 		_ = os.Remove(old)
 		if err := os.Rename(exe, old); err != nil {
-			os.Remove(staged)
+			_ = os.Remove(staged)
 			return fmt.Errorf("rename current binary: %w", err)
 		}
 		if err := os.Rename(staged, exe); err != nil {
 			_ = os.Rename(old, exe)
-			os.Remove(staged)
+			_ = os.Remove(staged)
 			return fmt.Errorf("install new binary: %w", err)
 		}
 		return nil
 	}
 	if err := os.Rename(staged, exe); err != nil {
-		os.Remove(staged)
+		_ = os.Remove(staged)
 		return fmt.Errorf("install new binary: %w", err)
 	}
 	return nil
@@ -325,7 +333,7 @@ func moveFile(src, dst string) error {
 		return err
 	}
 	if err := os.Chmod(dst, 0o755); err != nil {
-		os.Remove(dst)
+		_ = os.Remove(dst)
 		return err
 	}
 	_ = os.Remove(src)
@@ -337,7 +345,7 @@ func copyRegularFile(src, dst string) error {
 	if err != nil {
 		return err
 	}
-	defer in.Close()
+	defer func() { _ = in.Close() }()
 	out, err := os.OpenFile(dst, os.O_CREATE|os.O_TRUNC|os.O_WRONLY, 0o755)
 	if err != nil {
 		return err
@@ -345,7 +353,7 @@ func copyRegularFile(src, dst string) error {
 	_, copyErr := io.Copy(out, in)
 	closeErr := out.Close()
 	if copyErr != nil || closeErr != nil {
-		os.Remove(dst)
+		_ = os.Remove(dst)
 		if copyErr != nil {
 			return copyErr
 		}
@@ -357,11 +365,11 @@ func copyRegularFile(src, dst string) error {
 func daemonRunning(ctx context.Context) (bool, error) {
 	path, err := configPath()
 	if err != nil || path == "" {
-		return false, nil
+		return false, nil //nolint:nilerr // no config path: no daemon to look for
 	}
 	cfg, err := config.Load(path)
 	if err != nil {
-		return false, nil
+		return false, nil //nolint:nilerr // no daemon starts from a config that does not load
 	}
 	url := fmt.Sprintf("http://127.0.0.1:%d/api/status", cfg.Server.Port)
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
@@ -371,9 +379,9 @@ func daemonRunning(ctx context.Context) (bool, error) {
 	client := &http.Client{Timeout: 500 * time.Millisecond}
 	resp, err := client.Do(req)
 	if err != nil {
-		return false, nil
+		return false, nil //nolint:nilerr // nothing answering on the status port means not running
 	}
-	resp.Body.Close()
+	_ = resp.Body.Close()
 	return resp.StatusCode == http.StatusOK, nil
 }
 

@@ -14,5 +14,5 @@ var (
 
 // UserAgent identifies this binary to the Inferoute node.
 func UserAgent() string {
-	return fmt.Sprintf("inferoute-client/%s (%s; %s)", Version, runtime.GOOS, runtime.GOARCH)
+	return fmt.Sprintf("inferoute-client/%s (%s; %s)", Version, runtime.GOOS, runtime.GOARCH) //nolint:forbidigo // the User-Agent names the platform this binary was built for
 }

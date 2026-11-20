@@ -66,10 +66,11 @@ func statusForRatio(ratio float64) FitStatus {
 // (kv_cache_bytes_per_token = 2 * layers * kv_heads * head_dim * 2 for bf16),
 // required = weights * 1.20 + kv_per_token * max_model_len.
 // Without it we fall back to the ~3%-of-weights-per-8k heuristic.
+const baselineContextLen int64 = 8192
+
 const (
-	baselineContextLen       int64 = 8192
-	vllmContextRuntimeFactor       = 1.20 // weights + non-KV runtime
-	vllmKVPerBaseline              = 0.03 // ~3% of weights per 8k tokens
+	vllmContextRuntimeFactor = 1.20 // weights + non-KV runtime
+	vllmKVPerBaseline        = 0.03 // ~3% of weights per 8k tokens
 )
 
 // ScoreModel scores a single approved catalog entry.

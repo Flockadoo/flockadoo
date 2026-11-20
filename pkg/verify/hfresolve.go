@@ -9,10 +9,10 @@ import (
 
 // DefaultHFHubCache returns the standard HuggingFace hub cache directory.
 func DefaultHFHubCache() (string, error) {
-	if v := strings.TrimSpace(os.Getenv("HF_HUB_CACHE")); v != "" {
+	if v := strings.TrimSpace(os.Getenv("HF_HUB_CACHE")); v != "" { //nolint:forbidigo // mirrors the HuggingFace hub's own cache lookup, which reads this variable
 		return filepath.Abs(v)
 	}
-	if v := strings.TrimSpace(os.Getenv("HUGGINGFACE_HUB_CACHE")); v != "" {
+	if v := strings.TrimSpace(os.Getenv("HUGGINGFACE_HUB_CACHE")); v != "" { //nolint:forbidigo // mirrors the HuggingFace hub's own cache lookup, which reads this variable
 		return filepath.Abs(v)
 	}
 	home, err := os.UserHomeDir()

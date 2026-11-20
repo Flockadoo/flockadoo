@@ -92,8 +92,8 @@ func TestWriteDeadlineOnRealServer(t *testing.T) {
 		t.Fatal(err)
 	}
 	srv := &http.Server{Handler: r}
-	go srv.Serve(ln)
-	t.Cleanup(func() { srv.Close() })
+	go func() { _ = srv.Serve(ln) }()
+	t.Cleanup(func() { _ = srv.Close() })
 
 	req, err := http.NewRequest(http.MethodPost, "http://"+ln.Addr().String()+"/v1/chat/completions", strings.NewReader(`{"model":"m","stream":true}`))
 	if err != nil {
@@ -108,7 +108,7 @@ func TestWriteDeadlineOnRealServer(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 	body, _ := io.ReadAll(resp.Body)
 	if resp.StatusCode != http.StatusOK {
 		t.Fatalf("status = %d body = %s", resp.StatusCode, body)

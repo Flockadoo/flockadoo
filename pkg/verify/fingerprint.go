@@ -27,7 +27,7 @@ func fullFileSHA256(path string) (string, error) {
 	if err != nil {
 		return "", err
 	}
-	defer f.Close()
+	defer func() { _ = f.Close() }()
 
 	h := sha256.New()
 	if _, err := io.Copy(h, f); err != nil {
@@ -47,7 +47,7 @@ func safetensorsHeaderSHA256(path string) (string, error) {
 	if err != nil {
 		return "", err
 	}
-	defer f.Close()
+	defer func() { _ = f.Close() }()
 
 	var lenBuf [8]byte
 	if _, err := io.ReadFull(f, lenBuf[:]); err != nil {

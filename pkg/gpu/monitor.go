@@ -132,7 +132,7 @@ type Utilization struct {
 
 // NewMonitor creates a new GPU monitor
 func NewMonitor() (*Monitor, error) {
-	isMacOS := runtime.GOOS == "darwin"
+	isMacOS := runtime.GOOS == "darwin" //nolint:forbidigo // platform branch in shared code (PLAT-2, item H1)
 
 	if !isMacOS {
 		// Check if nvidia-smi is available on non-macOS systems
@@ -156,7 +156,10 @@ func NewMonitor() (*Monitor, error) {
 
 // GetGPUInfo returns information about the GPU. Results are cached for
 // gpuInfoCacheTTL; callers receive a copy so mutations do not poison the cache.
-func (m *Monitor) GetGPUInfo() (*GPUInfo, error) {
+// The query is not cancelled with ctx: its result, or its error, is cached for
+// every caller, so one caller giving up must not become everyone's failure.
+// The query's own timeout bounds it.
+func (m *Monitor) GetGPUInfo(ctx context.Context) (*GPUInfo, error) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 
@@ -174,7 +177,7 @@ func (m *Monitor) GetGPUInfo() (*GPUInfo, error) {
 		}
 	}
 
-	info, err := m.queryGPUInfo()
+	info, err := m.queryGPUInfo(context.WithoutCancel(ctx))
 	m.cachedAt = time.Now()
 	m.cachedErr = err
 	if err != nil {
@@ -186,20 +189,20 @@ func (m *Monitor) GetGPUInfo() (*GPUInfo, error) {
 	return &out, nil
 }
 
-func (m *Monitor) queryGPUInfo() (*GPUInfo, error) {
+func (m *Monitor) queryGPUInfo(ctx context.Context) (*GPUInfo, error) {
 	if m.queryFn != nil {
 		return m.queryFn()
 	}
 	if m.isMacOS {
-		return m.getMacGPUInfo()
+		return m.getMacGPUInfo(ctx)
 	}
-	return m.getNvidiaGPUInfo()
+	return m.getNvidiaGPUInfo(ctx)
 }
 
-func (m *Monitor) getNvidiaGPUInfo() (*GPUInfo, error) {
+func (m *Monitor) getNvidiaGPUInfo(ctx context.Context) (*GPUInfo, error) {
 	logger.Debug("Getting GPU information")
 
-	ctx, cancel := context.WithTimeout(context.Background(), nvidiaSMITimeout)
+	ctx, cancel := context.WithTimeout(ctx, nvidiaSMITimeout)
 	defer cancel()
 	cmd := exec.CommandContext(ctx, "nvidia-smi", "-x", "-q")
 	exechide.Apply(cmd)
@@ -291,10 +294,10 @@ func parseNvidiaSMI(output []byte) (*GPUInfo, error) {
 }
 
 // getMacGPUInfo returns information about the GPU on macOS
-func (m *Monitor) getMacGPUInfo() (*GPUInfo, error) {
+func (m *Monitor) getMacGPUInfo(ctx context.Context) (*GPUInfo, error) {
 	logger.Debug("Getting macOS GPU information")
 
-	ctx, cancel := context.WithTimeout(context.Background(), nvidiaSMITimeout)
+	ctx, cancel := context.WithTimeout(ctx, nvidiaSMITimeout)
 	defer cancel()
 
 	name := m.macName

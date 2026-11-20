@@ -81,51 +81,51 @@ func WriteJSON(w io.Writer, report Report) error {
 // WriteTable writes a human-readable hardware + models table.
 func WriteTable(w io.Writer, report Report) error {
 	hw := report.Hardware
-	fmt.Fprintln(w, "Hardware")
-	fmt.Fprintf(w, "  OS/Arch:        %s/%s\n", hw.OS, hw.Arch)
-	fmt.Fprintf(w, "  GPU:            %s\n", emptyDash(hw.ProductName))
+	_, _ = fmt.Fprintln(w, "Hardware")
+	_, _ = fmt.Fprintf(w, "  OS/Arch:        %s/%s\n", hw.OS, hw.Arch)
+	_, _ = fmt.Fprintf(w, "  GPU:            %s\n", emptyDash(hw.ProductName))
 	if hw.GPUCount > 0 {
-		fmt.Fprintf(w, "  GPU count:      %d\n", hw.GPUCount)
+		_, _ = fmt.Fprintf(w, "  GPU count:      %d\n", hw.GPUCount)
 	}
 	if hw.DriverVersion != "" {
-		fmt.Fprintf(w, "  Driver:         %s\n", hw.DriverVersion)
+		_, _ = fmt.Fprintf(w, "  Driver:         %s\n", hw.DriverVersion)
 	}
 	if hw.CUDAVersion != "" && hw.CUDAVersion != "N/A" {
-		fmt.Fprintf(w, "  CUDA:           %s\n", hw.CUDAVersion)
+		_, _ = fmt.Fprintf(w, "  CUDA:           %s\n", hw.CUDAVersion)
 	}
-	fmt.Fprintf(w, "  Memory kind:    %s\n", hw.MemoryKind)
+	_, _ = fmt.Fprintf(w, "  Memory kind:    %s\n", hw.MemoryKind)
 	if hw.UnifiedMemory {
-		fmt.Fprintln(w, "  Unified memory: yes (Apple Silicon)")
+		_, _ = fmt.Fprintln(w, "  Unified memory: yes (Apple Silicon)")
 	}
 	if hw.SystemRAMBytes > 0 {
-		fmt.Fprintf(w, "  System RAM:     %s\n", formatBytes(hw.SystemRAMBytes))
+		_, _ = fmt.Fprintf(w, "  System RAM:     %s\n", formatBytes(hw.SystemRAMBytes))
 	}
 	if hw.MemoryTotalBytes > 0 {
-		fmt.Fprintf(w, "  Memory total:   %s\n", formatBytes(hw.MemoryTotalBytes))
+		_, _ = fmt.Fprintf(w, "  Memory total:   %s\n", formatBytes(hw.MemoryTotalBytes))
 	}
 	if hw.MemoryFreeBytes > 0 {
-		fmt.Fprintf(w, "  Memory free:    %s\n", formatBytes(hw.MemoryFreeBytes))
+		_, _ = fmt.Fprintf(w, "  Memory free:    %s\n", formatBytes(hw.MemoryFreeBytes))
 	}
-	fmt.Fprintf(w, "  Usable (score): %s\n", formatBytes(hw.UsableBytes))
+	_, _ = fmt.Fprintf(w, "  Usable (score): %s\n", formatBytes(hw.UsableBytes))
 	for _, warn := range hw.Warnings {
-		fmt.Fprintf(w, "  warning: %s\n", warn)
+		_, _ = fmt.Fprintf(w, "  warning: %s\n", warn)
 	}
-	fmt.Fprintln(w)
+	_, _ = fmt.Fprintln(w)
 
-	fmt.Fprintf(w, "Summary: %d runs_well, %d fits, %d tight, %d too_large, %d unknown (%d total)\n\n",
+	_, _ = fmt.Fprintf(w, "Summary: %d runs_well, %d fits, %d tight, %d too_large, %d unknown (%d total)\n\n",
 		report.Summary.RunsWell, report.Summary.Fits, report.Summary.Tight,
 		report.Summary.TooLarge, report.Summary.Unknown, report.Summary.Total)
 
 	if len(report.Models) == 0 {
-		fmt.Fprintln(w, "No models to display.")
+		_, _ = fmt.Fprintln(w, "No models to display.")
 		return nil
 	}
 
 	var raw strings.Builder
 	tw := tabwriter.NewWriter(&raw, 0, 4, 2, ' ', 0)
-	fmt.Fprintln(tw, "#\tSTATUS\tSERVICE\tMODEL\tWEIGHTS\tVRAM REQUIRED")
+	_, _ = fmt.Fprintln(tw, "#\tSTATUS\tSERVICE\tMODEL\tWEIGHTS\tVRAM REQUIRED")
 	for i, m := range report.Models {
-		fmt.Fprintf(tw, "%d\t%s\t%s\t%s\t%s\t%s\n",
+		_, _ = fmt.Fprintf(tw, "%d\t%s\t%s\t%s\t%s\t%s\n",
 			i+1,
 			m.Status,
 			m.ServiceType,
@@ -141,10 +141,10 @@ func WriteTable(w io.Writer, report Report) error {
 	lines := strings.Split(strings.TrimSuffix(raw.String(), "\n"), "\n")
 	for i, line := range lines {
 		if i == 0 {
-			fmt.Fprintln(w, line)
+			_, _ = fmt.Fprintln(w, line)
 			continue
 		}
-		fmt.Fprintln(w, colorFitLine(report.Models[i-1].Status, line))
+		_, _ = fmt.Fprintln(w, colorFitLine(report.Models[i-1].Status, line))
 	}
 	return nil
 }

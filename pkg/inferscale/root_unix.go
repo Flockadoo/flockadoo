@@ -33,11 +33,11 @@ func ensureSudo(ctx context.Context) error {
 	if probe.Run() == nil {
 		return nil
 	}
-	fmt.Fprintf(os.Stderr, "inferscale needs root to create %s\n", TUN)
+	fmt.Fprintf(os.Stderr, "inferscale needs root to create %s\n", TUN) //nolint:forbidigo // sudo prompts for the password on the operator's terminal during setup (QUAL-8, item K1)
 	cmd := exec.CommandContext(ctx, "sudo", "-v")
 	cmd.Stdin = os.Stdin
-	cmd.Stdout = os.Stdout
-	cmd.Stderr = os.Stderr
+	cmd.Stdout = os.Stdout //nolint:forbidigo // sudo prompts for the password on the operator's terminal during setup (QUAL-8, item K1)
+	cmd.Stderr = os.Stderr //nolint:forbidigo // sudo prompts for the password on the operator's terminal during setup (QUAL-8, item K1)
 	if err := cmd.Run(); err != nil {
 		return fmt.Errorf("sudo: %w", err)
 	}

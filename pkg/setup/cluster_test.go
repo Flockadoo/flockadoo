@@ -1,6 +1,7 @@
 package setup
 
 import (
+	"context"
 	"fmt"
 	"net/http"
 	"net/http/httptest"
@@ -31,7 +32,7 @@ func TestLoginServerFromEngine(t *testing.T) {
 	cfg := &config.Config{}
 	cfg.Provider.URL = srv.URL
 	cfg.Provider.APIKey = "key"
-	if got := loginServer(cfg, false); got != "http://127.0.0.1:8444" {
+	if got := loginServer(context.Background(), cfg, false); got != "http://127.0.0.1:8444" {
 		t.Fatalf("login server = %q", got)
 	}
 }
@@ -51,7 +52,7 @@ func TestLoginServerFallsBackToSession(t *testing.T) {
 	cfg := &config.Config{}
 	cfg.Provider.URL = srv.URL
 	cfg.Provider.APIKey = "key"
-	if got := loginServer(cfg, false); got != "http://127.0.0.1:8444" {
+	if got := loginServer(context.Background(), cfg, false); got != "http://127.0.0.1:8444" {
 		t.Fatalf("login server = %q", got)
 	}
 }

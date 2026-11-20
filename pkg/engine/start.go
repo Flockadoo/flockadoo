@@ -39,7 +39,7 @@ func StartDetached(spec Spec, logPath string) (<-chan error, error) {
 	if err != nil {
 		return nil, fmt.Errorf("open engine log: %w", err)
 	}
-	cmd := exec.Command(spec.Bin, spec.Args...)
+	cmd := exec.Command(spec.Bin, spec.Args...) //nolint:forbidigo,gosec,noctx // the engine must survive the client's exit, so no context may kill it; spec is the saved or server-built serve command
 	cmd.Stdin = nil
 	cmd.Stdout = logFile
 	cmd.Stderr = logFile

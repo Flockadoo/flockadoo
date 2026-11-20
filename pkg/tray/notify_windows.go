@@ -77,7 +77,7 @@ func findSystrayWindow() windows.Handle {
 		if r1 != 0 {
 			return windows.Handle(r1)
 		}
-		time.Sleep(50 * time.Millisecond)
+		time.Sleep(50 * time.Millisecond) //nolint:forbidigo // a bounded 1 s wait for the notification window to exist; nothing can cancel it
 	}
 	return 0
 }

@@ -73,5 +73,5 @@ func downloadURLFor(p Pin, name string) string {
 }
 
 func hostAsset() (cli, daemon string, err error) {
-	return Asset(runtime.GOOS, runtime.GOARCH)
+	return Asset(runtime.GOOS, runtime.GOARCH) //nolint:forbidigo // the one read of the host platform here; Asset is a pure function of goos and goarch (PLAT-2)
 }

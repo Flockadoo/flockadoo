@@ -94,7 +94,7 @@ func firstExisting(paths ...string) string {
 
 func lookupLlamaCpp() string {
 	name := "llama-server"
-	if runtime.GOOS == "windows" {
+	if runtime.GOOS == "windows" { //nolint:forbidigo // platform branch in shared code (PLAT-2, item H1)
 		name = "llama-server.exe"
 	}
 	if dir, err := llamaInstallDir(); err == nil {
@@ -149,7 +149,7 @@ func installBin(kind Kind) string {
 	}
 	switch kind {
 	case KindVLLM:
-		if runtime.GOOS == "windows" {
+		if runtime.GOOS == "windows" { //nolint:forbidigo // platform branch in shared code (PLAT-2, item H1)
 			return filepath.Join(home, ".venv-vllm", "Scripts", "vllm.exe")
 		}
 		return filepath.Join(home, ".venv-vllm", "bin", "vllm")
@@ -161,7 +161,7 @@ func installBin(kind Kind) string {
 			return ""
 		}
 		name := "llama-server"
-		if runtime.GOOS == "windows" {
+		if runtime.GOOS == "windows" { //nolint:forbidigo // platform branch in shared code (PLAT-2, item H1)
 			name = "llama-server.exe"
 		}
 		return filepath.Join(dir, name)
@@ -181,7 +181,7 @@ func runnableBin(path string) bool {
 	if err != nil || st.IsDir() {
 		return false
 	}
-	if runtime.GOOS == "windows" {
+	if runtime.GOOS == "windows" { //nolint:forbidigo // platform branch in shared code (PLAT-2, item H1)
 		return true
 	}
 	if st.Mode()&0o111 == 0 {
@@ -206,7 +206,7 @@ func shebangInterpreter(path string) (interp, envArg string, err error) {
 	if err != nil {
 		return "", "", err
 	}
-	defer f.Close()
+	defer func() { _ = f.Close() }()
 	buf := make([]byte, 512)
 	n, err := f.Read(buf)
 	if n < 2 {

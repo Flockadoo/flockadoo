@@ -125,7 +125,6 @@ func Load(path string) (*Config, error) {
 	if err != nil {
 		// If file doesn't exist, use default configuration
 		if os.IsNotExist(err) {
-			fmt.Printf("Configuration file %s not found, using defaults\n", path)
 			cfg.normalize()
 			return cfg, nil
 		}
@@ -271,6 +270,22 @@ func (c *Config) LocalDashboardURL() string {
 // PlatformURLFromEnv returns INFEROUTE_URL when set.
 func PlatformURLFromEnv() string {
 	return strings.TrimRight(strings.TrimSpace(os.Getenv(EnvPlatformURL)), "/")
+}
+
+// APIKeyFromEnv returns PROVIDER_API_KEY: the setup wizard's default key.
+func APIKeyFromEnv() string {
+	return os.Getenv("PROVIDER_API_KEY")
+}
+
+// EngineFromEnv returns PROVIDER_TYPE, trimmed: setup's default engine.
+func EngineFromEnv() string {
+	return strings.TrimSpace(os.Getenv("PROVIDER_TYPE"))
+}
+
+// InDocker reports whether the client runs in its Docker image, which sets
+// INFEROUTE_IN_DOCKER=1. The image is updated by pulling, not by self-update.
+func InDocker() bool {
+	return os.Getenv("INFEROUTE_IN_DOCKER") == "1"
 }
 
 // ResolvePlatformURL picks the Inferoute API base.

@@ -30,7 +30,7 @@ func (c *VLLMClient) EngineCapacity(ctx context.Context) (EngineCapacity, error)
 	if err != nil {
 		return EngineCapacity{}, err
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 	if resp.StatusCode != http.StatusOK {
 		return EngineCapacity{}, fmt.Errorf("metrics: %w", wrapHTTPStatusErr(resp.StatusCode))
 	}

@@ -1,11 +1,13 @@
 package setup
 
 import (
+	"errors"
 	"flag"
 	"fmt"
 	"io"
 	"os"
-	"strings"
+
+	"github.com/sentnl/inferoute-node/inferoute-client/internal/config"
 )
 
 const helpText = `Usage:
@@ -77,7 +79,7 @@ func Run(args []string) error {
 	}
 
 	if err := fs.Parse(args); err != nil {
-		if err == flag.ErrHelp {
+		if errors.Is(err, flag.ErrHelp) {
 			return nil
 		}
 		return err
@@ -90,7 +92,7 @@ func Run(args []string) error {
 		}
 		return fmt.Errorf("unexpected argument: %s", arg)
 	}
-	if env := strings.TrimSpace(os.Getenv("PROVIDER_TYPE")); opts.Engine == "" && env != "" {
+	if env := config.EngineFromEnv(); opts.Engine == "" && env != "" {
 		opts.Engine = env
 	}
 
@@ -99,7 +101,7 @@ func Run(args []string) error {
 		return err
 	}
 	if closer != nil {
-		defer closer.Close()
+		defer func() { _ = closer.Close() }()
 	}
 	return Execute(opts, Streams{In: in, Out: os.Stdout, Err: os.Stderr})
 }

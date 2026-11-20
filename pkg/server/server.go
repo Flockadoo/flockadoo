@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"fmt"
+	"io"
 	"net/http"
 	"time"
 
@@ -35,7 +36,7 @@ func maskStringHelper(s string) string {
 }
 
 // Creates a new server
-func CreateServer(cfg *config.Config, gpuMonitor *gpu.Monitor, healthReporter *health.Reporter, verifier *verify.Verifier) *Server {
+func CreateServer(ctx context.Context, cfg *config.Config, gpuMonitor *gpu.Monitor, healthReporter *health.Reporter, verifier *verify.Verifier) *Server {
 	llmClient := llm.NewClient(cfg.PlatformType(), cfg.Provider.LLMURL, cfg.LLMTimeout())
 
 	s := &Server{
@@ -43,7 +44,7 @@ func CreateServer(cfg *config.Config, gpuMonitor *gpu.Monitor, healthReporter *h
 		gpuMonitor:       gpuMonitor,
 		healthReporter:   healthReporter,
 		llmClient:        llmClient,
-		consoleUI:        true,
+		ctx:              ctx,
 		sessionQueueWait: cfg.SessionQueueWait(),
 	}
 	if verifier != nil {
@@ -261,8 +262,8 @@ func (s *Server) SlotSnapshot() (inflight, maxInflight int32, accepting bool) {
 
 // SetConsoleUI enables or disables the ANSI terminal dashboard.
 // Windows tray mode turns this off so the process can hide its console.
-func (s *Server) SetConsoleUI(enabled bool) {
-	s.consoleUI = enabled
+func (s *Server) SetConsole(w io.Writer) {
+	s.console = w
 }
 
 // Start starts the local dashboard and the outbound provider connection.
@@ -270,7 +271,7 @@ func (s *Server) SetConsoleUI(enabled bool) {
 // Start and Stop may be called from different goroutines, in either order
 // (finding NET-6): Stop before Start finishes stops it.
 func (s *Server) Start() error {
-	connectCtx, connectCancel := context.WithCancel(context.Background())
+	connectCtx, connectCancel := context.WithCancel(s.ctx)
 	s.lifeMu.Lock()
 	if s.stopped {
 		s.lifeMu.Unlock()
@@ -317,7 +318,7 @@ func (s *Server) Start() error {
 	s.server = srv
 	s.lifeMu.Unlock()
 
-	if s.consoleUI {
+	if s.console != nil {
 		s.printStartupBanner()
 		go s.consoleUpdater()
 	}
@@ -381,7 +382,7 @@ func (s *Server) onConnect() {
 	if s.healthReporter == nil {
 		return
 	}
-	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	ctx, cancel := context.WithTimeout(s.ctx, 30*time.Second)
 	defer cancel()
 	if err := s.healthReporter.SendHealthReport(ctx); err != nil {
 		logger.Error("health report after connect failed", zap.Error(err))
@@ -415,12 +416,12 @@ func (s *Server) consoleUpdater() {
 // this immediately; the 3s ticker is too slow and was painting the
 // "verified" line only after the benchmarking flag had already cleared.
 func (s *Server) redrawConsole() {
-	if !s.consoleUI {
+	if s.console == nil {
 		return
 	}
 	s.consoleMu.Lock()
 	defer s.consoleMu.Unlock()
-	snap := s.snapshot()
+	snap := s.snapshot(s.ctx)
 
 	var buf bytes.Buffer
 	buf.WriteString("\033[H\033[2J")
@@ -428,31 +429,31 @@ func (s *Server) redrawConsole() {
 	buf.WriteString("║                     INFEROUTE PROVIDER CLIENT                    ║\n")
 	buf.WriteString("╚════════════════════════════════════════════════════════════════╝\033[0m\n")
 
-	buf.WriteString(fmt.Sprintf("\033[1;35mLast Health Update            \033[0m%s\n", snap.LastHealthUpdate))
+	fmt.Fprintf(&buf, "\033[1;35mLast Health Update            \033[0m%s\n", snap.LastHealthUpdate)
 	statusColor := "\033[1;32m"
 	if snap.SessionStatus == "benchmarking" {
 		statusColor = "\033[1;33m"
 	}
-	buf.WriteString(fmt.Sprintf("\033[1;35mSession Status                \033[0m%s%s\033[0m\n", statusColor, snap.SessionStatus))
+	fmt.Fprintf(&buf, "\033[1;35mSession Status                \033[0m%s%s\033[0m\n", statusColor, snap.SessionStatus)
 	if snap.NotServing != "" {
 		fmt.Fprintf(&buf, "\033[1;35m%-30s\033[0m\033[1;31m%s\033[0m\n", "Not serving", snap.NotServing)
 	}
 	if snap.EngineNote != "" {
-		buf.WriteString(fmt.Sprintf("\033[1;35mBenchmark                     \033[0m%s\n", snap.EngineNote))
+		fmt.Fprintf(&buf, "\033[1;35mBenchmark                     \033[0m%s\n", snap.EngineNote)
 	}
 	if snap.CapabilityLine != "" {
-		buf.WriteString(fmt.Sprintf("\033[1;35mCapabilities                  \033[0m%s\n", snap.CapabilityLine))
+		fmt.Fprintf(&buf, "\033[1;35mCapabilities                  \033[0m%s\n", snap.CapabilityLine)
 	}
 	switch snap.UpdateStatus {
 	case "required":
-		buf.WriteString(fmt.Sprintf("\033[1;31mUpdate required: %s -> %s. Run 'inferoute-client update' then restart.\033[0m\n", snap.ClientVersion, snap.LatestVersion))
+		fmt.Fprintf(&buf, "\033[1;31mUpdate required: %s -> %s. Run 'inferoute-client update' then restart.\033[0m\n", snap.ClientVersion, snap.LatestVersion)
 	case "available":
-		buf.WriteString(fmt.Sprintf("\033[1;33mUpdate available: %s -> %s. Run 'inferoute-client update' then restart.\033[0m\n", snap.ClientVersion, snap.LatestVersion))
+		fmt.Fprintf(&buf, "\033[1;33mUpdate available: %s -> %s. Run 'inferoute-client update' then restart.\033[0m\n", snap.ClientVersion, snap.LatestVersion)
 	}
-	buf.WriteString(fmt.Sprintf("\033[1;35mProvider Type                 \033[0m%s\n", snap.ProviderType))
-	buf.WriteString(fmt.Sprintf("\033[1;35mProvider API Key              \033[0m%s\n", snap.ProviderAPIKey))
-	buf.WriteString(fmt.Sprintf("\033[1;35mProvider URL                  \033[0m%s\n", snap.ProviderURL))
-	buf.WriteString(fmt.Sprintf("\033[1;35mLLM URL                       \033[0m%s\n", snap.LLMURL))
+	fmt.Fprintf(&buf, "\033[1;35mProvider Type                 \033[0m%s\n", snap.ProviderType)
+	fmt.Fprintf(&buf, "\033[1;35mProvider API Key              \033[0m%s\n", snap.ProviderAPIKey)
+	fmt.Fprintf(&buf, "\033[1;35mProvider URL                  \033[0m%s\n", snap.ProviderURL)
+	fmt.Fprintf(&buf, "\033[1;35mLLM URL                       \033[0m%s\n", snap.LLMURL)
 	state := "connecting"
 	switch {
 	case s.config.EnrolledWorker():
@@ -464,9 +465,9 @@ func (s *Server) redrawConsole() {
 	case snap.ConnectionReason != "":
 		state = "connecting (" + snap.ConnectionReason + ")"
 	}
-	buf.WriteString(fmt.Sprintf("\033[1;35mPlatform connection           \033[0m%s\n", state))
+	fmt.Fprintf(&buf, "\033[1;35mPlatform connection           \033[0m%s\n", state)
 
-	s.writeClusterStatus(&buf, snap)
+	s.writeClusterStatus(s.ctx, &buf, snap)
 
 	gpuInfo := snap.GPU
 	if gpuInfo == nil {
@@ -475,10 +476,10 @@ func (s *Server) redrawConsole() {
 	buf.WriteString("\033[1;36m╔════════════════════════════════════════════════════════════════╗\n")
 	buf.WriteString("║                          GPU INFORMATION                         ║\n")
 	buf.WriteString("╚════════════════════════════════════════════════════════════════╝\033[0m\n")
-	buf.WriteString(fmt.Sprintf("\033[1;35mGPU                          \033[0m%s\n", gpuInfo.ProductName))
-	buf.WriteString(fmt.Sprintf("\033[1;35mDriver Version               \033[0m%s\n", gpuInfo.DriverVersion))
-	buf.WriteString(fmt.Sprintf("\033[1;35mCUDA Version                 \033[0m%s\n", gpuInfo.CUDAVersion))
-	buf.WriteString(fmt.Sprintf("\033[1;35mGPU Count                    \033[0m%d\n", gpuInfo.GPUCount))
+	fmt.Fprintf(&buf, "\033[1;35mGPU                          \033[0m%s\n", gpuInfo.ProductName)
+	fmt.Fprintf(&buf, "\033[1;35mDriver Version               \033[0m%s\n", gpuInfo.DriverVersion)
+	fmt.Fprintf(&buf, "\033[1;35mCUDA Version                 \033[0m%s\n", gpuInfo.CUDAVersion)
+	fmt.Fprintf(&buf, "\033[1;35mGPU Count                    \033[0m%d\n", gpuInfo.GPUCount)
 
 	buf.WriteString("\n\033[1;33mRecent Requests:\033[0m\n")
 	if len(snap.RecentRequests) == 0 {
@@ -489,7 +490,7 @@ func (s *Server) redrawConsole() {
 		}
 	}
 
-	fmt.Print(buf.String())
+	_, _ = buf.WriteTo(s.console)
 }
 
 func formatRequestLine(req RequestLog) string {
@@ -506,7 +507,7 @@ func formatRequestLine(req RequestLog) string {
 		req.Time, req.Method, req.Path, statusColor, req.Status, req.Duration)
 }
 
-func (s *Server) engineStatus() string {
+func (s *Server) engineStatus(ctx context.Context) string {
 	if s.config == nil {
 		return ""
 	}
@@ -518,16 +519,16 @@ func (s *Server) engineStatus() string {
 		}
 		return "not started"
 	case "master":
-		ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+		ctx, cancel := context.WithTimeout(ctx, 2*time.Second)
 		defer cancel()
-		_, peers := inferscale.Tailnet()
+		_, peers := inferscale.Tailnet(ctx)
 		return engine.MasterState(ctx, kind, s.config.Provider.LLMURL, s.config.Provider.EngineArgs, peers)
 	default:
 		return ""
 	}
 }
 
-func (s *Server) writeClusterStatus(buf *bytes.Buffer, snap StatusSnapshot) {
+func (s *Server) writeClusterStatus(ctx context.Context, buf *bytes.Buffer, snap StatusSnapshot) {
 	buf.WriteString("\033[1;36m╔════════════════════════════════════════════════════════════════╗\n")
 	buf.WriteString("║                          CLUSTER STATUS                          ║\n")
 	buf.WriteString("╚════════════════════════════════════════════════════════════════╝\033[0m\n")
@@ -536,20 +537,20 @@ func (s *Server) writeClusterStatus(buf *bytes.Buffer, snap StatusSnapshot) {
 	if cluster == "" {
 		cluster = "single"
 	}
-	buf.WriteString(fmt.Sprintf("\033[1;35m%-30s\033[0m%s\n", "Cluster", cluster))
-	if line := s.engineStatus(); line != "" {
-		buf.WriteString(fmt.Sprintf("\033[1;35m%-30s\033[0m%s\n", "Engine", line))
+	fmt.Fprintf(buf, "\033[1;35m%-30s\033[0m%s\n", "Cluster", cluster)
+	if line := s.engineStatus(ctx); line != "" {
+		fmt.Fprintf(buf, "\033[1;35m%-30s\033[0m%s\n", "Engine", line)
 	}
 	if snap.Nodes != "" {
-		buf.WriteString(fmt.Sprintf("\033[1;35m%-30s\033[0m%s\n", "Nodes", snap.Nodes))
+		fmt.Fprintf(buf, "\033[1;35m%-30s\033[0m%s\n", "Nodes", snap.Nodes)
 	}
 	if snap.TailnetIP != "" {
-		buf.WriteString(fmt.Sprintf("\033[1;35m%-30s\033[0m%s\n", "Tailnet IP", snap.TailnetIP))
+		fmt.Fprintf(buf, "\033[1;35m%-30s\033[0m%s\n", "Tailnet IP", snap.TailnetIP)
 	}
 
 	models := snap.Models
 	if len(models) == 0 {
-		buf.WriteString(fmt.Sprintf("\033[1;35m%-30s\033[0m\033[1;33m(awaiting health sync)\033[0m\n", "Model"))
+		fmt.Fprintf(buf, "\033[1;35m%-30s\033[0m\033[1;33m(awaiting health sync)\033[0m\n", "Model")
 		return
 	}
 
@@ -558,10 +559,10 @@ func (s *Server) writeClusterStatus(buf *bytes.Buffer, snap StatusSnapshot) {
 		if i > 0 {
 			prefix = ""
 		}
-		buf.WriteString(fmt.Sprintf("\033[1;35m%-30s\033[0m%s\n", prefix, m.ID))
+		fmt.Fprintf(buf, "\033[1;35m%-30s\033[0m%s\n", prefix, m.ID)
 		if m.VerificationStatus != "" {
 			_, color := usermsg.ApprovalConsole(m.VerificationStatus)
-			buf.WriteString(fmt.Sprintf("\033[1;35m%-30s\033[0m%s%s\033[0m\n", "Marketplace approval", color, m.MarketplaceApproval))
+			fmt.Fprintf(buf, "\033[1;35m%-30s\033[0m%s%s\033[0m\n", "Marketplace approval", color, m.MarketplaceApproval)
 		}
 	}
 }

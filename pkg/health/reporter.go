@@ -124,7 +124,7 @@ func (r *Reporter) SendHealthReport(ctx context.Context) error {
 		if engine.WorkerAlive(kind, r.config.Provider.EngineArgs) {
 			status = "green"
 		}
-		return r.sendNodeHealth(ctx, status, r.gpuInfo())
+		return r.sendNodeHealth(ctx, status, r.gpuInfo(ctx))
 	}
 
 	if r.verifier != nil {
@@ -172,7 +172,7 @@ func (r *Reporter) SendHealthReport(ctx context.Context) error {
 	if err != nil {
 		return fmt.Errorf("failed to send request: %w", err)
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	// Check response status
 	if resp.StatusCode != http.StatusOK {
@@ -218,7 +218,7 @@ func (r *Reporter) sendNodeHealth(ctx context.Context, status string, gpuInfo *g
 	if err != nil {
 		return err
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 	if resp.StatusCode != http.StatusOK && resp.StatusCode != http.StatusNoContent {
 		msg, _ := io.ReadAll(io.LimitReader(resp.Body, 512))
 		return fmt.Errorf("node health: %s", bytes.TrimSpace(msg))
@@ -250,7 +250,7 @@ func (r *Reporter) GetHealthReport(ctx context.Context) (*HealthReport, error) {
 	enriched := r.enrichModels(ctx, models.Models)
 	r.setDisplayedModels(enriched)
 
-	gpuInfo := r.gpuInfo()
+	gpuInfo := r.gpuInfo(ctx)
 
 	r.benchmarkMu.Lock()
 	bench := r.benchmark
@@ -327,14 +327,14 @@ func (r *Reporter) runningEngine(ctx context.Context) (kind, version string) {
 	return string(k), version
 }
 
-func (r *Reporter) gpuInfo() *gpu.GPUInfo {
+func (r *Reporter) gpuInfo(ctx context.Context) *gpu.GPUInfo {
 	info := &gpu.GPUInfo{
 		ProductName:   "Unknown",
 		DriverVersion: "Unknown",
 		CUDAVersion:   "Unknown",
 	}
 	if r.gpuMonitor != nil {
-		got, err := r.gpuMonitor.GetGPUInfo()
+		got, err := r.gpuMonitor.GetGPUInfo(ctx)
 		if err != nil {
 			logger.Error("Failed to get GPU information", zap.Error(err))
 		} else if got != nil {

@@ -15,7 +15,7 @@ func inputReader() (io.Reader, io.Closer, error) {
 	}
 	f, err := os.OpenFile("/dev/tty", os.O_RDWR, 0)
 	if err != nil {
-		return os.Stdin, nil, nil
+		return os.Stdin, nil, nil //nolint:nilerr // no terminal to open: read stdin instead
 	}
 	return f, f, nil
 }

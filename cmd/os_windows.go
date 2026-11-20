@@ -4,6 +4,7 @@ package main
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"os"
 	"os/exec"
@@ -47,7 +48,7 @@ func getConsoleWindow() (windows.HWND, error) {
 	proc := kernel32.NewProc("GetConsoleWindow")
 	r1, _, err := proc.Call()
 	if r1 == 0 {
-		if err != nil && err != windows.ERROR_SUCCESS {
+		if err != nil && !errors.Is(err, windows.ERROR_SUCCESS) {
 			return 0, err
 		}
 		return 0, nil
@@ -117,14 +118,14 @@ func spawnDetachedIfNeeded(dashboardURL string) bool {
 		os.Exit(1)
 	}
 
-	fmt.Fprintln(os.Stdout, "Inferoute Client is running in the notification area.")
-	fmt.Fprintf(os.Stdout, "Dashboard: %s\n", dashboardURL)
-	fmt.Fprintln(os.Stdout, "Right-click the Inferoute icon to open the dashboard or quit.")
+	_, _ = fmt.Fprintln(os.Stdout, "Inferoute Client is running in the notification area.")
+	_, _ = fmt.Fprintf(os.Stdout, "Dashboard: %s\n", dashboardURL)
+	_, _ = fmt.Fprintln(os.Stdout, "Right-click the Inferoute icon to open the dashboard or quit.")
 	return true
 }
 
 func startDetached(exe string, flags uint32) *exec.Cmd {
-	cmd := exec.Command(exe, os.Args[1:]...)
+	cmd := exec.Command(exe, os.Args[1:]...) //nolint:forbidigo,gosec,noctx // G204: relaunches this executable with its own arguments; detached, so no context may kill it
 	cmd.Env = append(os.Environ(), trayChildEnv+"=1")
 	cmd.Stdin = nil
 	cmd.Stdout = nil

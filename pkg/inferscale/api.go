@@ -31,31 +31,31 @@ type sessionResult struct {
 	MasterGPU        string `json:"master_gpu"`
 }
 
-func FetchSession(base, apiKey string) (sessionResult, error) {
+func FetchSession(ctx context.Context, base, apiKey string) (sessionResult, error) {
 	var out sessionResult
-	err := doJSON(base, http.MethodGet, "/api/provider/network/session", apiKey, nil, &out)
+	err := doJSON(ctx, base, http.MethodGet, "/api/provider/network/session", apiKey, nil, &out)
 	return out, err
 }
 
-func Enroll(base, apiKey string) (enrollResult, error) {
+func Enroll(ctx context.Context, base, apiKey string) (enrollResult, error) {
 	var out enrollResult
-	err := doJSON(base, http.MethodPost, "/api/provider/network/enroll", apiKey, map[string]string{}, &out)
+	err := doJSON(ctx, base, http.MethodPost, "/api/provider/network/enroll", apiKey, map[string]string{}, &out)
 	return out, err
 }
 
-func PreviewJoin(base, code string) (sessionResult, error) {
+func PreviewJoin(ctx context.Context, base, code string) (sessionResult, error) {
 	var out sessionResult
-	err := doJSON(base, http.MethodPost, "/api/provider/network/join/preview", "", map[string]string{"code": code}, &out)
+	err := doJSON(ctx, base, http.MethodPost, "/api/provider/network/join/preview", "", map[string]string{"code": code}, &out)
 	return out, err
 }
 
-func Exchange(base, code string) (enrollResult, error) {
+func Exchange(ctx context.Context, base, code string) (enrollResult, error) {
 	var out enrollResult
-	err := doJSON(base, http.MethodPost, "/api/provider/network/join", "", map[string]string{"code": code}, &out)
+	err := doJSON(ctx, base, http.MethodPost, "/api/provider/network/join", "", map[string]string{"code": code}, &out)
 	return out, err
 }
 
-func ReportIP(base, token string, worker bool, ip, nodeID string, gpu any, engineVersion string) error {
+func ReportIP(ctx context.Context, base, token string, worker bool, ip, nodeID string, gpu any, engineVersion string) error {
 	path := "/api/provider/network/ip"
 	if worker {
 		path = "/api/provider/network/node/ip"
@@ -70,21 +70,26 @@ func ReportIP(base, token string, worker bool, ip, nodeID string, gpu any, engin
 	if strings.TrimSpace(engineVersion) != "" {
 		body["engine_version"] = strings.TrimSpace(engineVersion)
 	}
-	return doJSON(base, http.MethodPost, path, token, body, nil)
+	return doJSON(ctx, base, http.MethodPost, path, token, body, nil)
 }
 
-func FetchEngine(base, token string, worker bool) (Remote, error) {
+func FetchEngine(ctx context.Context, base, token string, worker bool) (Remote, error) {
 	path := "/api/provider/network/engine"
 	if worker {
 		path = "/api/provider/network/node/engine"
 	}
 	var out Remote
-	err := doJSON(base, http.MethodGet, path, token, nil, &out)
+	err := doJSON(ctx, base, http.MethodGet, path, token, nil, &out)
 	return out, err
 }
 
-func doJSON(base, method, path, token string, body any, dest any) error {
-	ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
+// apiTimeout bounds every network API call; apiClient's own timeout matches it.
+const apiTimeout = 15 * time.Second
+
+var apiClient = &http.Client{Timeout: apiTimeout}
+
+func doJSON(ctx context.Context, base, method, path, token string, body any, dest any) error {
+	ctx, cancel := context.WithTimeout(ctx, apiTimeout)
 	defer cancel()
 	var r io.Reader
 	if body != nil {
@@ -104,11 +109,11 @@ func doJSON(base, method, path, token string, body any, dest any) error {
 	if token != "" {
 		req.Header.Set("Authorization", "Bearer "+token)
 	}
-	res, err := http.DefaultClient.Do(req)
+	res, err := apiClient.Do(req)
 	if err != nil {
 		return err
 	}
-	defer res.Body.Close()
+	defer func() { _ = res.Body.Close() }()
 	if res.StatusCode >= 300 {
 		msg, _ := io.ReadAll(io.LimitReader(res.Body, 512))
 		return fmt.Errorf("%s %s: %s", method, path, strings.TrimSpace(string(msg)))

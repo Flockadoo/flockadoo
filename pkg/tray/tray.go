@@ -73,7 +73,9 @@ func onReady(opts Options) {
 
 func watchForUpdate() {
 	var last nodeapi.UpdateStatus
-	for {
+	tick := time.NewTicker(5 * time.Second)
+	defer tick.Stop()
+	for ; ; <-tick.C {
 		snap := nodeapi.State()
 		if snap.Status != last && snap.Status != nodeapi.UpdateCurrent {
 			tip := "Inferoute Provider Client"
@@ -85,12 +87,12 @@ func watchForUpdate() {
 			case nodeapi.UpdateAvailable:
 				tip = "Inferoute: update available"
 				body = "Update available: " + version.Version + " -> " + snap.Latest + ". Run inferoute-client update, then restart."
+			case nodeapi.UpdateCurrent: // excluded by the condition above
 			}
 			systray.SetTooltip(tip)
 			Notify(tip, body)
 			last = snap.Status
 		}
-		time.Sleep(5 * time.Second)
 	}
 }
 
@@ -98,19 +100,19 @@ func openURL(u string) {
 	if u == "" {
 		return
 	}
-	_ = exec.Command("rundll32", "url.dll,FileProtocolHandler", u).Start()
+	_ = exec.Command("rundll32", "url.dll,FileProtocolHandler", u).Start() //nolint:forbidigo,gosec,noctx // G204: opens the tray's own dashboard or docs URL; the browser outlives this call, so no context may kill it
 }
 
 func openFile(path string) {
 	if path == "" {
 		return
 	}
-	_ = exec.Command("notepad.exe", path).Start()
+	_ = exec.Command("notepad.exe", path).Start() //nolint:forbidigo,gosec,noctx // G204: opens the client's own config or log file; the editor outlives this call, so no context may kill it
 }
 
 func openDir(path string) {
 	if path == "" {
 		return
 	}
-	_ = exec.Command("explorer.exe", path).Start()
+	_ = exec.Command("explorer.exe", path).Start() //nolint:forbidigo,gosec,noctx // G204: opens the client's own log folder; the window outlives this call, so no context may kill it
 }

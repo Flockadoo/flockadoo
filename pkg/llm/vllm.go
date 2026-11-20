@@ -51,7 +51,7 @@ func (c *VLLMClient) ListModels(ctx context.Context) (*ListModelsResponse, error
 		logger.Error("Failed to send request for listing models", zap.Error(err), zap.String("url", url))
 		return nil, fmt.Errorf("list models: %w", wrapRequestErr(err))
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	// Check response status
 	if resp.StatusCode != http.StatusOK {
@@ -122,7 +122,7 @@ func (c *VLLMClient) EngineVersion(ctx context.Context, llamaServer bool) string
 	if err != nil {
 		return ""
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 	if resp.StatusCode != http.StatusOK {
 		return ""
 	}
@@ -156,7 +156,7 @@ func (c *VLLMClient) LlamaServerContext(ctx context.Context) (int64, error) {
 	if err != nil {
 		return 0, err
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 	if resp.StatusCode != http.StatusOK {
 		return 0, fmt.Errorf("props: %w", wrapHTTPStatusErr(resp.StatusCode))
 	}

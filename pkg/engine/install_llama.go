@@ -20,11 +20,11 @@ const llamaCppRelease = "b11770"
 const llamaReleaseBase = "https://github.com/ggml-org/llama.cpp/releases/download/" + llamaCppRelease
 
 func installLlamaCpp(ctx context.Context, w io.Writer) error {
-	switch runtime.GOOS {
+	switch runtime.GOOS { //nolint:forbidigo // platform branch in shared code (PLAT-2, item H1)
 	case "windows":
 		return installLlamaWindows(ctx, w)
 	case "darwin":
-		if runtime.GOARCH != "arm64" {
+		if runtime.GOARCH != "arm64" { //nolint:forbidigo // platform branch in shared code (PLAT-2, item H1)
 			return fmt.Errorf("llama.cpp auto-install on macOS requires Apple Silicon")
 		}
 		return installLlamaDarwin(ctx, w)
@@ -41,7 +41,7 @@ func installLlamaWindows(ctx context.Context, w io.Writer) error {
 	if err := os.MkdirAll(dir, 0o755); err != nil {
 		return err
 	}
-	fmt.Fprintf(w, "Installing llama.cpp %s into %s...\n", llamaCppRelease, dir)
+	_, _ = fmt.Fprintf(w, "Installing llama.cpp %s into %s...\n", llamaCppRelease, dir)
 	binURL := llamaReleaseBase + "/llama-" + llamaCppRelease + "-bin-win-cuda-12.4-x64.zip"
 	cudaURL := llamaReleaseBase + "/cudart-llama-bin-win-cuda-12.4-x64.zip"
 	if err := downloadAndExtract(ctx, w, binURL, dir); err != nil {
@@ -58,14 +58,14 @@ func installLlamaDarwin(ctx context.Context, w io.Writer) error {
 	if err := os.MkdirAll(dir, 0o755); err != nil {
 		return err
 	}
-	fmt.Fprintf(w, "Installing llama.cpp %s into %s...\n", llamaCppRelease, dir)
+	_, _ = fmt.Fprintf(w, "Installing llama.cpp %s into %s...\n", llamaCppRelease, dir)
 	url := llamaReleaseBase + "/llama-" + llamaCppRelease + "-bin-macos-arm64.tar.gz"
 	return downloadAndExtract(ctx, w, url, dir)
 }
 
 func llamaInstallDir() (string, error) {
-	if runtime.GOOS == "windows" {
-		base := os.Getenv("LOCALAPPDATA")
+	if runtime.GOOS == "windows" { //nolint:forbidigo // platform branch in shared code (PLAT-2, item H1)
+		base := os.Getenv("LOCALAPPDATA") //nolint:forbidigo // Windows' per-user program folder (PLAT-2, item H1 moves it to a build-tagged file)
 		if base == "" {
 			return "", fmt.Errorf("LOCALAPPDATA is unset")
 		}
@@ -84,11 +84,11 @@ func downloadAndExtract(ctx context.Context, w io.Writer, url, dest string) erro
 		return err
 	}
 	tmpName := tmp.Name()
-	defer os.Remove(tmpName)
+	defer func() { _ = os.Remove(tmpName) }()
 	if err := tmp.Close(); err != nil {
 		return err
 	}
-	fmt.Fprintf(w, "Downloading %s\n", url)
+	_, _ = fmt.Fprintf(w, "Downloading %s\n", url)
 	if err := download(ctx, url, tmpName); err != nil {
 		return err
 	}
@@ -103,7 +103,7 @@ func extractZip(src, dest string) error {
 	if err != nil {
 		return err
 	}
-	defer r.Close()
+	defer func() { _ = r.Close() }()
 	for _, f := range r.File {
 		if f.FileInfo().IsDir() {
 			continue
@@ -122,12 +122,12 @@ func extractTarGz(src, dest string) error {
 	if err != nil {
 		return err
 	}
-	defer f.Close()
+	defer func() { _ = f.Close() }()
 	gz, err := gzip.NewReader(f)
 	if err != nil {
 		return err
 	}
-	defer gz.Close()
+	defer func() { _ = gz.Close() }()
 	tr := tar.NewReader(gz)
 	for {
 		hdr, err := tr.Next()
@@ -150,7 +150,7 @@ func extractTarGz(src, dest string) error {
 	}
 }
 
-func writeArchiveFile(dest, name string, mode os.FileMode, open func() (io.ReadCloser, error)) error {
+func writeArchiveFile(dest, name string, mode os.FileMode, open func() (io.ReadCloser, error)) (err error) {
 	if name == "" || name == "." || strings.Contains(name, "..") {
 		return nil
 	}
@@ -158,19 +158,24 @@ func writeArchiveFile(dest, name string, mode os.FileMode, open func() (io.ReadC
 	if err != nil {
 		return err
 	}
-	defer rc.Close()
+	defer func() { _ = rc.Close() }()
 	outPath := filepath.Join(dest, name)
 	out, err := os.OpenFile(outPath, os.O_CREATE|os.O_TRUNC|os.O_WRONLY, modeOrExec(mode))
 	if err != nil {
 		return err
 	}
-	defer out.Close()
+	// A failed Close can lose written data, so it is an error too.
+	defer func() {
+		if cerr := out.Close(); err == nil {
+			err = cerr
+		}
+	}()
 	_, err = io.Copy(out, rc)
 	return err
 }
 
 func modeOrExec(mode os.FileMode) os.FileMode {
-	if runtime.GOOS == "windows" {
+	if runtime.GOOS == "windows" { //nolint:forbidigo // platform branch in shared code (PLAT-2, item H1)
 		return 0o644
 	}
 	if mode&0o111 != 0 {
