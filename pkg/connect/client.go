@@ -13,11 +13,11 @@ import (
 	"sync/atomic"
 	"time"
 
+	"github.com/Flockadoo/flockadoo/pkg/logger"
+	"github.com/Flockadoo/flockadoo/pkg/nodeapi"
+	"github.com/Flockadoo/flockadoo/pkg/version"
 	"github.com/coder/websocket"
 	"github.com/hashicorp/yamux"
-	"github.com/sentnl/inferoute-node/inferoute-client/pkg/logger"
-	"github.com/sentnl/inferoute-node/inferoute-client/pkg/nodeapi"
-	"github.com/sentnl/inferoute-node/inferoute-client/pkg/version"
 	"go.uber.org/zap"
 )
 
@@ -143,9 +143,9 @@ func (c *Client) Run(ctx context.Context) error {
 		var terminal State
 		switch {
 		case errors.Is(err, ErrInvalidAPIKey):
-			terminal, reason = Rejected, "Inferoute rejected this API key; run inferoute-client setup with a current key"
+			terminal, reason = Rejected, "Flockadoo rejected this API key; run flockadoo setup with a current key"
 		case errors.Is(err, ErrUpgradeRequired):
-			terminal, reason = UpgradeRequired, "Inferoute needs a newer client; run inferoute-client update"
+			terminal, reason = UpgradeRequired, "Flockadoo needs a newer client; run flockadoo update"
 		case errors.Is(err, ErrReplaced):
 			terminal, reason = Replaced, "another client connected with this API key and replaced this one"
 		}

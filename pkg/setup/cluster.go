@@ -6,9 +6,9 @@ import (
 	"os"
 	"strings"
 
-	"github.com/sentnl/inferoute-node/inferoute-client/internal/config"
-	"github.com/sentnl/inferoute-node/inferoute-client/pkg/engine"
-	"github.com/sentnl/inferoute-node/inferoute-client/pkg/inferscale"
+	"github.com/Flockadoo/flockadoo/internal/config"
+	"github.com/Flockadoo/flockadoo/pkg/engine"
+	"github.com/Flockadoo/flockadoo/pkg/winglink"
 )
 
 // credential keeps a join code pasted with a label or quotes.
@@ -24,7 +24,7 @@ func credential(s string) string {
 }
 
 func onlinePeers(ctx context.Context) int {
-	_, n := inferscale.Tailnet(ctx)
+	_, n := winglink.Tailnet(ctx)
 	return n
 }
 
@@ -52,7 +52,7 @@ func clusterPlanReal(cfg *config.Config) (clusterSettings, error) {
 		settings := clusterSettings{
 			Role: "worker", Model: model, ServiceType: firstNonEmpty(cfg.Provider.Engine, "vllm"),
 		}
-		remote, err := inferscale.FetchEngine(ctx, cfg.Provider.URL, cfg.Provider.NodeToken, true)
+		remote, err := winglink.FetchEngine(ctx, cfg.Provider.URL, cfg.Provider.NodeToken, true)
 		if err == nil {
 			settings.VLLMVersion = remote.VLLMVersion
 			settings.MasterGPU = remote.MasterGPU
@@ -61,7 +61,7 @@ func clusterPlanReal(cfg *config.Config) (clusterSettings, error) {
 	}
 	key := credential(cfg.Provider.APIKey)
 	if strings.HasPrefix(key, "join-") {
-		info, err := inferscale.PreviewJoin(ctx, cfg.Provider.URL, key)
+		info, err := winglink.PreviewJoin(ctx, cfg.Provider.URL, key)
 		if err != nil {
 			return clusterSettings{}, fmt.Errorf("join code: %w", err)
 		}
@@ -74,7 +74,7 @@ func clusterPlanReal(cfg *config.Config) (clusterSettings, error) {
 			VLLMVersion: info.VLLMVersion, MasterGPU: info.MasterGPU,
 		}, nil
 	}
-	sess, err := inferscale.FetchSession(ctx, cfg.Provider.URL, key)
+	sess, err := winglink.FetchSession(ctx, cfg.Provider.URL, key)
 	if err != nil || sess.Mode != "multi" {
 		return clusterSettings{Role: "single"}, err
 	}
@@ -122,18 +122,18 @@ func dropIfRemoved(cfg *config.Config, err error) error {
 
 func resumeWorker(ctx context.Context, cfg *config.Config, spec *engine.Spec) error {
 	token := cfg.Provider.NodeToken
-	remote, err := inferscale.FetchEngine(ctx, cfg.Provider.URL, token, true)
+	remote, err := winglink.FetchEngine(ctx, cfg.Provider.URL, token, true)
 	if err != nil {
 		return dropIfRemoved(cfg, err)
 	}
-	ip, nodeID, err := inferscale.BringUp(ctx, remote.LoginServer, "")
+	ip, nodeID, err := winglink.BringUp(ctx, remote.LoginServer, "")
 	if err != nil {
 		return err
 	}
-	if err := inferscale.ReportIP(ctx, cfg.Provider.URL, token, true, ip, nodeID, localGPU(ctx), engine.InstalledVersion(ctx, spec.Bin)); err != nil {
+	if err := winglink.ReportIP(ctx, cfg.Provider.URL, token, true, ip, nodeID, localGPU(ctx), engine.InstalledVersion(ctx, spec.Bin)); err != nil {
 		return dropIfRemoved(cfg, err)
 	}
-	next := inferscale.Apply(*spec, remote)
+	next := winglink.Apply(*spec, remote)
 	*spec = next
 	cfg.Provider.EngineArgs = next.Args
 	cfg.Provider.EngineEnv = next.Env
@@ -152,14 +152,14 @@ func prepareClusterReal(cfg *config.Config, spec *engine.Spec) error {
 	worker := strings.HasPrefix(key, "join-")
 	var login, auth, token, role string
 	if worker {
-		res, err := inferscale.Exchange(ctx, cfg.Provider.URL, key)
+		res, err := winglink.Exchange(ctx, cfg.Provider.URL, key)
 		if err != nil {
 			return err
 		}
 		login, auth, token = res.LoginServer, res.AuthKey, res.NodeToken
 		role = "worker"
 	} else {
-		sess, err := inferscale.FetchSession(ctx, cfg.Provider.URL, key)
+		sess, err := winglink.FetchSession(ctx, cfg.Provider.URL, key)
 		role = decideCluster(key, sess.Mode, err)
 		if role == "single" {
 			if err != nil {
@@ -175,7 +175,7 @@ func prepareClusterReal(cfg *config.Config, spec *engine.Spec) error {
 		}
 		login = sess.LoginServer
 		if cfg.Provider.NodeToken == "" {
-			res, err := inferscale.Enroll(ctx, cfg.Provider.URL, key)
+			res, err := winglink.Enroll(ctx, cfg.Provider.URL, key)
 			if err != nil {
 				return err
 			}
@@ -187,10 +187,10 @@ func prepareClusterReal(cfg *config.Config, spec *engine.Spec) error {
 	if token != "" {
 		cfg.Provider.NodeToken = token
 	}
-	ip, nodeID, err := inferscale.BringUp(ctx, login, auth)
+	ip, nodeID, err := winglink.BringUp(ctx, login, auth)
 	if err != nil && !worker && auth == "" {
-		// The previous attempt saved a node token before inferscale up ran.
-		res, enrollErr := inferscale.Enroll(ctx, cfg.Provider.URL, key)
+		// The previous attempt saved a node token before winglink up ran.
+		res, enrollErr := winglink.Enroll(ctx, cfg.Provider.URL, key)
 		if enrollErr != nil {
 			return err
 		}
@@ -198,7 +198,7 @@ func prepareClusterReal(cfg *config.Config, spec *engine.Spec) error {
 		if token != "" {
 			cfg.Provider.NodeToken = token
 		}
-		ip, nodeID, err = inferscale.BringUp(ctx, login, auth)
+		ip, nodeID, err = winglink.BringUp(ctx, login, auth)
 	}
 	if err != nil {
 		return err
@@ -207,14 +207,14 @@ func prepareClusterReal(cfg *config.Config, spec *engine.Spec) error {
 	if worker {
 		bearer = cfg.Provider.NodeToken
 	}
-	if err := inferscale.ReportIP(ctx, cfg.Provider.URL, bearer, worker, ip, nodeID, localGPU(ctx), engine.InstalledVersion(ctx, spec.Bin)); err != nil {
+	if err := winglink.ReportIP(ctx, cfg.Provider.URL, bearer, worker, ip, nodeID, localGPU(ctx), engine.InstalledVersion(ctx, spec.Bin)); err != nil {
 		return err
 	}
-	remote, err := inferscale.FetchEngine(ctx, cfg.Provider.URL, bearer, worker)
+	remote, err := winglink.FetchEngine(ctx, cfg.Provider.URL, bearer, worker)
 	if err != nil {
 		return err
 	}
-	next := inferscale.Apply(*spec, remote)
+	next := winglink.Apply(*spec, remote)
 	*spec = next
 	cfg.Provider.EngineArgs = next.Args
 	cfg.Provider.EngineEnv = next.Env
@@ -229,13 +229,13 @@ func loginServer(ctx context.Context, cfg *config.Config, worker bool) string {
 	if worker {
 		bearer = cfg.Provider.NodeToken
 	}
-	if remote, err := inferscale.FetchEngine(ctx, cfg.Provider.URL, bearer, worker); err == nil && remote.LoginServer != "" {
+	if remote, err := winglink.FetchEngine(ctx, cfg.Provider.URL, bearer, worker); err == nil && remote.LoginServer != "" {
 		return remote.LoginServer
 	}
 	if worker {
 		return ""
 	}
-	sess, err := inferscale.FetchSession(ctx, cfg.Provider.URL, cfg.Provider.APIKey)
+	sess, err := winglink.FetchSession(ctx, cfg.Provider.URL, cfg.Provider.APIKey)
 	if err != nil {
 		return ""
 	}
@@ -246,7 +246,7 @@ func loginServer(ctx context.Context, cfg *config.Config, worker bool) string {
 var refreshCluster = refreshClusterEngine
 
 // refreshClusterEngine reloads the server command before a later start.
-// It also reconnects inferscale when the saved address is offline.
+// It also reconnects winglink when the saved address is offline.
 func refreshClusterEngine(ctx context.Context, cfg *config.Config) error {
 	if cfg == nil {
 		return nil
@@ -259,21 +259,21 @@ func refreshClusterEngine(ctx context.Context, cfg *config.Config) error {
 	bearer := cfg.Provider.APIKey
 	if worker {
 		bearer = cfg.Provider.NodeToken
-		if _, err := inferscale.FetchEngine(ctx, cfg.Provider.URL, bearer, true); NodeRemoved(err) {
+		if _, err := winglink.FetchEngine(ctx, cfg.Provider.URL, bearer, true); NodeRemoved(err) {
 			return removedErr(err)
 		}
 	}
-	ip, nodeID, err := inferscale.BringUp(ctx, loginServer(ctx, cfg, worker), "")
+	ip, nodeID, err := winglink.BringUp(ctx, loginServer(ctx, cfg, worker), "")
 	if err != nil {
 		return err
 	}
-	if err := inferscale.ReportIP(ctx, cfg.Provider.URL, bearer, worker, ip, nodeID, localGPU(ctx), engine.InstalledVersion(ctx, cfg.Provider.EngineBin)); err != nil {
+	if err := winglink.ReportIP(ctx, cfg.Provider.URL, bearer, worker, ip, nodeID, localGPU(ctx), engine.InstalledVersion(ctx, cfg.Provider.EngineBin)); err != nil {
 		if NodeRemoved(err) {
 			return removedErr(err)
 		}
 		return err
 	}
-	remote, err := inferscale.FetchEngine(ctx, cfg.Provider.URL, bearer, worker)
+	remote, err := winglink.FetchEngine(ctx, cfg.Provider.URL, bearer, worker)
 	if err != nil {
 		if NodeRemoved(err) {
 			return removedErr(err)
@@ -287,11 +287,11 @@ func refreshClusterEngine(ctx context.Context, cfg *config.Config) error {
 	serveOpts := engine.ServeOptsFromConfig(cfg)
 	if kind != engine.KindLlamaCpp {
 		if err := serveOpts.Validate(); err != nil {
-			return fmt.Errorf("%w. Run inferoute-client setup again to save the model's current settings", err)
+			return fmt.Errorf("%w. Run flockadoo setup again to save the model's current settings", err)
 		}
 	}
 	spec := engine.ServeSpec(kind, engine.BinPath(kind, cfg.Provider.EngineBin), cfg.Provider.Model, firstNonEmpty(cfg.Provider.HFRepo, cfg.Provider.Model), serveOpts)
-	next := inferscale.Apply(spec, remote)
+	next := winglink.Apply(spec, remote)
 	cfg.Provider.EngineArgs = next.Args
 	cfg.Provider.EngineEnv = next.Env
 	cfg.Provider.LLMURL = next.URL

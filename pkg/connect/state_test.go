@@ -8,7 +8,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/sentnl/inferoute-node/inferoute-client/internal/testenv/fakegateway"
+	"github.com/Flockadoo/flockadoo/internal/testenv/fakegateway"
 )
 
 // Plan item C1 (findings NET-2, NET-4, NET-5; decision DC8): the tunnel's

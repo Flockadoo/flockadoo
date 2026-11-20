@@ -9,10 +9,10 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/sentnl/inferoute-node/inferoute-client/internal/config"
-	"github.com/sentnl/inferoute-node/inferoute-client/pkg/llm"
-	"github.com/sentnl/inferoute-node/inferoute-client/pkg/logger"
-	"github.com/sentnl/inferoute-node/inferoute-client/pkg/verify"
+	"github.com/Flockadoo/flockadoo/internal/config"
+	"github.com/Flockadoo/flockadoo/pkg/llm"
+	"github.com/Flockadoo/flockadoo/pkg/logger"
+	"github.com/Flockadoo/flockadoo/pkg/verify"
 	"go.uber.org/zap"
 )
 
@@ -98,7 +98,7 @@ func newRefusalVerifier() *verify.Verifier {
 	return verify.NewVerifier(verify.NewCatalog("http://127.0.0.1:1", "vllm"), verify.NewServerClient("http://127.0.0.1:1", "k"), "vllm", "", "")
 }
 
-// A vLLM below the minimum serves no model through Inferoute: the health
+// A vLLM below the minimum serves no model through Flockadoo: the health
 // report advertises none (the node deactivates what a push leaves out) and the
 // verifier refuses every request with the reason. The version is still sent.
 func TestAnOldEngineIsNotAdvertised(t *testing.T) {

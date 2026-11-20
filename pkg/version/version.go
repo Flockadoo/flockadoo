@@ -12,7 +12,7 @@ var (
 	Date    = "unknown"
 )
 
-// UserAgent identifies this binary to the Inferoute node.
+// UserAgent identifies this binary to the Flockadoo node.
 func UserAgent() string {
-	return fmt.Sprintf("inferoute-client/%s (%s; %s)", Version, runtime.GOOS, runtime.GOARCH) //nolint:forbidigo // the User-Agent names the platform this binary was built for
+	return fmt.Sprintf("flockadoo/%s (%s; %s)", Version, runtime.GOOS, runtime.GOARCH) //nolint:forbidigo // the User-Agent names the platform this binary was built for
 }

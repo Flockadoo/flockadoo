@@ -11,10 +11,10 @@ import (
 	"strings"
 	"time"
 
-	"github.com/sentnl/inferoute-node/inferoute-client/internal/admission"
-	"github.com/sentnl/inferoute-node/inferoute-client/internal/relay"
-	"github.com/sentnl/inferoute-node/inferoute-client/pkg/usermsg"
-	"github.com/sentnl/inferoute-node/inferoute-client/pkg/verify"
+	"github.com/Flockadoo/flockadoo/internal/admission"
+	"github.com/Flockadoo/flockadoo/internal/relay"
+	"github.com/Flockadoo/flockadoo/pkg/usermsg"
+	"github.com/Flockadoo/flockadoo/pkg/verify"
 )
 
 const streamWriteDeadlineGrace = 5 * time.Second
@@ -29,7 +29,7 @@ const maxRequestBody = 16 << 20
 const maxStreamDuration = 24 * time.Hour
 
 // streamWriteDeadline is when a stream must stop being written. The platform
-// sends how long the stream may run (X-Inferoute-Timeout-Ms), and the deadline
+// sends how long the stream may run (X-Flockadoo-Timeout-Ms), and the deadline
 // is counted from when the request arrived here. It is a duration and not a
 // time of day because the platform's clock and this machine's are not the same.
 func streamWriteDeadline(header string, arrived time.Time) (time.Time, bool) {
@@ -130,7 +130,7 @@ func (s *Server) relayRequest(w http.ResponseWriter, r *http.Request, llmPath st
 	}
 
 	// The request arrived on the tunnel this client dialled with its key, so
-	// it comes from Inferoute. It is not checked with the node again
+	// it comes from Flockadoo. It is not checked with the node again
 	// (decision DC1): serving a request makes no call to the node.
 
 	// A benchmark owns the engine: refuse before reading the body. The gate
@@ -188,7 +188,7 @@ func (s *Server) relayRequest(w http.ResponseWriter, r *http.Request, llmPath st
 	// (finding STR-4): the platform's time limit for a stream, counted from
 	// arrival.
 	ctx := r.Context()
-	if when, ok := streamWriteDeadline(r.Header.Get("X-Inferoute-Timeout-Ms"), start); ok {
+	if when, ok := streamWriteDeadline(r.Header.Get("X-Flockadoo-Timeout-Ms"), start); ok {
 		_ = http.NewResponseController(w).SetWriteDeadline(when)
 		var cancel context.CancelFunc
 		ctx, cancel = context.WithDeadline(ctx, when)

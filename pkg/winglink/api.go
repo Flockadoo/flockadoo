@@ -1,4 +1,4 @@
-package inferscale
+package winglink
 
 import (
 	"bytes"

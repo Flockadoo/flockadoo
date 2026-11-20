@@ -10,7 +10,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/sentnl/inferoute-node/inferoute-client/pkg/logger"
+	"github.com/Flockadoo/flockadoo/pkg/logger"
 	"go.uber.org/zap"
 )
 

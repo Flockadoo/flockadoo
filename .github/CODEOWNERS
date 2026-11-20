@@ -2,7 +2,7 @@
 # "Needs human review"; plan section 19.J).
 
 # Runs as root, downloads or executes.
-/pkg/inferscale/            @ankh2054
+/pkg/winglink/            @ankh2054
 /internal/download/         @ankh2054
 /pkg/setup/cluster.go       @ankh2054
 /pkg/engine/install.go      @ankh2054

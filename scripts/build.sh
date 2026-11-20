@@ -12,7 +12,7 @@ VERSION=$(git describe --tags --always --dirty 2>/dev/null || echo "dev")
 COMMIT=$(git rev-parse --short HEAD 2>/dev/null || echo "none")
 DATE=$(date -u '+%Y-%m-%d-%H:%M UTC')
 
-echo "Building inferoute-client..."
+echo "Building flockadoo..."
 echo "Version: $VERSION"
 echo "Commit:  $COMMIT"
 echo "Date:    $DATE"
@@ -29,9 +29,9 @@ if [ "$(uname -s)" = "Darwin" ]; then
 fi
 
 # Build the binary with version information
-go build -ldflags "-X 'github.com/sentnl/inferoute-node/inferoute-client/pkg/version.Version=$VERSION' -X 'github.com/sentnl/inferoute-node/inferoute-client/pkg/version.Commit=$COMMIT' -X 'github.com/sentnl/inferoute-node/inferoute-client/pkg/version.Date=$DATE'" -o inferoute-client ./cmd
+go build -ldflags "-X 'github.com/Flockadoo/flockadoo/pkg/version.Version=$VERSION' -X 'github.com/Flockadoo/flockadoo/pkg/version.Commit=$COMMIT' -X 'github.com/Flockadoo/flockadoo/pkg/version.Date=$DATE'" -o flockadoo ./cmd
 
-echo "Build complete: $(pwd)/inferoute-client"
+echo "Build complete: $(pwd)/flockadoo"
 
 # Check if config exists, if not copy example
 if [ ! -f config.yaml ]; then

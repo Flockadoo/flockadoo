@@ -1,6 +1,6 @@
 @echo off
 setlocal
-echo === Inferoute Client Windows Build ===
+echo === Flockadoo Client Windows Build ===
 echo.
 
 where powershell >nul 2>&1

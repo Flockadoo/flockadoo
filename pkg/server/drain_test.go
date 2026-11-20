@@ -9,8 +9,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/sentnl/inferoute-node/inferoute-client/internal/testenv/fakeengine"
-	"github.com/sentnl/inferoute-node/inferoute-client/pkg/capacity"
+	"github.com/Flockadoo/flockadoo/internal/testenv/fakeengine"
+	"github.com/Flockadoo/flockadoo/pkg/capacity"
 )
 
 // Plan item C2 (findings NET-3, NET-7, ENG-5; decisions DC5, DC9;

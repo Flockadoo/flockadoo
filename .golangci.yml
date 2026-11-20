@@ -1,4 +1,4 @@
-# Lint gate for inferoute-client. Plan: inferoute-plans/client_reliability_audit_3d9b52e7.plan.md,
+# Lint gate for flockadoo. Plan: flockadoo-plans/client_reliability_audit_3d9b52e7.plan.md,
 # section 18.
 #
 # The whole codebase is judged (item L1 cleared the baseline, section 18.5). Each
@@ -66,7 +66,7 @@ linters:
           files:
             - "**/internal/admission/**"
           deny:
-            - pkg: github.com/sentnl/inferoute-node/inferoute-client/
+            - pkg: github.com/Flockadoo/flockadoo/
               desc: "internal/admission imports nothing internal (plan section 14, rule 1)"
         # Section 14, rule 8.
         testenv-only-in-tests:
@@ -74,7 +74,7 @@ linters:
             - "$all"
             - "!$test"
           deny:
-            - pkg: github.com/sentnl/inferoute-node/inferoute-client/internal/testenv
+            - pkg: github.com/Flockadoo/flockadoo/internal/testenv
               desc: "the fakes are for tests only; import internal/testenv from _test.go files"
 
     forbidigo:

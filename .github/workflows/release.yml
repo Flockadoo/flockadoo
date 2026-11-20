@@ -29,16 +29,16 @@ jobs:
           VERSION=${GITHUB_REF#refs/tags/v}
           COMMIT=$(git rev-parse --short HEAD)
           DATE=$(date -u +'%Y-%m-%d_%H:%M:%S')
-          VERSION_FLAGS="-X github.com/sentnl/inferoute-node/inferoute-client/pkg/version.Version=$VERSION -X github.com/sentnl/inferoute-node/inferoute-client/pkg/version.Commit=$COMMIT -X github.com/sentnl/inferoute-node/inferoute-client/pkg/version.Date=$DATE"
+          VERSION_FLAGS="-X github.com/Flockadoo/flockadoo/pkg/version.Version=$VERSION -X github.com/Flockadoo/flockadoo/pkg/version.Commit=$COMMIT -X github.com/Flockadoo/flockadoo/pkg/version.Date=$DATE"
 
-          GOOS=linux GOARCH=amd64 go build -ldflags "$VERSION_FLAGS" -o build/inferoute-client-linux-amd64 ./cmd
-          GOOS=linux GOARCH=arm64 go build -ldflags "$VERSION_FLAGS" -o build/inferoute-client-linux-arm64 ./cmd
-          GOOS=windows GOARCH=amd64 go build -ldflags "$VERSION_FLAGS" -o build/inferoute-client-windows-amd64.exe ./cmd
+          GOOS=linux GOARCH=amd64 go build -ldflags "$VERSION_FLAGS" -o build/flockadoo-linux-amd64 ./cmd
+          GOOS=linux GOARCH=arm64 go build -ldflags "$VERSION_FLAGS" -o build/flockadoo-linux-arm64 ./cmd
+          GOOS=windows GOARCH=amd64 go build -ldflags "$VERSION_FLAGS" -o build/flockadoo-windows-amd64.exe ./cmd
 
           cd build
-          zip -r inferoute-client-linux-amd64.zip inferoute-client-linux-amd64
-          zip -r inferoute-client-linux-arm64.zip inferoute-client-linux-arm64
-          zip -r inferoute-client-windows-amd64.zip inferoute-client-windows-amd64.exe
+          zip -r flockadoo-linux-amd64.zip flockadoo-linux-amd64
+          zip -r flockadoo-linux-arm64.zip flockadoo-linux-arm64
+          zip -r flockadoo-windows-amd64.zip flockadoo-windows-amd64.exe
           cd ..
           tar -czf build/contract-${VERSION}.tar.gz -C pkg/contract testdata
 
@@ -71,20 +71,20 @@ jobs:
           VERSION=${GITHUB_REF#refs/tags/v}
           COMMIT=$(git rev-parse --short HEAD)
           DATE=$(date -u +'%Y-%m-%d_%H:%M:%S')
-          VERSION_FLAGS="-X github.com/sentnl/inferoute-node/inferoute-client/pkg/version.Version=$VERSION -X github.com/sentnl/inferoute-node/inferoute-client/pkg/version.Commit=$COMMIT -X github.com/sentnl/inferoute-node/inferoute-client/pkg/version.Date=$DATE"
+          VERSION_FLAGS="-X github.com/Flockadoo/flockadoo/pkg/version.Version=$VERSION -X github.com/Flockadoo/flockadoo/pkg/version.Commit=$COMMIT -X github.com/Flockadoo/flockadoo/pkg/version.Date=$DATE"
 
           # Apple Silicon (native on the runner)
-          CGO_ENABLED=1 GOOS=darwin GOARCH=arm64 go build -ldflags "$VERSION_FLAGS" -o build/inferoute-client-darwin-arm64 ./cmd
+          CGO_ENABLED=1 GOOS=darwin GOARCH=arm64 go build -ldflags "$VERSION_FLAGS" -o build/flockadoo-darwin-arm64 ./cmd
           # Intel
-          CGO_ENABLED=1 GOOS=darwin GOARCH=amd64 CC="clang -arch x86_64" go build -ldflags "$VERSION_FLAGS" -o build/inferoute-client-darwin-amd64 ./cmd
+          CGO_ENABLED=1 GOOS=darwin GOARCH=amd64 CC="clang -arch x86_64" go build -ldflags "$VERSION_FLAGS" -o build/flockadoo-darwin-amd64 ./cmd
 
           # Fail the release if a binary came out for the wrong CPU.
-          lipo -archs build/inferoute-client-darwin-arm64 | grep -qx arm64
-          lipo -archs build/inferoute-client-darwin-amd64 | grep -qx x86_64
+          lipo -archs build/flockadoo-darwin-arm64 | grep -qx arm64
+          lipo -archs build/flockadoo-darwin-amd64 | grep -qx x86_64
 
           cd build
-          zip -r inferoute-client-darwin-amd64.zip inferoute-client-darwin-amd64
-          zip -r inferoute-client-darwin-arm64.zip inferoute-client-darwin-arm64
+          zip -r flockadoo-darwin-amd64.zip flockadoo-darwin-amd64
+          zip -r flockadoo-darwin-arm64.zip flockadoo-darwin-arm64
 
       - uses: actions/upload-artifact@v4
         with:
@@ -113,11 +113,11 @@ jobs:
         uses: softprops/action-gh-release@v1
         with:
           files: |
-            build/inferoute-client-linux-amd64.zip
-            build/inferoute-client-linux-arm64.zip
-            build/inferoute-client-darwin-amd64.zip
-            build/inferoute-client-darwin-arm64.zip
-            build/inferoute-client-windows-amd64.zip
+            build/flockadoo-linux-amd64.zip
+            build/flockadoo-linux-arm64.zip
+            build/flockadoo-darwin-amd64.zip
+            build/flockadoo-darwin-arm64.zip
+            build/flockadoo-windows-amd64.zip
             build/checksums.txt
             build/contract-*.tar.gz
           draft: false
@@ -131,7 +131,7 @@ jobs:
     runs-on: ubuntu-latest
     needs: release
     # v1.2.0-test style tags are disposable client-update tests. They must not
-    # move inferoute/inferoute-client:latest, :1, or :1.2 on Docker Hub.
+    # move flockadoo/flockadoo:latest, :1, or :1.2 on Docker Hub.
     if: ${{ !contains(github.ref_name, '-') }}
     
     steps:
@@ -154,7 +154,7 @@ jobs:
         id: meta
         uses: docker/metadata-action@v4
         with:
-          images: inferoute/inferoute-client
+          images: flockadoo/flockadoo
           tags: |
             type=semver,pattern={{version}}
             type=semver,pattern={{major}}.{{minor}}

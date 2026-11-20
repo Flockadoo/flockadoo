@@ -9,12 +9,12 @@ import (
 	"testing"
 	"time"
 
-	"github.com/sentnl/inferoute-node/inferoute-client/internal/config"
-	"github.com/sentnl/inferoute-node/inferoute-client/internal/testenv/fakeengine"
-	"github.com/sentnl/inferoute-node/inferoute-client/internal/testenv/fakegateway"
-	"github.com/sentnl/inferoute-node/inferoute-client/pkg/connect"
-	"github.com/sentnl/inferoute-node/inferoute-client/pkg/health"
-	"github.com/sentnl/inferoute-node/inferoute-client/pkg/llm"
+	"github.com/Flockadoo/flockadoo/internal/config"
+	"github.com/Flockadoo/flockadoo/internal/testenv/fakeengine"
+	"github.com/Flockadoo/flockadoo/internal/testenv/fakegateway"
+	"github.com/Flockadoo/flockadoo/pkg/connect"
+	"github.com/Flockadoo/flockadoo/pkg/health"
+	"github.com/Flockadoo/flockadoo/pkg/llm"
 )
 
 // Plan item B2, first pull request (findings NET-9 and SEC-4, decisions DC1
@@ -79,7 +79,7 @@ func TestAnInferenceRequestMakesNoCallToTheNode(t *testing.T) {
 
 // With the node unreachable, a request that arrives over the tunnel is
 // still served: the tunnel, dialled by the client with its key, is what says
-// a request comes from Inferoute.
+// a request comes from Flockadoo.
 func TestARequestIsServedWhileTheNodeIsUnreachable(t *testing.T) {
 	eng := fakeengine.VLLM(t, fakeengine.Model(rigModel))
 	gw := fakegateway.New(t, rigKey)

@@ -13,8 +13,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/sentnl/inferoute-node/inferoute-client/internal/testenv/fakeengine"
-	"github.com/sentnl/inferoute-node/inferoute-client/pkg/llm"
+	"github.com/Flockadoo/flockadoo/internal/testenv/fakeengine"
+	"github.com/Flockadoo/flockadoo/pkg/llm"
 )
 
 // Plan item B2 (findings STR-1, STR-3, STR-5, NET-5; invariants I4, I5, I6).

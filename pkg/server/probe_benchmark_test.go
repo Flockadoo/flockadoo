@@ -11,8 +11,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/sentnl/inferoute-node/inferoute-client/pkg/benchmark"
-	"github.com/sentnl/inferoute-node/inferoute-client/pkg/capprobe"
+	"github.com/Flockadoo/flockadoo/pkg/benchmark"
+	"github.com/Flockadoo/flockadoo/pkg/capprobe"
 )
 
 // passesEveryProbe is an engine answer that passes all five capability checks.

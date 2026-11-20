@@ -19,7 +19,7 @@ jobs:
           - { pkg: ./pkg/llm, name: FuzzParsePrometheusMetrics }
           - { pkg: ./pkg/gpu, name: FuzzParseIORegAccelerator }
           - { pkg: ./pkg/gpu, name: FuzzParseNvidiaSMI }
-          - { pkg: ./pkg/inferscale, name: FuzzParseStatus }
+          - { pkg: ./pkg/winglink, name: FuzzParseStatus }
           - { pkg: ./pkg/nodeapi, name: FuzzNewer }
           - { pkg: ./pkg/nodeapi, name: FuzzParseUpgrade }
           - { pkg: ./pkg/setup, name: FuzzCredential }

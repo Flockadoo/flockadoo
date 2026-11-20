@@ -10,13 +10,13 @@ import (
 	"sync"
 	"time"
 
-	"github.com/sentnl/inferoute-node/inferoute-client/internal/config"
-	"github.com/sentnl/inferoute-node/inferoute-client/pkg/engine"
-	"github.com/sentnl/inferoute-node/inferoute-client/pkg/gpu"
-	"github.com/sentnl/inferoute-node/inferoute-client/pkg/llm"
-	"github.com/sentnl/inferoute-node/inferoute-client/pkg/logger"
-	"github.com/sentnl/inferoute-node/inferoute-client/pkg/nodeapi"
-	"github.com/sentnl/inferoute-node/inferoute-client/pkg/verify"
+	"github.com/Flockadoo/flockadoo/internal/config"
+	"github.com/Flockadoo/flockadoo/pkg/engine"
+	"github.com/Flockadoo/flockadoo/pkg/gpu"
+	"github.com/Flockadoo/flockadoo/pkg/llm"
+	"github.com/Flockadoo/flockadoo/pkg/logger"
+	"github.com/Flockadoo/flockadoo/pkg/nodeapi"
+	"github.com/Flockadoo/flockadoo/pkg/verify"
 	"go.uber.org/zap"
 )
 
@@ -264,7 +264,7 @@ func (r *Reporter) GetHealthReport(ctx context.Context) (*HealthReport, error) {
 		Benchmark:    bench,
 	}
 	report.Engine, report.EngineVersion = r.runningEngine(ctx)
-	// An engine older than Inferoute supports serves no model through it: the
+	// An engine older than Flockadoo supports serves no model through it: the
 	// report advertises none, so the node stops routing to them, and the
 	// verifier refuses any request that still arrives.
 	if refusal := r.engineRefusal(report.Engine, report.EngineVersion); refusal != "" {

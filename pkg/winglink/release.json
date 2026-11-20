@@ -1,0 +1,15 @@
+{
+  "version": "v0.0.5",
+  "commit": "a5db3246b56bb4868318332e5bf01a1045d484c6",
+  "sha256": {
+    "winglink-darwin-amd64": "f00f4c61d171e72447780eab4e9971358437122b17884382c0908cde1275c345",
+    "winglink-darwin-arm64": "8e75228997dc5964747383b75d07630c277c48722b56148c1afa995689bfee3d",
+    "winglink-linux-amd64": "6a710a7e1ce0b66e024ce6b9658629a203ed9d28a8bdbc335f37bcec1d98569b",
+    "winglink-linux-arm64": "3d029870ca35d99c674ad769ee3acfecb7b099aa5c3e74ff5c6a1e200dcb3ea2",
+    "winglink-windows-amd64.zip": "940f1e01c8e7e9ef23f8c4049c1fe358a7ed2b4eecd69b7ccd27826f00ac33d2",
+    "winglinkd-darwin-amd64": "f00f4c61d171e72447780eab4e9971358437122b17884382c0908cde1275c345",
+    "winglinkd-darwin-arm64": "8e75228997dc5964747383b75d07630c277c48722b56148c1afa995689bfee3d",
+    "winglinkd-linux-amd64": "6a710a7e1ce0b66e024ce6b9658629a203ed9d28a8bdbc335f37bcec1d98569b",
+    "winglinkd-linux-arm64": "3d029870ca35d99c674ad769ee3acfecb7b099aa5c3e74ff5c6a1e200dcb3ea2"
+  }
+}

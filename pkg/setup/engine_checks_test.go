@@ -11,8 +11,8 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/sentnl/inferoute-node/inferoute-client/internal/config"
-	"github.com/sentnl/inferoute-node/inferoute-client/pkg/engine"
+	"github.com/Flockadoo/flockadoo/internal/config"
+	"github.com/Flockadoo/flockadoo/pkg/engine"
 )
 
 // skipWithoutVLLM skips where the wizard turns vLLM into llama.cpp: neither a
@@ -191,7 +191,7 @@ func TestSetupRefusesAClusterPinBelowTheMinimum(t *testing.T) {
 	singlePlan(t)
 	clusterPlan = func(*config.Config) (clusterSettings, error) {
 		return clusterSettings{
-			Role: "worker", Name: "inferoute-cluster1",
+			Role: "worker", Name: "flockadoo-cluster1",
 			Model: "Qwen/Qwen3-0.6B", ServiceType: "vllm", VLLMVersion: "0.29.2",
 		}, nil
 	}

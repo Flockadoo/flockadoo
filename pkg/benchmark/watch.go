@@ -5,7 +5,7 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/sentnl/inferoute-node/inferoute-client/pkg/logger"
+	"github.com/Flockadoo/flockadoo/pkg/logger"
 	"go.uber.org/zap"
 )
 
@@ -148,7 +148,7 @@ func (w *Watcher) measure(ctx context.Context, fp string) {
 	if best < 1 {
 		// The web dashboard copies this rule to tell a fallback from a
 		// measurement, because the health report does not say which it is
-		// (inferoute-web src/app/dashboard/clusters/engine-checks.ts,
+		// (flockadoo-web src/app/dashboard/clusters/engine-checks.ts,
 		// benchmarkView). Change both together, or send the fallback in the
 		// health report and have the dashboard read it.
 		if len(levels) == 0 || levels[0].Errors > 0 {

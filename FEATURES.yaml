@@ -1,8 +1,8 @@
-# Feature map for inferoute-client.
+# Feature map for flockadoo.
 # Every feature lists its code and its tests, and every path under `code` and
 # `tests` must exist (a glob must match a file): the check command's features
 # step and TestTheFeatureMapIsCurrent enforce it. Invariant ids are from
-# section 13 of the plan (inferoute-plans/client_reliability_audit_3d9b52e7.plan.md).
+# section 13 of the plan (flockadoo-plans/client_reliability_audit_3d9b52e7.plan.md).
 # A feature gains a `target` package as section 14's packages appear.
 
 features:
@@ -76,12 +76,12 @@ features:
     invariants: [I10]
 
   - name: Setup wizard
-    entry: setup.Execute (inferoute-client setup)
+    entry: setup.Execute (flockadoo setup)
     code: [pkg/setup/command.go, pkg/setup/wizard.go, pkg/setup/prompt.go, pkg/setup/spinner.go]
     tests: [pkg/setup/wizard_test.go, pkg/setup/serve_opts_test.go, pkg/setup/engine_checks_test.go, pkg/setup/spinner_test.go]
 
   - name: Compatibility check
-    entry: compat.Run (inferoute-client compatibility)
+    entry: compat.Run (flockadoo compatibility)
     code: [pkg/compat/command.go, pkg/compat/score.go, pkg/compat/hardware.go, pkg/compat/output.go]
     tests: [pkg/compat/*_test.go]
 
@@ -92,13 +92,13 @@ features:
     invariants: [I10]
 
   - name: Cluster (vLLM, Linux)
-    entry: inferscale.BringUp and setup.prepareCluster; the node-built engine command
-    code: [pkg/inferscale/*.go, pkg/inferscale/release.json, internal/download/*.go, .github/workflows/inferscale-pin.yml, pkg/setup/cluster.go, pkg/engine/command.go, pkg/engine/alive.go]
-    tests: [pkg/inferscale/*_test.go, internal/download/*_test.go, pkg/setup/cluster_test.go]
+    entry: winglink.BringUp and setup.prepareCluster; the node-built engine command
+    code: [pkg/winglink/*.go, pkg/winglink/release.json, internal/download/*.go, .github/workflows/winglink-pin.yml, pkg/setup/cluster.go, pkg/engine/command.go, pkg/engine/alive.go]
+    tests: [pkg/winglink/*_test.go, internal/download/*_test.go, pkg/setup/cluster_test.go]
     invariants: [I10, I12]
 
   - name: Self-update
-    entry: update.Apply (inferoute-client update); the 426 handling on every node call
+    entry: update.Apply (flockadoo update); the 426 handling on every node call
     code: [pkg/update/update.go, pkg/nodeapi/client.go]
     tests: [pkg/update/update_test.go, pkg/nodeapi/client_test.go]
 
@@ -109,7 +109,7 @@ features:
     invariants: [I12]
 
   - name: Configuration
-    entry: config.Load and Save; ~/.config/inferoute/config.yaml
+    entry: config.Load and Save; ~/.config/flockadoo/config.yaml
     code: [internal/config/config.go]
     tests: [internal/config/config_test.go, pkg/setup/defaults_test.go]
 

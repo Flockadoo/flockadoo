@@ -7,8 +7,8 @@ import (
 	"os"
 	"time"
 
-	"github.com/sentnl/inferoute-node/inferoute-client/internal/config"
-	"github.com/sentnl/inferoute-node/inferoute-client/pkg/engine"
+	"github.com/Flockadoo/flockadoo/internal/config"
+	"github.com/Flockadoo/flockadoo/pkg/engine"
 )
 
 // EnsureOnStart checks the configured inference engine before the dashboard.
@@ -93,11 +93,11 @@ func ensureOnStart(ctx context.Context, cfg *config.Config, io Streams, interact
 		detected := engine.Detect(kind)
 		if detected.Unusable != "" {
 			_, _ = fmt.Fprintf(io.Out, "%s at %s cannot run (%s).\n", label, detected.Bin, detected.Unusable)
-			_, _ = fmt.Fprintln(io.Out, "Fix it with: inferoute-client setup")
+			_, _ = fmt.Fprintln(io.Out, "Fix it with: flockadoo setup")
 			return nil
 		}
 		_, _ = fmt.Fprintf(io.Out, "%s is not installed and is not running at %s.\n", label, url)
-		_, _ = fmt.Fprintln(io.Out, "Install it with: inferoute-client setup")
+		_, _ = fmt.Fprintln(io.Out, "Install it with: flockadoo setup")
 		return nil
 	}
 

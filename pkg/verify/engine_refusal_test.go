@@ -7,7 +7,7 @@ import (
 )
 
 // An engine below the supported minimum (vLLM 0.30.0) serves nothing through
-// Inferoute: while the refusal is set, every request is refused with the
+// Flockadoo: while the refusal is set, every request is refused with the
 // reason, even for a model the node verified, and no call to the node is made.
 func TestVerdictRefusesWhileTheEngineIsUnsupported(t *testing.T) {
 	w := newWorld(t, "m")

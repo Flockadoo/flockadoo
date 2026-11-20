@@ -10,7 +10,7 @@ import (
 )
 
 // FileHash computes the per-file hash using the manifest hash_method.
-// Must match inferoute-node/scripts/bootstrap_approved_model.sh.
+// Must match flockadoo-server/scripts/bootstrap_approved_model.sh.
 func FileHash(path, method string) (string, error) {
 	switch method {
 	case "safetensors_header":

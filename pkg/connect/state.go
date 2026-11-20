@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/sentnl/inferoute-node/inferoute-client/pkg/logger"
+	"github.com/Flockadoo/flockadoo/pkg/logger"
 	"go.uber.org/zap"
 )
 
@@ -70,7 +70,7 @@ const shortSessionsBeforeWarning = 3
 
 var (
 	// ErrUpgradeRequired: the gateway answered the dial with 426.
-	ErrUpgradeRequired = errors.New("this client version is too old for Inferoute")
+	ErrUpgradeRequired = errors.New("this client version is too old for Flockadoo")
 	// ErrReplaced: the gateway closed the session for a newer one.
 	ErrReplaced = errors.New("another client connected with this API key")
 )

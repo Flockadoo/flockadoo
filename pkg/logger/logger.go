@@ -57,7 +57,7 @@ func New(cfg *Config) (*Logger, error) {
 		if err != nil {
 			return nil, fmt.Errorf("failed to get user home directory: %w", err)
 		}
-		logDir = filepath.Join(homeDir, ".local", "state", "inferoute", "log")
+		logDir = filepath.Join(homeDir, ".local", "state", "flockadoo", "log")
 	}
 
 	if err := os.MkdirAll(logDir, 0755); err != nil {
@@ -83,7 +83,7 @@ func New(cfg *Config) (*Logger, error) {
 
 	// Setup log rotation using lumberjack
 	mainLogFile := &lumberjack.Logger{
-		Filename:   filepath.Join(logDir, "inferoute.log"),
+		Filename:   filepath.Join(logDir, "flockadoo.log"),
 		MaxSize:    cfg.MaxSize,    // megabytes
 		MaxBackups: cfg.MaxBackups, // number of backups
 		MaxAge:     cfg.MaxAge,     // days
@@ -136,7 +136,7 @@ func (l *Logger) Close() error {
 }
 
 // DefaultConfig is the logging main installs before it has read the config
-// file: info level, files under ~/.local/state/inferoute/log.
+// file: info level, files under ~/.local/state/flockadoo/log.
 func DefaultConfig() *Config {
 	return &Config{Level: "info", MaxSize: 100, MaxBackups: 5, MaxAge: 30}
 }

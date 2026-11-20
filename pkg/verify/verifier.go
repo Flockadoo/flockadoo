@@ -9,8 +9,8 @@ import (
 	"sync"
 	"time"
 
-	"github.com/sentnl/inferoute-node/inferoute-client/pkg/llm"
-	"github.com/sentnl/inferoute-node/inferoute-client/pkg/logger"
+	"github.com/Flockadoo/flockadoo/pkg/llm"
+	"github.com/Flockadoo/flockadoo/pkg/logger"
 	"go.uber.org/zap"
 )
 
@@ -38,13 +38,13 @@ type Verifier struct {
 	grace     time.Duration
 	states    map[string]*modelState
 	// engineRefusal, when set, refuses every request: the running engine is a
-	// release Inferoute does not support (engine.MinVLLMVersion).
+	// release Flockadoo does not support (engine.MinVLLMVersion).
 	engineRefusal string
 }
 
 // SetEngineRefusal refuses every request with reason while it is set, whatever
 // the node said about the model. The health reporter sets it when the running
-// engine is older than Inferoute supports and clears it ("") once it is not.
+// engine is older than Flockadoo supports and clears it ("") once it is not.
 func (v *Verifier) SetEngineRefusal(reason string) {
 	v.mu.Lock()
 	v.engineRefusal = reason

@@ -8,7 +8,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/sentnl/inferoute-node/inferoute-client/pkg/version"
+	"github.com/Flockadoo/flockadoo/pkg/version"
 )
 
 func TestRoundTripSetsVersionHeaders(t *testing.T) {
@@ -34,7 +34,7 @@ func TestRoundTripSetsVersionHeaders(t *testing.T) {
 	if gotVer != "1.2.3" {
 		t.Fatalf("version header = %q", gotVer)
 	}
-	if gotUA == "" || gotUA[:len("inferoute-client/1.2.3")] != "inferoute-client/1.2.3" {
+	if gotUA == "" || gotUA[:len("flockadoo/1.2.3")] != "flockadoo/1.2.3" {
 		t.Fatalf("user agent = %q", gotUA)
 	}
 	if State().Status != UpdateCurrent {

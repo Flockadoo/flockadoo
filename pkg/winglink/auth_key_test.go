@@ -1,4 +1,4 @@
-package inferscale
+package winglink
 
 import (
 	"os"
@@ -80,7 +80,7 @@ func TestAuthKeyRejected(t *testing.T) {
 	if !authKeyRejected("backend error: invalid pre auth key", "") {
 		t.Fatal("unknown key")
 	}
-	if authKeyRejected("inferscale up: signal: interrupt", "Start inferscaled") {
+	if authKeyRejected("winglink up: signal: interrupt", "Start winglinkd") {
 		t.Fatal("unrelated failure")
 	}
 }

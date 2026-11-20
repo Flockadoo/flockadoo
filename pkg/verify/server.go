@@ -10,7 +10,7 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/sentnl/inferoute-node/inferoute-client/pkg/nodeapi"
+	"github.com/Flockadoo/flockadoo/pkg/nodeapi"
 )
 
 // ServerClient calls provider-authenticated verification APIs.

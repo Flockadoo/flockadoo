@@ -8,7 +8,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/sentnl/inferoute-node/inferoute-client/internal/testenv/fakeplatform"
+	"github.com/Flockadoo/flockadoo/internal/testenv/fakeplatform"
 )
 
 // Plan item B3 (finding ADM-5, invariant I14, decision DC2): verification

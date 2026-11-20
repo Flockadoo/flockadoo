@@ -15,8 +15,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/sentnl/inferoute-node/inferoute-client/internal/testenv/fakeengine"
-	"github.com/sentnl/inferoute-node/inferoute-client/pkg/llm"
+	"github.com/Flockadoo/flockadoo/internal/testenv/fakeengine"
+	"github.com/Flockadoo/flockadoo/pkg/llm"
 )
 
 // Plan item A2, section 17.1: the fake engine's behaviours. The engine-facing
@@ -368,7 +368,7 @@ func TestRecordsBodiesAndTheMostRequestsAtOnce(t *testing.T) {
 	}
 }
 
-// The corpus is copied from inferoute-node with a checksum file; an edited
+// The corpus is copied from flockadoo-server with a checksum file; an edited
 // or added file is caught here (the node's rule: recordings are never
 // written by hand).
 func TestTheCorpusMatchesItsChecksums(t *testing.T) {

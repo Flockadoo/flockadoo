@@ -9,7 +9,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/sentnl/inferoute-node/inferoute-client/internal/testenv/fakegateway"
+	"github.com/Flockadoo/flockadoo/internal/testenv/fakegateway"
 )
 
 // Plan item Q1, finding NET-1: the reconnect delay returns to its base only

@@ -9,8 +9,8 @@ import (
 	"time"
 
 	"fyne.io/systray"
-	"github.com/sentnl/inferoute-node/inferoute-client/pkg/nodeapi"
-	"github.com/sentnl/inferoute-node/inferoute-client/pkg/version"
+	"github.com/Flockadoo/flockadoo/pkg/nodeapi"
+	"github.com/Flockadoo/flockadoo/pkg/version"
 )
 
 //go:embed icon.ico
@@ -42,14 +42,14 @@ func onReady(opts Options) {
 		close(opts.Started)
 	}
 	systray.SetIcon(icon)
-	systray.SetTitle("Inferoute")
-	systray.SetTooltip("Inferoute Provider Client")
+	systray.SetTitle("Flockadoo")
+	systray.SetTooltip("Flockadoo Provider Client")
 
 	mDash := systray.AddMenuItem("Open dashboard", "Open the local status page")
 	mConfig := systray.AddMenuItem("Open config", "Edit config.yaml")
 	mLogs := systray.AddMenuItem("Open logs", "Open the log folder")
 	systray.AddSeparator()
-	mQuit := systray.AddMenuItem("Quit", "Stop Inferoute Client")
+	mQuit := systray.AddMenuItem("Quit", "Stop Flockadoo Client")
 
 	showStartupNotice()
 	go watchForUpdate()
@@ -78,15 +78,15 @@ func watchForUpdate() {
 	for ; ; <-tick.C {
 		snap := nodeapi.State()
 		if snap.Status != last && snap.Status != nodeapi.UpdateCurrent {
-			tip := "Inferoute Provider Client"
+			tip := "Flockadoo Provider Client"
 			body := ""
 			switch snap.Status {
 			case nodeapi.UpdateRequired:
-				tip = "Inferoute: update required"
-				body = "Update required: " + version.Version + " -> " + snap.Latest + ". Run inferoute-client update, then restart."
+				tip = "Flockadoo: update required"
+				body = "Update required: " + version.Version + " -> " + snap.Latest + ". Run flockadoo update, then restart."
 			case nodeapi.UpdateAvailable:
-				tip = "Inferoute: update available"
-				body = "Update available: " + version.Version + " -> " + snap.Latest + ". Run inferoute-client update, then restart."
+				tip = "Flockadoo: update available"
+				body = "Update available: " + version.Version + " -> " + snap.Latest + ". Run flockadoo update, then restart."
 			case nodeapi.UpdateCurrent: // excluded by the condition above
 			}
 			systray.SetTooltip(tip)

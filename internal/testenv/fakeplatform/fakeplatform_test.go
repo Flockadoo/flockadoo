@@ -10,10 +10,10 @@ import (
 	"testing"
 	"time"
 
-	"github.com/sentnl/inferoute-node/inferoute-client/internal/testenv/fakeplatform"
-	"github.com/sentnl/inferoute-node/inferoute-client/pkg/capacity"
-	"github.com/sentnl/inferoute-node/inferoute-client/pkg/logger"
-	"github.com/sentnl/inferoute-node/inferoute-client/pkg/verify"
+	"github.com/Flockadoo/flockadoo/internal/testenv/fakeplatform"
+	"github.com/Flockadoo/flockadoo/pkg/capacity"
+	"github.com/Flockadoo/flockadoo/pkg/logger"
+	"github.com/Flockadoo/flockadoo/pkg/verify"
 	"go.uber.org/zap"
 )
 

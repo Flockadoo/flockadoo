@@ -3,8 +3,8 @@ package setup
 import (
 	"testing"
 
-	"github.com/sentnl/inferoute-node/inferoute-client/internal/config"
-	"github.com/sentnl/inferoute-node/inferoute-client/pkg/verify"
+	"github.com/Flockadoo/flockadoo/internal/config"
+	"github.com/Flockadoo/flockadoo/pkg/verify"
 )
 
 // Setup saves the catalog's reasoning parser so auto-start passes it to vLLM.

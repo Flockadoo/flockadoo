@@ -10,7 +10,7 @@ import (
 	"sync/atomic"
 	"testing"
 
-	"github.com/sentnl/inferoute-node/inferoute-client/internal/testenv/fakeengine"
+	"github.com/Flockadoo/flockadoo/internal/testenv/fakeengine"
 )
 
 // replay is one benchmark stream against a recording of a real engine, and

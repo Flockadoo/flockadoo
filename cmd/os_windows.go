@@ -10,11 +10,11 @@ import (
 	"os/exec"
 	"syscall"
 
-	"github.com/sentnl/inferoute-node/inferoute-client/pkg/setup"
+	"github.com/Flockadoo/flockadoo/pkg/setup"
 	"golang.org/x/sys/windows"
 )
 
-const trayChildEnv = "INFEROUTE_TRAY_CHILD"
+const trayChildEnv = "FLOCKADOO_TRAY_CHILD"
 
 func isTrayChild() bool {
 	return os.Getenv(trayChildEnv) == "1"
@@ -57,7 +57,7 @@ func getConsoleWindow() (windows.HWND, error) {
 }
 
 func showErrorDialog(msg string) {
-	_, _ = windows.MessageBox(0, windows.StringToUTF16Ptr(msg), windows.StringToUTF16Ptr("Inferoute Client"), windows.MB_OK|windows.MB_ICONERROR)
+	_, _ = windows.MessageBox(0, windows.StringToUTF16Ptr(msg), windows.StringToUTF16Ptr("Flockadoo Client"), windows.MB_OK|windows.MB_ICONERROR)
 }
 
 func freeConsole() {
@@ -114,13 +114,13 @@ func spawnDetachedIfNeeded(dashboardURL string) bool {
 	if err := setup.SpinWhile(os.Stdout, msg, func() error {
 		return waitUntilDashboard(ctx, dashboardURL, dashboardPollInterval, alive)
 	}); err != nil {
-		fmt.Fprintf(os.Stderr, "Inferoute Client failed to start: %v\n", err)
+		fmt.Fprintf(os.Stderr, "Flockadoo Client failed to start: %v\n", err)
 		os.Exit(1)
 	}
 
-	_, _ = fmt.Fprintln(os.Stdout, "Inferoute Client is running in the notification area.")
+	_, _ = fmt.Fprintln(os.Stdout, "Flockadoo Client is running in the notification area.")
 	_, _ = fmt.Fprintf(os.Stdout, "Dashboard: %s\n", dashboardURL)
-	_, _ = fmt.Fprintln(os.Stdout, "Right-click the Inferoute icon to open the dashboard or quit.")
+	_, _ = fmt.Fprintln(os.Stdout, "Right-click the Flockadoo icon to open the dashboard or quit.")
 	return true
 }
 

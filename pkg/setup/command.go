@@ -7,25 +7,25 @@ import (
 	"io"
 	"os"
 
-	"github.com/sentnl/inferoute-node/inferoute-client/internal/config"
+	"github.com/Flockadoo/flockadoo/internal/config"
 )
 
 const helpText = `Usage:
-  inferoute-client setup [flags]
+  flockadoo setup [flags]
 
-Walk through engine, model, and API key setup. Writes ~/.config/inferoute/config.yaml.
+Walk through engine, model, and API key setup. Writes ~/.config/flockadoo/config.yaml.
 Safe to re-run; existing values are used as defaults.
 
 A cluster API key or join- code uses that cluster's model and vLLM.
 A join- code installs vLLM without asking.
 
 Flags:
-  --config string        Config path (default: ~/.config/inferoute/config.yaml)
+  --config string        Config path (default: ~/.config/flockadoo/config.yaml)
   --engine string        vllm, vllm-metal, or llama_cpp
   --model string         Catalog alias to serve
   --api-key string       Provider API key (or PROVIDER_API_KEY)
-  --url string           Inferoute API base (alias: --catalog-url)
-  --catalog-url string   Inferoute API base (default: https://core.inferoute.com)
+  --url string           Flockadoo API base (alias: --catalog-url)
+  --catalog-url string   Flockadoo API base (default: https://core.flockadoo.ai)
   --offline-catalog path Load catalog JSON from a file
   --yes                  Non-interactive: require --engine, --model, --api-key
   --install              Install the engine if it is missing (--yes does not install)
@@ -36,7 +36,7 @@ Flags:
   --help                 Show this help
 
 Env:
-  INFEROUTE_URL          Override Inferoute API base (also used by first-run setup)
+  FLOCKADOO_URL          Override Flockadoo API base (also used by first-run setup)
   PROVIDER_API_KEY       Default for --api-key
 `
 
@@ -66,8 +66,8 @@ func Run(args []string) error {
 	fs.StringVar(&opts.Engine, "engine", "", "Engine: vllm, vllm-metal, llama_cpp")
 	fs.StringVar(&opts.Model, "model", "", "Catalog alias")
 	fs.StringVar(&opts.APIKey, "api-key", "", "Provider API key")
-	fs.StringVar(&opts.CatalogURL, "url", "", "Inferoute API base URL")
-	fs.StringVar(&opts.CatalogURL, "catalog-url", "", "Inferoute API base URL")
+	fs.StringVar(&opts.CatalogURL, "url", "", "Flockadoo API base URL")
+	fs.StringVar(&opts.CatalogURL, "catalog-url", "", "Flockadoo API base URL")
 	fs.StringVar(&opts.OfflineCatalog, "offline-catalog", "", "Path to offline approved-builds JSON")
 	fs.BoolVar(&opts.Yes, "yes", false, "Non-interactive")
 	fs.BoolVar(&opts.Install, "install", false, "Install the engine if missing")

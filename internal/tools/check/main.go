@@ -39,7 +39,7 @@ func mainErr(ctx context.Context, lintBase string) error {
 	}
 	gomod := strings.TrimSpace(string(out))
 	if gomod == "" || gomod == os.DevNull {
-		return fmt.Errorf("run this inside the inferoute-client module")
+		return fmt.Errorf("run this inside the flockadoo module")
 	}
 	root := filepath.Dir(gomod)
 	golangci, err := findGolangciLint(ctx)

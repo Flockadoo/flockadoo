@@ -11,7 +11,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/sentnl/inferoute-node/inferoute-client/pkg/nodeapi"
+	"github.com/Flockadoo/flockadoo/pkg/nodeapi"
 )
 
 // Catalog caches the public approved-model catalog (no hashes).

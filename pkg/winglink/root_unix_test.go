@@ -1,6 +1,6 @@
 //go:build !windows
 
-package inferscale
+package winglink
 
 import (
 	"os"
@@ -10,7 +10,7 @@ import (
 
 func TestRootOwnedRejectsUserFileAndSymlink(t *testing.T) {
 	dir := t.TempDir()
-	path := filepath.Join(dir, "inferscale")
+	path := filepath.Join(dir, "winglink")
 	if err := os.WriteFile(path, []byte("x"), 0o755); err != nil {
 		t.Fatal(err)
 	}

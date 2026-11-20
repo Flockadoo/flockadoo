@@ -8,8 +8,8 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/sentnl/inferoute-node/inferoute-client/internal/config"
-	"github.com/sentnl/inferoute-node/inferoute-client/pkg/verify"
+	"github.com/Flockadoo/flockadoo/internal/config"
+	"github.com/Flockadoo/flockadoo/pkg/verify"
 )
 
 // Spec is the argv used to start an engine.
@@ -129,7 +129,7 @@ func quote(s string) string {
 }
 
 // ServeSpec builds the start command for kind.
-// modelAlias is the Inferoute catalog alias; hfRepo is the HuggingFace id.
+// modelAlias is the Flockadoo catalog alias; hfRepo is the HuggingFace id.
 func ServeSpec(kind Kind, bin, modelAlias, hfRepo string, opts ServeOpts) Spec {
 	if bin == "" {
 		bin = defaultBinName(kind)

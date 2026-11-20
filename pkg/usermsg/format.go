@@ -4,9 +4,9 @@ import (
 	"errors"
 	"strings"
 
-	"github.com/sentnl/inferoute-node/inferoute-client/pkg/connect"
-	"github.com/sentnl/inferoute-node/inferoute-client/pkg/llm"
-	"github.com/sentnl/inferoute-node/inferoute-client/pkg/verify"
+	"github.com/Flockadoo/flockadoo/pkg/connect"
+	"github.com/Flockadoo/flockadoo/pkg/llm"
+	"github.com/Flockadoo/flockadoo/pkg/verify"
 )
 
 // ProviderName returns a display name for the configured LLM backend.
@@ -38,7 +38,7 @@ func formatLLM(err error, name string) string {
 }
 
 // InvalidAPIKey is the operator-facing text for a rejected provider key.
-const InvalidAPIKey = "Invalid provider API key. Copy it from cluster Settings on the Inferoute dashboard and set api_key in config.yaml."
+const InvalidAPIKey = "Invalid provider API key. Copy it from cluster Settings on the Flockadoo dashboard and set api_key in config.yaml."
 
 // Startup maps a fatal startup error to a message for stderr and the Windows dialog.
 func Startup(err error) string {

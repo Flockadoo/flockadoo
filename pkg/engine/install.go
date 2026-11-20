@@ -12,7 +12,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/sentnl/inferoute-node/inferoute-client/pkg/exechide"
+	"github.com/Flockadoo/flockadoo/pkg/exechide"
 )
 
 const (

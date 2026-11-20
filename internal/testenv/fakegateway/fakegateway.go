@@ -28,7 +28,7 @@ import (
 )
 
 // headerClientVersion is the header the client sends its version in.
-const headerClientVersion = "X-Inferoute-Client-Version"
+const headerClientVersion = "X-Flockadoo-Client-Version"
 
 // Gateway is a running fake gateway. It stops when the test ends.
 type Gateway struct {

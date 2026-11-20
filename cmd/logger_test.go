@@ -6,12 +6,12 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/sentnl/inferoute-node/inferoute-client/pkg/logger"
+	"github.com/Flockadoo/flockadoo/pkg/logger"
 )
 
 // Plan item A2: the library default no longer writes files, so main installs
 // the file logger itself. The subcommands and the start of the daemon still
-// log to ~/.local/state/inferoute/log, as before. (A new function: this test
+// log to ~/.local/state/flockadoo/log, as before. (A new function: this test
 // pins behaviour that already held and could not fail first.)
 func TestTheEarlyLoggerWritesTheDefaultFiles(t *testing.T) {
 	home := t.TempDir()
@@ -28,11 +28,11 @@ func TestTheEarlyLoggerWritesTheDefaultFiles(t *testing.T) {
 	if err := early.Close(); err != nil {
 		t.Fatal(err)
 	}
-	b, err := os.ReadFile(filepath.Join(home, ".local", "state", "inferoute", "log", "inferoute.log"))
+	b, err := os.ReadFile(filepath.Join(home, ".local", "state", "flockadoo", "log", "flockadoo.log"))
 	if err != nil {
 		t.Fatal(err)
 	}
 	if !strings.Contains(string(b), "before the config is read") {
-		t.Fatalf("inferoute.log = %s", b)
+		t.Fatalf("flockadoo.log = %s", b)
 	}
 }

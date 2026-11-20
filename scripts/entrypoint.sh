@@ -5,7 +5,7 @@ set -e
 # terminal for the wizard, so this is always the no-prompt install, which
 # needs PROVIDER_API_KEY and PROVIDER_MODEL. install.sh picks the default
 # LLM_URL for the engine when it is empty.
-INFEROUTE_SKIP_SETUP=1 \
+FLOCKADOO_SKIP_SETUP=1 \
 PROVIDER_API_KEY="${PROVIDER_API_KEY:-}" \
 PROVIDER_MODEL="${PROVIDER_MODEL:-}" \
 PROVIDER_TYPE="${PROVIDER_TYPE:-vllm}" \

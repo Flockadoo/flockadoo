@@ -8,12 +8,12 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/sentnl/inferoute-node/inferoute-client/pkg/engine"
-	"github.com/sentnl/inferoute-node/inferoute-client/pkg/gpu"
-	"github.com/sentnl/inferoute-node/inferoute-client/pkg/inferscale"
-	"github.com/sentnl/inferoute-node/inferoute-client/pkg/nodeapi"
-	"github.com/sentnl/inferoute-node/inferoute-client/pkg/usermsg"
-	"github.com/sentnl/inferoute-node/inferoute-client/pkg/version"
+	"github.com/Flockadoo/flockadoo/pkg/engine"
+	"github.com/Flockadoo/flockadoo/pkg/gpu"
+	"github.com/Flockadoo/flockadoo/pkg/nodeapi"
+	"github.com/Flockadoo/flockadoo/pkg/usermsg"
+	"github.com/Flockadoo/flockadoo/pkg/version"
+	"github.com/Flockadoo/flockadoo/pkg/winglink"
 )
 
 //go:embed dashboard.html
@@ -119,7 +119,7 @@ func (s *Server) snapshot(ctx context.Context) StatusSnapshot {
 	}
 
 	upd := nodeapi.State()
-	tailnetIP, online := inferscale.Tailnet(ctx)
+	tailnetIP, online := winglink.Tailnet(ctx)
 	peers := ""
 	if online > 0 {
 		peers = fmt.Sprintf("%d online", online)

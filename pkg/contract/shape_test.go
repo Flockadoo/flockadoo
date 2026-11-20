@@ -7,12 +7,12 @@ import (
 	"reflect"
 	"testing"
 
-	"github.com/sentnl/inferoute-node/inferoute-client/pkg/gpu"
-	"github.com/sentnl/inferoute-node/inferoute-client/pkg/health"
-	"github.com/sentnl/inferoute-node/inferoute-client/pkg/llm"
+	"github.com/Flockadoo/flockadoo/pkg/gpu"
+	"github.com/Flockadoo/flockadoo/pkg/health"
+	"github.com/Flockadoo/flockadoo/pkg/llm"
 )
 
-// These fixtures are the request bodies copied into inferoute-node
+// These fixtures are the request bodies copied into flockadoo-server
 // tests/contract/testdata/client/<version>/ on each client release.
 // A mismatch means the node contract suite is now protecting the wrong payload.
 func TestRequestShapes(t *testing.T) {
@@ -23,7 +23,7 @@ func TestRequestShapes(t *testing.T) {
 		{"health.request.json", health.HealthReport{
 			Object: "list",
 			Data: []llm.Model{{
-				ID: "Qwen/Qwen2.5-7B-Instruct", Object: "model", Created: 1710000000, OwnedBy: "inferoute",
+				ID: "Qwen/Qwen2.5-7B-Instruct", Object: "model", Created: 1710000000, OwnedBy: "flockadoo",
 				SizeBytes: 100, WeightFingerprint: "fp", VerificationStatus: "verified",
 				MaxModelLen: 8192,
 			}},

@@ -1,8 +1,8 @@
 package server
 
 import (
-	"github.com/sentnl/inferoute-node/inferoute-client/internal/admission"
-	"github.com/sentnl/inferoute-node/inferoute-client/pkg/capacity"
+	"github.com/Flockadoo/flockadoo/internal/admission"
+	"github.com/Flockadoo/flockadoo/pkg/capacity"
 	"io"
 	"net/http"
 	"sync"
@@ -10,12 +10,12 @@ import (
 
 	"context"
 
-	"github.com/sentnl/inferoute-node/inferoute-client/internal/config"
-	"github.com/sentnl/inferoute-node/inferoute-client/pkg/connect"
-	"github.com/sentnl/inferoute-node/inferoute-client/pkg/gpu"
-	"github.com/sentnl/inferoute-node/inferoute-client/pkg/health"
-	"github.com/sentnl/inferoute-node/inferoute-client/pkg/llm"
-	"github.com/sentnl/inferoute-node/inferoute-client/pkg/verify"
+	"github.com/Flockadoo/flockadoo/internal/config"
+	"github.com/Flockadoo/flockadoo/pkg/connect"
+	"github.com/Flockadoo/flockadoo/pkg/gpu"
+	"github.com/Flockadoo/flockadoo/pkg/health"
+	"github.com/Flockadoo/flockadoo/pkg/llm"
+	"github.com/Flockadoo/flockadoo/pkg/verify"
 )
 
 // Server represents the HTTP server

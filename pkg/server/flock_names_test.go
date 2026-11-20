@@ -9,7 +9,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/sentnl/inferoute-node/inferoute-client/internal/config"
+	"github.com/Flockadoo/flockadoo/internal/config"
 )
 
 // The provider's own screens (the rebrand plan, stage 4; docs/naming.md in

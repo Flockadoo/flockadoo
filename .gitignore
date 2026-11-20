@@ -9,7 +9,7 @@
 go.work
 
 # Project specific
-inferoute-client
+flockadoo
 run/
 config.yaml
 debug.log

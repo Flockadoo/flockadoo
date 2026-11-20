@@ -10,10 +10,10 @@ import (
 	"testing"
 	"time"
 
-	"github.com/sentnl/inferoute-node/inferoute-client/internal/config"
-	"github.com/sentnl/inferoute-node/inferoute-client/internal/testenv/fakeengine"
-	"github.com/sentnl/inferoute-node/inferoute-client/internal/testenv/fakeplatform"
-	"github.com/sentnl/inferoute-node/inferoute-client/pkg/llm"
+	"github.com/Flockadoo/flockadoo/internal/config"
+	"github.com/Flockadoo/flockadoo/internal/testenv/fakeengine"
+	"github.com/Flockadoo/flockadoo/internal/testenv/fakeplatform"
+	"github.com/Flockadoo/flockadoo/pkg/llm"
 )
 
 // Plan item Q2, decision DC11: with provider_type gone from the config file,

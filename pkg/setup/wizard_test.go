@@ -11,8 +11,8 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/sentnl/inferoute-node/inferoute-client/internal/config"
-	"github.com/sentnl/inferoute-node/inferoute-client/pkg/engine"
+	"github.com/Flockadoo/flockadoo/internal/config"
+	"github.com/Flockadoo/flockadoo/pkg/engine"
 )
 
 func TestMain(m *testing.M) {
@@ -76,7 +76,7 @@ func TestExecuteMasterUsesClusterModel(t *testing.T) {
 	singlePlan(t)
 	clusterPlan = func(*config.Config) (clusterSettings, error) {
 		return clusterSettings{
-			Role: "master", Name: "inferoute-cluster1",
+			Role: "master", Name: "flockadoo-cluster1",
 			Model: "Qwen/Qwen3-0.6B", DisplayName: "Qwen3 0.6B", ServiceType: "vllm",
 		}, nil
 	}
@@ -96,7 +96,7 @@ func TestExecuteMasterUsesClusterModel(t *testing.T) {
 	if strings.Contains(out.String(), "Models that should fit") {
 		t.Fatalf("Team Flock setup showed the single-machine list:\n%s", out.String())
 	}
-	if !strings.Contains(out.String(), "Team Flock inferoute-cluster1") || !strings.Contains(out.String(), "Qwen3 0.6B (Qwen/Qwen3-0.6B)") {
+	if !strings.Contains(out.String(), "Team Flock flockadoo-cluster1") || !strings.Contains(out.String(), "Qwen3 0.6B (Qwen/Qwen3-0.6B)") {
 		t.Fatalf("stdout = %s", out.String())
 	}
 	serve := "vllm serve Qwen/Qwen3-0.6B"
@@ -119,7 +119,7 @@ func TestExecuteWorkerInstallsAndConfirms(t *testing.T) {
 	singlePlan(t)
 	clusterPlan = func(*config.Config) (clusterSettings, error) {
 		return clusterSettings{
-			Role: "worker", Name: "inferoute-cluster1",
+			Role: "worker", Name: "flockadoo-cluster1",
 			Model: "Qwen/Qwen3-0.6B", DisplayName: "Qwen3 0.6B", ServiceType: "vllm",
 			VLLMVersion: "0.31.0",
 		}, nil
@@ -158,7 +158,7 @@ func TestExecuteWorkerInstallsAndConfirms(t *testing.T) {
 	if strings.Contains(text, "Models that should fit") || strings.Contains(text, "Inference engine:") || strings.Contains(text, "Install it now?") {
 		t.Fatalf("worker was prompted:\n%s", text)
 	}
-	if !strings.Contains(text, "Joining Team Flock inferoute-cluster1") || !strings.Contains(text, "Qwen3 0.6B (Qwen/Qwen3-0.6B)") {
+	if !strings.Contains(text, "Joining Team Flock flockadoo-cluster1") || !strings.Contains(text, "Qwen3 0.6B (Qwen/Qwen3-0.6B)") {
 		t.Fatalf("stdout = %s", text)
 	}
 	if !strings.Contains(text, "Run this after the master is up") || !strings.Contains(text, docsClusterWorker) {
@@ -174,7 +174,7 @@ func TestExecuteWorkerInstallsAndConfirms(t *testing.T) {
 }
 
 func TestExecuteYesWritesConfig(t *testing.T) {
-	t.Setenv("INFEROUTE_URL", "")
+	t.Setenv("FLOCKADOO_URL", "")
 	dir := t.TempDir()
 	cfgPath := filepath.Join(dir, "config.yaml")
 	catalog := filepath.Join("testdata", "catalog.json")
@@ -210,7 +210,7 @@ func TestExecuteYesWritesConfig(t *testing.T) {
 	if cfg.Provider.URL != config.DefaultPlatformURL {
 		t.Errorf("url = %q", cfg.Provider.URL)
 	}
-	if !strings.Contains(out.String(), "inferoute-client setup") {
+	if !strings.Contains(out.String(), "flockadoo setup") {
 		t.Errorf("stdout should mention re-run: %s", out.String())
 	}
 }
@@ -466,7 +466,7 @@ func TestExecuteRerunKeepsServerPort(t *testing.T) {
 }
 
 func TestExecuteURLFromEnv(t *testing.T) {
-	t.Setenv("INFEROUTE_URL", "https://dev.inferoute.example")
+	t.Setenv("FLOCKADOO_URL", "https://dev.flockadoo.example")
 	dir := t.TempDir()
 	cfgPath := filepath.Join(dir, "config.yaml")
 	var out bytes.Buffer
@@ -482,20 +482,20 @@ func TestExecuteURLFromEnv(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Execute: %v\n%s", err, out.String())
 	}
-	if !strings.Contains(out.String(), "https://dev.inferoute.example") {
+	if !strings.Contains(out.String(), "https://dev.flockadoo.example") {
 		t.Errorf("stdout should show override URL: %s", out.String())
 	}
 	cfg, err := config.Load(cfgPath)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if cfg.Provider.URL != "https://dev.inferoute.example" {
+	if cfg.Provider.URL != "https://dev.flockadoo.example" {
 		t.Errorf("url = %q", cfg.Provider.URL)
 	}
 }
 
 func TestExecuteCatalogURLFlagBeatsEnv(t *testing.T) {
-	t.Setenv("INFEROUTE_URL", "https://env.example")
+	t.Setenv("FLOCKADOO_URL", "https://env.example")
 	dir := t.TempDir()
 	cfgPath := filepath.Join(dir, "config.yaml")
 	var out bytes.Buffer
@@ -529,7 +529,7 @@ func TestPastedJoinCodeSkipsEngineAndModel(t *testing.T) {
 			t.Fatalf("api key = %q", cfg.Provider.APIKey)
 		}
 		return clusterSettings{
-			Role: "worker", Name: "inferoute-cluster1",
+			Role: "worker", Name: "flockadoo-cluster1",
 			Model: "Qwen/Qwen3-0.6B", DisplayName: "Qwen3 0.6B", ServiceType: "vllm",
 			VLLMVersion: "0.31.0",
 		}, nil
@@ -552,7 +552,7 @@ func TestPastedJoinCodeSkipsEngineAndModel(t *testing.T) {
 	if strings.Contains(text, "Models that should fit") || strings.Contains(text, "Inference engine:") {
 		t.Fatalf("join code still asked for engine or model:\n%s", text)
 	}
-	if !strings.Contains(text, "Joining Team Flock inferoute-cluster1") || !strings.Contains(text, "Provider API key or join code") {
+	if !strings.Contains(text, "Joining Team Flock flockadoo-cluster1") || !strings.Contains(text, "Provider API key or join code") {
 		t.Fatalf("stdout = %s", text)
 	}
 }
@@ -619,7 +619,7 @@ func TestDifferentJoinCodeClearsSavedToken(t *testing.T) {
 		if cfg.Provider.APIKey != "join-new" || cfg.Provider.NodeToken != "" {
 			t.Fatalf("key %q token %q", cfg.Provider.APIKey, cfg.Provider.NodeToken)
 		}
-		return clusterSettings{Role: "worker", Name: "inferoute-cluster2", Model: "Qwen/Qwen3-0.6B", ServiceType: "vllm", VLLMVersion: "0.31.0"}, nil
+		return clusterSettings{Role: "worker", Name: "flockadoo-cluster2", Model: "Qwen/Qwen3-0.6B", ServiceType: "vllm", VLLMVersion: "0.31.0"}, nil
 	}
 	detectEngine = func(kind engine.Kind) engine.Detected {
 		return engine.Detected{Kind: kind, Found: true, Bin: "vllm"}
@@ -645,7 +645,7 @@ func TestWorkerWaitsForMasterVersion(t *testing.T) {
 	singlePlan(t)
 	clusterPlan = func(*config.Config) (clusterSettings, error) {
 		return clusterSettings{
-			Role: "worker", Name: "inferoute-cluster1",
+			Role: "worker", Name: "flockadoo-cluster1",
 			Model: "Qwen/Qwen3-0.6B", ServiceType: "vllm",
 		}, nil
 	}
@@ -674,7 +674,7 @@ func TestWorkerWithInstalledVLLMStillWaitsForMasterVersion(t *testing.T) {
 	singlePlan(t)
 	clusterPlan = func(*config.Config) (clusterSettings, error) {
 		return clusterSettings{
-			Role: "worker", Name: "inferoute-cluster1",
+			Role: "worker", Name: "flockadoo-cluster1",
 			Model: "Qwen/Qwen3-0.6B", ServiceType: "vllm",
 		}, nil
 	}
@@ -717,7 +717,7 @@ func TestWorkerInstallFailureDoesNotJoin(t *testing.T) {
 	singlePlan(t)
 	clusterPlan = func(*config.Config) (clusterSettings, error) {
 		return clusterSettings{
-			Role: "worker", Name: "inferoute-cluster1",
+			Role: "worker", Name: "flockadoo-cluster1",
 			Model: "Qwen/Qwen3-0.6B", ServiceType: "vllm",
 			VLLMVersion: "0.31.0",
 		}, nil
@@ -757,7 +757,7 @@ func TestWorkerMissingInstallFailureDoesNotJoin(t *testing.T) {
 	singlePlan(t)
 	clusterPlan = func(*config.Config) (clusterSettings, error) {
 		return clusterSettings{
-			Role: "worker", Name: "inferoute-cluster1",
+			Role: "worker", Name: "flockadoo-cluster1",
 			Model: "Qwen/Qwen3-0.6B", ServiceType: "vllm",
 			VLLMVersion: "0.31.0",
 		}, nil
@@ -796,7 +796,7 @@ func TestEnrolledWorkerProceedsWithoutPin(t *testing.T) {
 	singlePlan(t)
 	clusterPlan = func(*config.Config) (clusterSettings, error) {
 		return clusterSettings{
-			Role: "worker", Name: "inferoute-cluster1",
+			Role: "worker", Name: "flockadoo-cluster1",
 			Model: "Qwen/Qwen3-0.6B", ServiceType: "vllm",
 		}, nil
 	}

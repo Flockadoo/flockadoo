@@ -11,7 +11,7 @@ var processAlive = procHasWorker
 
 // WorkerAlive reports whether this machine's cluster worker is up.
 // vLLM workers are --headless and never open HTTP, so the signal is the process.
-// shortcut: llama.cpp worker command is not defined yet; return false until inferoute-node emits rpc-server, then probe that port.
+// shortcut: llama.cpp worker command is not defined yet; return false until flockadoo-server emits rpc-server, then probe that port.
 func WorkerAlive(kind Kind, args []string) bool {
 	if kind == KindLlamaCpp {
 		return false

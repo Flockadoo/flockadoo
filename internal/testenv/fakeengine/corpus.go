@@ -13,7 +13,7 @@ import (
 	"strings"
 )
 
-// CorpusDir is the copy of inferoute-node's stream corpus: real engine
+// CorpusDir is the copy of flockadoo-server's stream corpus: real engine
 // output recorded with the node's scripts/record_sse.sh, copied here by
 // scripts/copy_corpus.sh with a SHA256SUMS file. Never edit it by hand.
 func CorpusDir() string {

@@ -53,7 +53,7 @@ func ParseKind(s string) (Kind, bool) {
 	}
 }
 
-// PlatformType is the Inferoute provider_type for this engine.
+// PlatformType is the Flockadoo provider_type for this engine.
 func PlatformType(k Kind) string {
 	if k == KindLlamaCpp {
 		return "llama_cpp"

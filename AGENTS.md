@@ -1,8 +1,8 @@
-# Working on inferoute-client
+# Working on flockadoo
 
-The provider's half of Inferoute: one Go binary that relays inference between the platform's gateway tunnel and a local engine (vLLM, vLLM Metal or llama.cpp), with reporters around it (health, capacity, capability probes, concurrency benchmark), a setup wizard, a self-updater and the multi-machine cluster code. The client never interprets a response body; it copies the engine's bytes. Everything it reports to the node is a claim, not proof.
+The provider's half of Flockadoo: one Go binary that relays inference between the platform's gateway tunnel and a local engine (vLLM, vLLM Metal or llama.cpp), with reporters around it (health, capacity, capability probes, concurrency benchmark), a setup wizard, a self-updater and the multi-machine cluster code. The client never interprets a response body; it copies the engine's bytes. Everything it reports to the node is a claim, not proof.
 
-What each feature is and where it lives: `FEATURES.yaml`. The audit and refactor plan: `inferoute-plans/client_reliability_audit_3d9b52e7.plan.md` (findings, invariants I1 to I14 in section 13, the target packages in section 14, the backlog in section 20).
+What each feature is and where it lives: `FEATURES.yaml`. The audit and refactor plan: `flockadoo-plans/client_reliability_audit_3d9b52e7.plan.md` (findings, invariants I1 to I14 in section 13, the target packages in section 14, the backlog in section 20).
 
 ## Commands
 
@@ -48,9 +48,9 @@ A new engine is one adapter in `engine`, one file in `enginectl` and one row in 
 ## Never
 
 - Run `setup`, `update` or the cluster code for real; use `sudo`; write outside `t.TempDir()`.
-- Contact `core.inferoute.com` or any real host from a test. Tests use `httptest` and, after item A2, `internal/testenv`.
+- Contact `core.flockadoo.ai` or any real host from a test. Tests use `httptest` and, after item A2, `internal/testenv`.
 - Change a golden or a recording to make a test pass.
-- Modify inferoute-node from this repository. A change the node depends on needs the node-side change agreed first.
+- Modify flockadoo-server from this repository. A change the node depends on needs the node-side change agreed first.
 
 ## Definition of done
 
@@ -72,4 +72,4 @@ Not done: a behaviour change with no test that failed before it and no reason gi
 
 ## Needs human review
 
-`CODEOWNERS` enforces these. A change that touches: anything that runs as root or with `sudo` (the cluster and tailnet code); anything that downloads or executes (engine installers, the updater, the tailnet binaries); how credentials are stored, sent or shown; a golden, or the request and response types of a call to the node; the concurrency limit and the benchmark's thresholds (they are policy); the CI and release workflows. The pinned Inferscale version and checksums (item S1) are stricter still: automation may open that pull request, and only a maintainer merges it.
+`CODEOWNERS` enforces these. A change that touches: anything that runs as root or with `sudo` (the cluster and tailnet code); anything that downloads or executes (engine installers, the updater, the tailnet binaries); how credentials are stored, sent or shown; a golden, or the request and response types of a call to the node; the concurrency limit and the benchmark's thresholds (they are policy); the CI and release workflows. The pinned Winglink version and checksums (item S1) are stricter still: automation may open that pull request, and only a maintainer merges it.

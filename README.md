@@ -1,8 +1,8 @@
-# Inferoute Provider Client
+# Flockadoo Provider Client
 
-The Inferoute Provider Client is a lightweight Go service that runs next to vLLM, vLLM Metal, or llama.cpp. It handles health monitoring, reporting, and inference request handling.
+The Flockadoo Provider Client is a lightweight Go service that runs next to vLLM, vLLM Metal, or llama.cpp. It handles health monitoring, reporting, and inference request handling.
 
-Team docs (how the client works, benchmarking, metrics) are in the **internal-docs** repo. Customer install guides stay in **inferoute-docs**.
+Team docs (how the client works, benchmarking, metrics) are in the **internal-docs** repo. Customer install guides stay in **flockadoo-docs**.
 
 
 ## Supported platforms
@@ -18,7 +18,7 @@ Team docs (how the client works, benchmarking, metrics) are in the **internal-do
 ## 💻 Hardware Requirements
 
 - **Linux:** At least **32 GB** of system memory and an NVIDIA GPU with **24 GB** of VRAM (for example RTX 3090 or RTX 4090)
-- **Windows:** **32 GB** of RAM and an NVIDIA GPU with **24 GB** of VRAM. See the [Windows install documentation](https://docs.inferoute.com/introduction/setup-windows).
+- **Windows:** **32 GB** of RAM and an NVIDIA GPU with **24 GB** of VRAM. See the [Windows install documentation](https://docs.flockadoo.ai/introduction/setup-windows).
 - **macOS:** Apple Silicon with at least **48 GB** of unified memory
 
 
@@ -33,29 +33,29 @@ Team docs (how the client works, benchmarking, metrics) are in the **internal-do
 ### Quick Start with Installation Script
 
 ### Prerequisites
-- Visit [www.inferoute.com](https://www.inferoute.com), sign up and create a cluster to obtain your API key. See [Signup Process](https://docs.inferoute.com/requirements/signup) for how to create and copy the key from cluster **Settings**.
+- Visit [www.flockadoo.ai](https://www.flockadoo.ai), sign up and create a cluster to obtain your API key. See [Signup Process](https://docs.flockadoo.ai/requirements/signup) for how to create and copy the key from cluster **Settings**.
 
 #### Linux / macOS one-liner
 
 Works on Linux (amd64/arm64) and macOS (Apple Silicon). Intel Macs are not supported. The wizard asks for your API key, then the engine and model. A cluster API key skips that and uses the model chosen for the cluster. A join code installs vLLM and confirms the cluster at the end:
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/inferoute/inferoute-client/main/scripts/install.sh | bash
+curl -fsSL https://raw.githubusercontent.com/flockadoo/flockadoo/main/scripts/install.sh | bash
 ```
 
-Re-run the wizard anytime: `inferoute-client setup`.
+Re-run the wizard anytime: `flockadoo setup`.
 
-Additional information: see the [macOS install documentation](https://docs.inferoute.com/introduction/setup-mac).
+Additional information: see the [macOS install documentation](https://docs.flockadoo.ai/introduction/setup-mac).
 
 #### Windows (PowerShell)
 
 Requires 64-bit Windows and an NVIDIA GPU. The wizard offers llama.cpp.
 
 ```powershell
-irm https://raw.githubusercontent.com/inferoute/inferoute-client/main/scripts/windows-install.ps1 | iex
+irm https://raw.githubusercontent.com/flockadoo/flockadoo/main/scripts/windows-install.ps1 | iex
 ```
 
-Additional information: see the [Windows install documentation](https://docs.inferoute.com/introduction/setup-windows).
+Additional information: see the [Windows install documentation](https://docs.flockadoo.ai/introduction/setup-windows).
 
 
 ## 💫 Install without the wizard
@@ -63,46 +63,46 @@ Additional information: see the [Windows install documentation](https://docs.inf
 For scripts, CI and Docker, where nobody is there to answer prompts. You run the inference engine yourself and tell the installer which model it serves.
 
 ```bash
-export INFEROUTE_SKIP_SETUP=1
+export FLOCKADOO_SKIP_SETUP=1
 export PROVIDER_API_KEY="your-provider-api-key"
 export PROVIDER_TYPE="vllm"                       # vllm, vllm-metal or llama_cpp
 export PROVIDER_MODEL="Qwen/Qwen2.5-7B-Instruct"  # the model your engine serves
 export LLM_URL="http://127.0.0.1:8000"
 export SERVER_PORT="8080"
 
-curl -fsSL https://raw.githubusercontent.com/inferoute/inferoute-client/main/scripts/install.sh | bash
+curl -fsSL https://raw.githubusercontent.com/flockadoo/flockadoo/main/scripts/install.sh | bash
 ```
 
-`PROVIDER_MODEL` is required. It must be an [approved model](https://docs.inferoute.com/provider-client/approved-models) for your engine, and your engine must serve it under that exact name. The install stops with an error if it is not. To list the models this machine can serve, run `inferoute-client compatibility`.
+`PROVIDER_MODEL` is required. It must be an [approved model](https://docs.flockadoo.ai/provider-client/approved-models) for your engine, and your engine must serve it under that exact name. The install stops with an error if it is not. To list the models this machine can serve, run `flockadoo compatibility`.
 
 With a multi-node cluster key or a join code, leave `PROVIDER_MODEL` unset. The cluster's model is used.
 
 The client does not install or start the engine in this mode.
 
-[Override default parameters](https://docs.inferoute.com/provider-client/configuration#overriding-defaults)
+[Override default parameters](https://docs.flockadoo.ai/provider-client/configuration#overriding-defaults)
 
 
-## 🚀 Launch Inferoute-client 
+## 🚀 Launch Flockadoo-client 
 
-**INFEROUTE Start Command:**
-`inferoute-client`
+**FLOCKADOO Start Command:**
+`flockadoo`
 
-**INFEROUTE Start with specific config:**
-`inferoute-client --config ~/.config/inferoute/config.yaml`
+**FLOCKADOO Start with specific config:**
+`flockadoo --config ~/.config/flockadoo/config.yaml`
 
-**Windows:** `inferoute-client` runs in the notification area by default. The prompt waits until the local dashboard is up, then returns. Closing PowerShell does not stop it. Right-click the tray icon → **Open dashboard** for live status in the browser, or **Quit** to stop. Use `inferoute-client --console` for the terminal UI.
+**Windows:** `flockadoo` runs in the notification area by default. The prompt waits until the local dashboard is up, then returns. Closing PowerShell does not stop it. Right-click the tray icon → **Open dashboard** for live status in the browser, or **Quit** to stop. Use `flockadoo --console` for the terminal UI.
 
 ## Model compatibility check
 
 Works on **Linux + NVIDIA** (`nvidia-smi`), **Windows + NVIDIA** (`nvidia-smi`), and **macOS** (Apple Silicon unified memory via `sysctl` / `system_profiler`). Does **not** start the provider daemon and does not need an API key.
 
 ```bash
-inferoute-client setup
-inferoute-client compatibility
-inferoute-client compatibility --provider-type vllm
-inferoute-client compatibility --json
-inferoute-client compatibility --catalog-url https://core.inferoute.com
-inferoute-client compatibility --offline-catalog ./approved-models.json
+flockadoo setup
+flockadoo compatibility
+flockadoo compatibility --provider-type vllm
+flockadoo compatibility --json
+flockadoo compatibility --catalog-url https://core.flockadoo.ai
+flockadoo compatibility --offline-catalog ./approved-models.json
 ```
 
 Statuses: `runs_well`, `fits`, `tight`, `too_large`, `unknown`. Scoring uses catalog `min_size_bytes` plus a conservative runtime overhead (higher for vLLM). Apple Silicon uses a fraction of unified system RAM; Linux scores against the largest single GPU’s VRAM.
@@ -112,11 +112,11 @@ Catalog `engines` further filters the list. On Windows, `compatibility` lists `l
 
 ## 📦 Docker Installation
 
-The official Inferoute Docker image inferoute/inferoute-client is available on Docker Hub. 
+The official Flockadoo Docker image flockadoo/flockadoo is available on Docker Hub. 
 
 If the inference engine runs on the Docker host, bind it to `0.0.0.0` so the container can reach it. Set `LLM_URL` to `http://host.docker.internal:8000` (vLLM) or `:8081` (llama.cpp). `host.docker.internal` resolves to the Docker host.
 
-The client listens on `127.0.0.1` inside the container. The client dials out to Inferoute, so it needs **no** published port. To open the local dashboard from the host, set `server.host` to `0.0.0.0` in the container config and publish the port (for example `-p 127.0.0.1:8080:8080`).
+The client listens on `127.0.0.1` inside the container. The client dials out to Flockadoo, so it needs **no** published port. To open the local dashboard from the host, set `server.host` to `0.0.0.0` in the container config and publish the port (for example `-p 127.0.0.1:8080:8080`).
 
 The container always [installs without the wizard](#-install-without-the-wizard), so `PROVIDER_MODEL` is required.
 
@@ -126,21 +126,21 @@ On a stop the client finishes the requests it is serving, for up to 60 seconds. 
 
 ```bash
 docker run -d \
-  --name inferoute-client \
+  --name flockadoo \
   --stop-timeout 75 \
   -e PROVIDER_API_KEY="your-key" \
   -e PROVIDER_TYPE="vllm" \
   -e PROVIDER_MODEL="Qwen/Qwen2.5-7B-Instruct" \
   -e LLM_URL="http://host.docker.internal:8000" \
-  inferoute/inferoute-client:latest
+  flockadoo/flockadoo:latest
 ```
 
 ### Docker Compose
 ```yaml
 version: '3.8'
 services:
-  inferoute-client:
-    image: inferoute/inferoute-client:latest
+  flockadoo:
+    image: flockadoo/flockadoo:latest
     environment:
       - PROVIDER_API_KEY=your-key
       - PROVIDER_TYPE=vllm
@@ -152,25 +152,25 @@ services:
 
 ### Build from Source
 ```bash
-docker build -t inferoute-client .
+docker build -t flockadoo .
 docker run -d \
-  --name inferoute-client \
+  --name flockadoo \
   --stop-timeout 75 \
   -e PROVIDER_API_KEY="your-key" \
   -e PROVIDER_MODEL="Qwen/Qwen2.5-7B-Instruct" \
   -e LLM_URL="http://host.docker.internal:8000" \
-  inferoute-client
+  flockadoo
 ```
 
 
 ## 💾 Post Installation
 
 When your client first starts it will publish your available models with default costs. 
-Please remember to visit inferoute.com and change the costs to your preference.
+Please remember to visit flockadoo.ai and change the costs to your preference.
 
 ## 🎓 REST API 
 
-Local-only (loopback). Not reachable through the connection to Inferoute.
+Local-only (loopback). Not reachable through the connection to Flockadoo.
 
 - **GET /**: Local status dashboard (same information as the terminal UI). Auto-refreshes in the browser.
 - **GET /api/status**: JSON snapshot of that dashboard (session, models, GPU, recent requests).
@@ -189,14 +189,14 @@ The configuration file (`config.yaml`) contains the following settings:
   - **llm_url**: URL of the local engine (default: `http://127.0.0.1:8000`; llama.cpp: `http://127.0.0.1:8081`)
 - **logging**: Logging configuration
   - **level**: Log level (debug, info, warn, error)
-  - **log_dir**: Directory where logs are stored (defaults to ~/.local/state/inferoute/log)
+  - **log_dir**: Directory where logs are stored (defaults to ~/.local/state/flockadoo/log)
   - **max_size**: Maximum size of log files in megabytes before rotation (default: 100)
   - **max_backups**: Maximum number of old log files to retain (default: 5)
   - **max_age**: Maximum number of days to retain old log files (default: 30)
 
-**Log file locations** (under `log_dir`, default `~/.local/state/inferoute/log`):
+**Log file locations** (under `log_dir`, default `~/.local/state/flockadoo/log`):
 
-- **inferoute.log** — main application log (all levels)
+- **flockadoo.log** — main application log (all levels)
 - **error.log** — error-level entries only
 
 

@@ -9,15 +9,15 @@ import (
 	"strings"
 	"time"
 
-	"github.com/sentnl/inferoute-node/inferoute-client/internal/config"
-	"github.com/sentnl/inferoute-node/inferoute-client/pkg/engine"
-	"github.com/sentnl/inferoute-node/inferoute-client/pkg/verify"
+	"github.com/Flockadoo/flockadoo/internal/config"
+	"github.com/Flockadoo/flockadoo/pkg/engine"
+	"github.com/Flockadoo/flockadoo/pkg/verify"
 )
 
 const compatibilityHelp = `Usage:
-  inferoute-client compatibility [flags]
+  flockadoo compatibility [flags]
 
-Detect local hardware and list which approved Inferoute models can run on this machine.
+Detect local hardware and list which approved Flockadoo models can run on this machine.
 Does not start the provider daemon. Does not require an API key.
 
 On Windows the catalog is llama.cpp (GGUF). On macOS the default is vLLM Metal.
@@ -25,7 +25,7 @@ On Windows the catalog is llama.cpp (GGUF). On macOS the default is vLLM Metal.
 Flags:
   --provider-type string   Filter catalog: vllm, llama_cpp, or empty for this OS
   --engine string          Filter by engine: vllm, vllm-metal, llama_cpp (default: from OS)
-  --catalog-url string     Inferoute API base URL (default: https://core.inferoute.com, or INFEROUTE_URL)
+  --catalog-url string     Flockadoo API base URL (default: https://core.flockadoo.ai, or FLOCKADOO_URL)
   --offline-catalog path   Load catalog JSON from a local file instead of the network
   --json                   Emit machine-readable JSON
   --show-too-large         Include too_large models in table/JSON model list (default: true)
@@ -52,7 +52,7 @@ func Run(ctx context.Context, args []string, stdout, stderr io.Writer) error {
 	}
 	fs.StringVar(&opts.ProviderType, "provider-type", "", "Filter by provider type: vllm, llama_cpp, or empty for this OS")
 	fs.StringVar(&opts.Engine, "engine", "", "Filter by engine: vllm, vllm-metal, llama_cpp")
-	fs.StringVar(&opts.CatalogURL, "catalog-url", "", "Inferoute catalog base URL")
+	fs.StringVar(&opts.CatalogURL, "catalog-url", "", "Flockadoo catalog base URL")
 	fs.StringVar(&opts.OfflineCatalog, "offline-catalog", "", "Path to offline approved-builds JSON")
 	fs.BoolVar(&opts.JSON, "json", false, "Emit JSON output")
 	showTooLarge := fs.Bool("show-too-large", true, "Include too_large models in the model list")

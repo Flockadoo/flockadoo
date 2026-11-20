@@ -8,8 +8,8 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/sentnl/inferoute-node/inferoute-client/internal/config"
-	"github.com/sentnl/inferoute-node/inferoute-client/pkg/engine"
+	"github.com/Flockadoo/flockadoo/internal/config"
+	"github.com/Flockadoo/flockadoo/pkg/engine"
 )
 
 func TestCredentialKeepsJoinCode(t *testing.T) {
@@ -99,7 +99,7 @@ func TestPrepareClusterSingleReplacesClusterCommand(t *testing.T) {
 	cfg.Provider.ClusterMode = "master"
 	cfg.Provider.NodeToken = "node-old"
 	cfg.Provider.EngineArgs = []string{"serve", "mistralai/Mistral-7B-Instruct-v0.3", "--nnodes", "2"}
-	cfg.Provider.EngineEnv = []string{"NCCL_SOCKET_IFNAME=inferscale0"}
+	cfg.Provider.EngineEnv = []string{"NCCL_SOCKET_IFNAME=winglink0"}
 	spec := engine.ServeSpec(engine.KindVLLM, "vllm", "Qwen/Qwen2.5-7B-Instruct", "", engine.ServeOpts{})
 	if err := prepareClusterReal(cfg, &spec); err != nil {
 		t.Fatal(err)

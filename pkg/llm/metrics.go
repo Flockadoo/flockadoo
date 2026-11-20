@@ -19,7 +19,7 @@ type EngineCapacity struct {
 	Preemptions  *int64
 }
 
-// EngineCapacity GETs /metrics and parses the gauges Inferoute routes on.
+// EngineCapacity GETs /metrics and parses the gauges Flockadoo routes on.
 func (c *VLLMClient) EngineCapacity(ctx context.Context) (EngineCapacity, error) {
 	url := fmt.Sprintf("%s/metrics", strings.TrimRight(c.baseURL, "/"))
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)

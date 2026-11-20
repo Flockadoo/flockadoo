@@ -9,7 +9,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/sentnl/inferoute-node/inferoute-client/pkg/llm"
+	"github.com/Flockadoo/flockadoo/pkg/llm"
 )
 
 // Characterization tests (plan item G1): the capacity report as the client

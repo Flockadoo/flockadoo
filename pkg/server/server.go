@@ -10,20 +10,20 @@ import (
 
 	"errors"
 
+	"github.com/Flockadoo/flockadoo/internal/admission"
+	"github.com/Flockadoo/flockadoo/internal/config"
+	"github.com/Flockadoo/flockadoo/internal/relay"
+	"github.com/Flockadoo/flockadoo/pkg/capacity"
+	"github.com/Flockadoo/flockadoo/pkg/connect"
+	"github.com/Flockadoo/flockadoo/pkg/engine"
+	"github.com/Flockadoo/flockadoo/pkg/gpu"
+	"github.com/Flockadoo/flockadoo/pkg/health"
+	"github.com/Flockadoo/flockadoo/pkg/llm"
+	"github.com/Flockadoo/flockadoo/pkg/logger"
+	"github.com/Flockadoo/flockadoo/pkg/usermsg"
+	"github.com/Flockadoo/flockadoo/pkg/verify"
+	"github.com/Flockadoo/flockadoo/pkg/winglink"
 	"github.com/gorilla/mux"
-	"github.com/sentnl/inferoute-node/inferoute-client/internal/admission"
-	"github.com/sentnl/inferoute-node/inferoute-client/internal/config"
-	"github.com/sentnl/inferoute-node/inferoute-client/internal/relay"
-	"github.com/sentnl/inferoute-node/inferoute-client/pkg/capacity"
-	"github.com/sentnl/inferoute-node/inferoute-client/pkg/connect"
-	"github.com/sentnl/inferoute-node/inferoute-client/pkg/engine"
-	"github.com/sentnl/inferoute-node/inferoute-client/pkg/gpu"
-	"github.com/sentnl/inferoute-node/inferoute-client/pkg/health"
-	"github.com/sentnl/inferoute-node/inferoute-client/pkg/inferscale"
-	"github.com/sentnl/inferoute-node/inferoute-client/pkg/llm"
-	"github.com/sentnl/inferoute-node/inferoute-client/pkg/logger"
-	"github.com/sentnl/inferoute-node/inferoute-client/pkg/usermsg"
-	"github.com/sentnl/inferoute-node/inferoute-client/pkg/verify"
 	"go.uber.org/zap"
 )
 
@@ -426,7 +426,7 @@ func (s *Server) redrawConsole() {
 	var buf bytes.Buffer
 	buf.WriteString("\033[H\033[2J")
 	buf.WriteString("\033[1;36m╔════════════════════════════════════════════════════════════════╗\n")
-	buf.WriteString("║                     INFEROUTE PROVIDER CLIENT                    ║\n")
+	buf.WriteString("║                     FLOCKADOO PROVIDER CLIENT                    ║\n")
 	buf.WriteString("╚════════════════════════════════════════════════════════════════╝\033[0m\n")
 
 	fmt.Fprintf(&buf, "\033[1;35mLast Health Update            \033[0m%s\n", snap.LastHealthUpdate)
@@ -446,9 +446,9 @@ func (s *Server) redrawConsole() {
 	}
 	switch snap.UpdateStatus {
 	case "required":
-		fmt.Fprintf(&buf, "\033[1;31mUpdate required: %s -> %s. Run 'inferoute-client update' then restart.\033[0m\n", snap.ClientVersion, snap.LatestVersion)
+		fmt.Fprintf(&buf, "\033[1;31mUpdate required: %s -> %s. Run 'flockadoo update' then restart.\033[0m\n", snap.ClientVersion, snap.LatestVersion)
 	case "available":
-		fmt.Fprintf(&buf, "\033[1;33mUpdate available: %s -> %s. Run 'inferoute-client update' then restart.\033[0m\n", snap.ClientVersion, snap.LatestVersion)
+		fmt.Fprintf(&buf, "\033[1;33mUpdate available: %s -> %s. Run 'flockadoo update' then restart.\033[0m\n", snap.ClientVersion, snap.LatestVersion)
 	}
 	fmt.Fprintf(&buf, "\033[1;35mProvider Type                 \033[0m%s\n", snap.ProviderType)
 	fmt.Fprintf(&buf, "\033[1;35mProvider API Key              \033[0m%s\n", snap.ProviderAPIKey)
@@ -521,7 +521,7 @@ func (s *Server) engineStatus(ctx context.Context) string {
 	case "master":
 		ctx, cancel := context.WithTimeout(ctx, 2*time.Second)
 		defer cancel()
-		_, peers := inferscale.Tailnet(ctx)
+		_, peers := winglink.Tailnet(ctx)
 		return engine.MasterState(ctx, kind, s.config.Provider.LLMURL, s.config.Provider.EngineArgs, peers)
 	default:
 		return ""

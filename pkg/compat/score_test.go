@@ -6,7 +6,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/sentnl/inferoute-node/inferoute-client/pkg/verify"
+	"github.com/Flockadoo/flockadoo/pkg/verify"
 )
 
 func TestScoreModelVRAMBoundaries(t *testing.T) {
