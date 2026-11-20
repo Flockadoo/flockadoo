@@ -2,9 +2,6 @@
 # a tab, and a regular expression the line must match. An entry that allows
 # nothing fails the check, so this list only shrinks. Additions need review.
 
-# This list, which quotes the lines it allows.
-internal/tools/check/names_allow.txt	.
-
 # History: released changelog entries keep their wording.
 CHANGELOG.md	.
 
