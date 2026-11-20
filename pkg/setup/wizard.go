@@ -10,12 +10,12 @@ import (
 	"strings"
 	"time"
 
-	"github.com/sentnl/inferoute-node/inferoute-client/internal/config"
-	"github.com/sentnl/inferoute-node/inferoute-client/pkg/compat"
-	"github.com/sentnl/inferoute-node/inferoute-client/pkg/engine"
-	"github.com/sentnl/inferoute-node/inferoute-client/pkg/gpu"
-	"github.com/sentnl/inferoute-node/inferoute-client/pkg/inferscale"
-	"github.com/sentnl/inferoute-node/inferoute-client/pkg/verify"
+	"github.com/Flockadoo/flockadoo/internal/config"
+	"github.com/Flockadoo/flockadoo/pkg/compat"
+	"github.com/Flockadoo/flockadoo/pkg/engine"
+	"github.com/Flockadoo/flockadoo/pkg/gpu"
+	"github.com/Flockadoo/flockadoo/pkg/verify"
+	"github.com/Flockadoo/flockadoo/pkg/winglink"
 )
 
 // hostGOOS is runtime.GOOS; tests override it to cover Windows/macOS remap.
@@ -61,20 +61,20 @@ func Execute(opts Options, io Streams) error {
 		opts.NoStart = true
 	}
 
-	inferscale.WithWait = func(msg string, fn func() error) error {
+	winglink.WithWait = func(msg string, fn func() error) error {
 		return SpinWhile(io.Out, msg, fn)
 	}
-	_, _ = fmt.Fprintln(io.Out, "=== Inferoute Client Setup ===")
+	_, _ = fmt.Fprintln(io.Out, "=== Flockadoo Client Setup ===")
 	_, _ = fmt.Fprintf(io.Out, "Config: %s\n", path)
 	_, _ = fmt.Fprintf(io.Out, "API:    %s\n\n", platformURL)
 
 	if err := applyAPIKey(cfg, opts, io); err != nil {
 		return err
 	}
-	var plan clusterSettings
+	var plan flockSettings
 	var planErr error
-	if err := SpinWhile(io.Out, "Reading cluster settings", func() error {
-		plan, planErr = clusterPlan(cfg)
+	if err := SpinWhile(io.Out, "Reading flock settings", func() error {
+		plan, planErr = flockPlan(cfg)
 		return nil
 	}); err != nil {
 		return err
@@ -89,7 +89,7 @@ func Execute(opts Options, io Streams) error {
 		if err != nil {
 			return err
 		}
-		printCluster(io.Out, plan)
+		printFlock(io.Out, plan)
 		if plan.Role == "worker" {
 			if msg := mixedGPUWarning(localGPUProduct(), plan.MasterGPU); msg != "" {
 				_, _ = fmt.Fprintln(io.Err, msg)
@@ -109,18 +109,18 @@ func Execute(opts Options, io Streams) error {
 		pinned = strings.TrimSpace(plan.VLLMVersion)
 	}
 	// First-time workers must wait for the master's pin. An existing vLLM
-	// install is not a pin — joining with it starts a mixed-version cluster.
+	// install is not a pin — joining with it starts a mixed-version flock.
 	// Enrolled re-runs keep going when the engine route omits the version
 	// (transient fetch miss); those machines already joined.
 	if plan.Role == "worker" && kind == engine.KindVLLM && pinned == "" && !cfg.EnrolledWorker() {
-		return fmt.Errorf("this cluster has no vLLM version yet. Run setup on the master first")
+		return fmt.Errorf("this flock has no vLLM version yet. Run setup on the master first")
 	}
 	// Every machine installs the pin, and the client refuses a release below
-	// the minimum, so such a pin would stop the whole cluster.
+	// the minimum, so such a pin would stop the whole flock.
 	if pinned != "" && engine.TooOld(kind, pinned) {
-		return fmt.Errorf("this cluster pins vLLM %s, and Inferoute needs vLLM %s or newer. Ask the cluster owner to change the vLLM version on the Nodes page", pinned, engine.MinVLLMVersion)
+		return fmt.Errorf("this flock pins vLLM %s, and Flockadoo needs vLLM %s or newer. Ask the flock's owner to change the vLLM version on the Nodes page", pinned, engine.MinVLLMVersion)
 	}
-	// unsupported is an installed vLLM older than Inferoute supports that is
+	// unsupported is an installed vLLM older than Flockadoo supports that is
 	// still in place: it is never started.
 	unsupported := false
 	if detected.Found && (kind == engine.KindVLLM || kind == engine.KindVLLMMetal) && (!external || plan.Role == "worker") {
@@ -128,14 +128,14 @@ func Execute(opts Options, io Streams) error {
 		var notice, question, kept, want string
 		switch {
 		case pinned != "" && have != "" && have != pinned:
-			question = fmt.Sprintf("vLLM %s is installed. This cluster uses vLLM %s. Reinstall it now?", have, pinned)
-			kept = fmt.Sprintf("Leaving vLLM %s installed. This cluster uses vLLM %s, so it may not start.", have, pinned)
+			question = fmt.Sprintf("vLLM %s is installed. This flock uses vLLM %s. Reinstall it now?", have, pinned)
+			kept = fmt.Sprintf("Leaving vLLM %s installed. This flock uses vLLM %s, so it may not start.", have, pinned)
 			want = pinned
 		case engine.TooOld(kind, have):
 			unsupported = true
-			notice = fmt.Sprintf("%s %s is installed. Inferoute needs vLLM %s or newer.", engine.Label(kind), have, engine.MinVLLMVersion)
+			notice = fmt.Sprintf("%s %s is installed. Flockadoo needs vLLM %s or newer.", engine.Label(kind), have, engine.MinVLLMVersion)
 			question = "Reinstall it now?"
-			kept = fmt.Sprintf("Leaving %s %s installed. The client will not serve through it. Run inferoute-client setup again to install a supported release.", engine.Label(kind), have)
+			kept = fmt.Sprintf("Leaving %s %s installed. The client will not serve through it. Run flockadoo setup again to install a supported release.", engine.Label(kind), have)
 		}
 		if question != "" {
 			if notice != "" {
@@ -201,7 +201,7 @@ func Execute(opts Options, io Streams) error {
 			}
 		} else {
 			autoStart = false
-			_, _ = fmt.Fprintf(io.Out, "Skipping install. You can install %s later and re-run inferoute-client setup.\n", kind)
+			_, _ = fmt.Fprintf(io.Out, "Skipping install. You can install %s later and re-run flockadoo setup.\n", kind)
 		}
 	}
 	if detected.Found {
@@ -216,7 +216,7 @@ func Execute(opts Options, io Streams) error {
 
 	var entry verify.CatalogEntry
 	if plan.Role == "master" || plan.Role == "worker" {
-		entry = clusterEntry(opts, kind, platformURL, plan, io)
+		entry = flockEntry(opts, kind, platformURL, plan, io)
 		cfg.Provider.Model = entry.Alias
 	} else {
 		entry, err = applyModel(cfg, opts, kind, platformURL, io)
@@ -236,12 +236,12 @@ func Execute(opts Options, io Streams) error {
 	serveOpts := engine.ServeOptsFromCatalog(entry)
 	if kind != engine.KindLlamaCpp {
 		if err := serveOpts.Validate(); err != nil {
-			return fmt.Errorf("the catalog's settings for %s cannot start vLLM: %w. Pick another model, or ask Inferoute to fix this one", entry.Alias, err)
+			return fmt.Errorf("the catalog's settings for %s cannot start vLLM: %w. Pick another model, or ask Flockadoo to fix this one", entry.Alias, err)
 		}
 	}
 	applyServeOpts(cfg, entry, hfRepo)
 	spec := engine.ServeSpec(kind, bin, entry.Alias, hfRepo, serveOpts)
-	if err := prepareCluster(cfg, &spec); err != nil {
+	if err := prepareFlock(cfg, &spec); err != nil {
 		if saveErr := config.Save(path, cfg); saveErr != nil {
 			return saveErr
 		}
@@ -254,14 +254,14 @@ func Execute(opts Options, io Streams) error {
 	}
 
 	if plan.Role == "master" || plan.Role == "worker" {
-		printClusterStart(io.Out, plan.Role, spec)
+		printFlockStart(io.Out, plan.Role, spec)
 	} else if err := maybeStart(kind, spec, cfg, opts, detected.Found && !unsupported, io); err != nil {
 		if saveErr := config.Save(path, cfg); saveErr != nil {
 			return saveErr
 		}
 		_, _ = fmt.Fprintf(io.Out, "\nWrote %s\n", path)
 		_, _ = fmt.Fprintf(io.Err, "Setup did not finish: %s is not serving yet (see %s).\n", engine.Label(kind), engine.LogPath(cfg.Logging.LogDir))
-		_, _ = fmt.Fprintf(io.Err, "Leave the engine running, then re-run: inferoute-client setup\n")
+		_, _ = fmt.Fprintf(io.Err, "Leave the engine running, then re-run: flockadoo setup\n")
 		return err
 	}
 
@@ -269,11 +269,11 @@ func Execute(opts Options, io Streams) error {
 		return err
 	}
 	_, _ = fmt.Fprintf(io.Out, "\nWrote %s\n", path)
-	_, _ = fmt.Fprintln(io.Out, "\nStart the Inferoute client:")
-	_, _ = fmt.Fprintln(io.Out, "  inferoute-client")
-	_, _ = fmt.Fprintf(io.Out, "  inferoute-client --config %s\n", path)
+	_, _ = fmt.Fprintln(io.Out, "\nStart the Flockadoo client:")
+	_, _ = fmt.Fprintln(io.Out, "  flockadoo")
+	_, _ = fmt.Fprintf(io.Out, "  flockadoo --config %s\n", path)
 	_, _ = fmt.Fprintln(io.Out, "\nRe-run this wizard anytime:")
-	_, _ = fmt.Fprintln(io.Out, "  inferoute-client setup")
+	_, _ = fmt.Fprintln(io.Out, "  flockadoo setup")
 	return nil
 }
 
@@ -289,9 +289,9 @@ func applyAPIKey(cfg *config.Config, opts Options, io Streams) error {
 	explicit := credential(opts.APIKey)
 	if cfg.EnrolledWorker() && explicit != "" && explicit != saved {
 		cfg.Provider.NodeToken = ""
-		cfg.Provider.ClusterMode = ""
+		cfg.Provider.FlockRole = ""
 	} else if cfg.EnrolledWorker() {
-		_, _ = fmt.Fprintln(io.Out, "This machine is already in the cluster.")
+		_, _ = fmt.Fprintln(io.Out, "This machine is already in the flock.")
 		return nil
 	}
 	key := explicit
@@ -375,12 +375,12 @@ func resolveEngine(goos, name string) (engine.Kind, error) {
 	return engine.RuntimeKind(goos, k), nil
 }
 
-func printCluster(out io.Writer, plan clusterSettings) {
-	name := firstNonEmpty(plan.Name, "this cluster")
+func printFlock(out io.Writer, plan flockSettings) {
+	name := firstNonEmpty(plan.Name, "this flock")
 	if plan.Role == "worker" {
-		_, _ = fmt.Fprintf(out, "\nJoining cluster %s\n", name)
+		_, _ = fmt.Fprintf(out, "\nJoining Team Flock %s\n", name)
 	} else {
-		_, _ = fmt.Fprintf(out, "\nCluster %s\n", name)
+		_, _ = fmt.Fprintf(out, "\nTeam Flock %s\n", name)
 	}
 	_, _ = fmt.Fprintf(out, "Model: %s\n", modelLabel(plan))
 	if plan.VLLMVersion != "" {
@@ -394,7 +394,7 @@ func mixedGPUWarning(local, master string) string {
 	if local == "" || master == "" || local == master {
 		return ""
 	}
-	return fmt.Sprintf("This machine has %s. The master has %s. Mixed GPUs are untested on Inferoute and the cluster may not start.", local, master)
+	return fmt.Sprintf("This machine has %s. The master has %s. Mixed GPUs are untested on Flockadoo and the flock may not start.", local, master)
 }
 
 var localGPUProduct = readGPUProduct
@@ -423,7 +423,7 @@ func localGPU(ctx context.Context) *gpu.GPUInfo {
 	return info
 }
 
-func modelLabel(plan clusterSettings) string {
+func modelLabel(plan flockSettings) string {
 	name := strings.TrimSpace(plan.DisplayName)
 	alias := strings.TrimSpace(plan.Model)
 	if name == "" || strings.EqualFold(name, alias) {
@@ -432,7 +432,7 @@ func modelLabel(plan clusterSettings) string {
 	return name + " (" + alias + ")"
 }
 
-func clusterEntry(opts Options, kind engine.Kind, platformURL string, plan clusterSettings, io Streams) verify.CatalogEntry {
+func flockEntry(opts Options, kind engine.Kind, platformURL string, plan flockSettings, io Streams) verify.CatalogEntry {
 	fallback := verify.CatalogEntry{Alias: plan.Model, ServiceType: "vllm"}
 	ctx, cancel := context.WithTimeout(context.Background(), 45*time.Second) //nolint:forbidigo // the wizard has no caller context yet (CLU-4, item K1)
 	defer cancel()
@@ -441,7 +441,7 @@ func clusterEntry(opts Options, kind engine.Kind, platformURL string, plan clust
 	if opts.OfflineCatalog != "" {
 		entries, err = compat.LoadOfflineCatalog(opts.OfflineCatalog, engine.CatalogType(kind))
 	} else {
-		err = SpinWhile(io.Out, "Loading the cluster model", func() error {
+		err = SpinWhile(io.Out, "Loading the flock's model", func() error {
 			var fetchErr error
 			entries, fetchErr = compat.FetchCatalog(ctx, platformURL, engine.CatalogType(kind))
 			return fetchErr
@@ -480,7 +480,7 @@ func applyModel(cfg *config.Config, opts Options, kind engine.Kind, platformURL 
 		}
 	}
 	if err != nil {
-		return verify.CatalogEntry{}, fmt.Errorf("catalog from %s: %w\nSet %s or --catalog-url to a reachable Inferoute API, or pass --offline-catalog", platformURL, err, config.EnvPlatformURL)
+		return verify.CatalogEntry{}, fmt.Errorf("catalog from %s: %w\nSet %s or --catalog-url to a reachable Flockadoo API, or pass --offline-catalog", platformURL, err, config.EnvPlatformURL)
 	}
 
 	before := len(entries)
@@ -576,19 +576,19 @@ func formatSpec(spec engine.Spec) string {
 }
 
 const (
-	docsClusterMaster = "https://docs.inferoute.com/provider/multi-node-clusters#start-the-master-first"
-	docsClusterWorker = "https://docs.inferoute.com/provider/joining-a-cluster#start-when-the-owner-says"
+	docsFlockMaster = "https://docs.flockadoo.ai/provider/team-flocks#start-the-master-first"
+	docsFlockWorker = "https://docs.flockadoo.ai/provider/joining-a-flock#start-when-the-owner-says"
 )
 
-func printClusterStart(out io.Writer, role string, spec engine.Spec) {
+func printFlockStart(out io.Writer, role string, spec engine.Spec) {
 	_, _ = fmt.Fprintf(out, "\n%s\n", formatSpec(spec))
 	if role == "worker" {
-		_, _ = fmt.Fprintln(out, "Run this after the master is up. Then start inferoute-client.")
-		_, _ = fmt.Fprintln(out, docsClusterWorker)
+		_, _ = fmt.Fprintln(out, "Run this after the master is up. Then start flockadoo.")
+		_, _ = fmt.Fprintln(out, docsFlockWorker)
 		return
 	}
-	_, _ = fmt.Fprintln(out, "Start vLLM first using the command above. Workers join once the master is running and waiting. Then start inferoute-client.")
-	_, _ = fmt.Fprintln(out, docsClusterMaster)
+	_, _ = fmt.Fprintln(out, "Start vLLM first using the command above. Workers join once the master is running and waiting. Then start flockadoo.")
+	_, _ = fmt.Fprintln(out, docsFlockMaster)
 }
 
 func maybeStart(kind engine.Kind, spec engine.Spec, cfg *config.Config, opts Options, haveBin bool, io Streams) error {

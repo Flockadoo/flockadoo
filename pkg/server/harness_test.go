@@ -10,12 +10,12 @@ import (
 	"testing"
 	"time"
 
-	"github.com/sentnl/inferoute-node/inferoute-client/internal/config"
-	"github.com/sentnl/inferoute-node/inferoute-client/internal/testenv/fakeengine"
-	"github.com/sentnl/inferoute-node/inferoute-client/internal/testenv/fakegateway"
-	"github.com/sentnl/inferoute-node/inferoute-client/internal/testenv/fakeplatform"
-	"github.com/sentnl/inferoute-node/inferoute-client/pkg/connect"
-	"github.com/sentnl/inferoute-node/inferoute-client/pkg/llm"
+	"github.com/Flockadoo/flockadoo/internal/config"
+	"github.com/Flockadoo/flockadoo/internal/testenv/fakeengine"
+	"github.com/Flockadoo/flockadoo/internal/testenv/fakegateway"
+	"github.com/Flockadoo/flockadoo/internal/testenv/fakeplatform"
+	"github.com/Flockadoo/flockadoo/pkg/connect"
+	"github.com/Flockadoo/flockadoo/pkg/llm"
 )
 
 // Plan item A2's acceptance: a recorded stream goes from the fake gateway
@@ -52,7 +52,7 @@ func TestARecordedStreamCrossesTheRealTunnelByteForByte(t *testing.T) {
 	req, _ := http.NewRequest(http.MethodPost, "/v1/chat/completions", bytes.NewReader(reqBody))
 	req.Header.Set("Content-Type", "application/json")
 	req.Header.Set("X-Request-ID", "hmac-1")
-	req.Header.Set("X-Inferoute-Timeout-Ms", "600000")
+	req.Header.Set("X-Flockadoo-Timeout-Ms", "600000")
 	resp, err := gw.Do(req)
 	if err != nil {
 		t.Fatal(err)

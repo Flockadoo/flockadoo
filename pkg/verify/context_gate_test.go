@@ -7,7 +7,7 @@ import (
 	"net/http/httptest"
 	"testing"
 
-	"github.com/sentnl/inferoute-node/inferoute-client/pkg/llm"
+	"github.com/Flockadoo/flockadoo/pkg/llm"
 )
 
 func TestApplyContextGate(t *testing.T) {

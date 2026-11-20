@@ -1,14 +1,14 @@
-name: Inferscale pin
+name: Winglink pin
 
-# A pull request that changes the pinned Inferscale release (opened by the
-# Inferscale release workflow) is checked against what was published: every
+# A pull request that changes the pinned Winglink release (opened by the
+# Winglink release workflow) is checked against what was published: every
 # pinned file is downloaded from the pinned release and its SHA-256 compared
 # with the pin. Passing shows the pull request matches the release. It is not
 # an approval: a maintainer still reviews and merges it (plan item S1).
 
 on:
   pull_request:
-    paths: [pkg/inferscale/release.json]
+    paths: [pkg/winglink/release.json]
 
 permissions:
   contents: read
@@ -21,18 +21,18 @@ jobs:
       - name: Every pinned file matches its release
         run: |
           set -eu
-          f=pkg/inferscale/release.json
+          f=pkg/winglink/release.json
           v=$(jq -r .version "$f")
           [ -n "$v" ] || { echo "release.json pins no version"; exit 1; }
-          for name in inferscale-linux-amd64 inferscaled-linux-amd64 inferscale-linux-arm64 inferscaled-linux-arm64 \
-                      inferscale-darwin-amd64 inferscaled-darwin-amd64 inferscale-darwin-arm64 inferscaled-darwin-arm64 \
-                      inferscale-windows-amd64.zip; do
+          for name in winglink-linux-amd64 winglinkd-linux-amd64 winglink-linux-arm64 winglinkd-linux-arm64 \
+                      winglink-darwin-amd64 winglinkd-darwin-amd64 winglink-darwin-arm64 winglinkd-darwin-arm64 \
+                      winglink-windows-amd64.zip; do
             jq -e --arg n "$name" '.sha256[$n] | test("^[0-9a-f]{64}$")' "$f" >/dev/null \
               || { echo "release.json has no SHA-256 for $name"; exit 1; }
           done
           jq -r '.sha256 | to_entries[] | "\(.value)  \(.key)"' "$f" > SUMS
           mkdir assets
           while read -r sum name; do
-            curl -fsSL -o "assets/$name" "https://github.com/Inferoute/inferoute-tailscale/releases/download/$v/$name"
+            curl -fsSL -o "assets/$name" "https://github.com/Flockadoo/winglink/releases/download/$v/$name"
           done < SUMS
           cd assets && sha256sum -c ../SUMS

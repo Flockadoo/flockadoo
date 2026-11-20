@@ -69,13 +69,13 @@ func llamaInstallDir() (string, error) {
 		if base == "" {
 			return "", fmt.Errorf("LOCALAPPDATA is unset")
 		}
-		return filepath.Join(base, "inferoute", "llama.cpp"), nil
+		return filepath.Join(base, "flockadoo", "llama.cpp"), nil
 	}
 	home, err := os.UserHomeDir()
 	if err != nil {
 		return "", err
 	}
-	return filepath.Join(home, ".local", "share", "inferoute", "llama.cpp"), nil
+	return filepath.Join(home, ".local", "share", "flockadoo", "llama.cpp"), nil
 }
 
 func downloadAndExtract(ctx context.Context, w io.Writer, url, dest string) error {

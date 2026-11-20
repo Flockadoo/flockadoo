@@ -42,10 +42,10 @@ if (-not (Get-Command go -ErrorAction SilentlyContinue)) {
 $version = GitValue -GitArgs @("describe", "--tags", "--always", "--dirty") -Fallback "dev"
 $commit = GitValue -GitArgs @("rev-parse", "--short", "HEAD") -Fallback "none"
 $date = [DateTime]::UtcNow.ToString("yyyy-MM-ddTHH:mm:ssZ")
-$out = Join-Path $RepoRoot "inferoute-client.exe"
-$ldflags = "-X github.com/sentnl/inferoute-node/inferoute-client/pkg/version.Version=$version -X github.com/sentnl/inferoute-node/inferoute-client/pkg/version.Commit=$commit -X github.com/sentnl/inferoute-node/inferoute-client/pkg/version.Date=$date"
+$out = Join-Path $RepoRoot "flockadoo.exe"
+$ldflags = "-X github.com/Flockadoo/flockadoo/pkg/version.Version=$version -X github.com/Flockadoo/flockadoo/pkg/version.Commit=$commit -X github.com/Flockadoo/flockadoo/pkg/version.Date=$date"
 
-Write-Info "Building inferoute-client.exe"
+Write-Info "Building flockadoo.exe"
 Write-Host "Version: $version"
 Write-Host "Commit:  $commit"
 Write-Host "Date:    $date"
@@ -62,5 +62,5 @@ if (-not (Test-Path -LiteralPath $out)) {
 }
 
 Write-Ok "Build complete: $out"
-Write-Host "Run: .\inferoute-client.exe"
-Write-Host "Config: %USERPROFILE%\.config\inferoute\config.yaml"
+Write-Host "Run: .\flockadoo.exe"
+Write-Host "Config: %USERPROFILE%\.config\flockadoo\config.yaml"

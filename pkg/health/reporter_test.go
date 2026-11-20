@@ -9,10 +9,10 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/sentnl/inferoute-node/inferoute-client/internal/config"
-	"github.com/sentnl/inferoute-node/inferoute-client/pkg/llm"
-	"github.com/sentnl/inferoute-node/inferoute-client/pkg/logger"
-	"github.com/sentnl/inferoute-node/inferoute-client/pkg/verify"
+	"github.com/Flockadoo/flockadoo/internal/config"
+	"github.com/Flockadoo/flockadoo/pkg/llm"
+	"github.com/Flockadoo/flockadoo/pkg/logger"
+	"github.com/Flockadoo/flockadoo/pkg/verify"
 	"go.uber.org/zap"
 )
 
@@ -98,8 +98,8 @@ func newRefusalVerifier() *verify.Verifier {
 	return verify.NewVerifier(verify.NewCatalog("http://127.0.0.1:1", "vllm"), verify.NewServerClient("http://127.0.0.1:1", "k"), "vllm", "", "")
 }
 
-// A vLLM below the minimum serves no model through Inferoute: the health
-// report advertises none (the node deactivates what a push leaves out) and the
+// A vLLM below the minimum serves no model through Flockadoo: the health
+// report advertises none (the server deactivates what a push leaves out) and the
 // verifier refuses every request with the reason. The version is still sent.
 func TestAnOldEngineIsNotAdvertised(t *testing.T) {
 	models := &llm.ListModelsResponse{Models: []llm.Model{{ID: "Qwen/Qwen2.5-7B-Instruct"}}}
@@ -168,7 +168,7 @@ func TestWorkerHealthReportShowsMasterModels(t *testing.T) {
 
 	cfg := &config.Config{}
 	cfg.Provider.URL = srv.URL
-	cfg.Provider.ClusterMode = "worker"
+	cfg.Provider.FlockRole = "worker"
 	cfg.Provider.NodeToken = "node-token"
 	cfg.Provider.Engine = "vllm"
 

@@ -34,7 +34,7 @@ type notifyIconData struct {
 }
 
 func showStartupNotice() {
-	Notify("Inferoute Client", "Running in the notification area. Right-click the icon to open the dashboard or quit.")
+	Notify("Flockadoo Client", "Running in the notification area. Right-click the icon to open the dashboard or quit.")
 }
 
 // Notify shows one balloon on the tray icon. No-op until the tray window exists.

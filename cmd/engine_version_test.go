@@ -6,9 +6,9 @@ import (
 	"testing"
 	"time"
 
-	"github.com/sentnl/inferoute-node/inferoute-client/internal/config"
-	"github.com/sentnl/inferoute-node/inferoute-client/internal/testenv/fakeengine"
-	"github.com/sentnl/inferoute-node/inferoute-client/pkg/llm"
+	"github.com/Flockadoo/flockadoo/internal/config"
+	"github.com/Flockadoo/flockadoo/internal/testenv/fakeengine"
+	"github.com/Flockadoo/flockadoo/pkg/llm"
 )
 
 // At startup the client tells the operator when the engine already running is
@@ -32,7 +32,7 @@ func TestStartupWarnsAboutAnOldRunningEngine(t *testing.T) {
 		if tc.warn != (msg != "") {
 			t.Fatalf("vLLM %s: warning = %q, want warning %v", tc.version, msg, tc.warn)
 		}
-		if tc.warn && (!strings.Contains(msg, "0.30.0 or newer") || !strings.Contains(msg, "inferoute-client setup")) {
+		if tc.warn && (!strings.Contains(msg, "0.30.0 or newer") || !strings.Contains(msg, "flockadoo setup")) {
 			t.Fatalf("vLLM %s: warning %q does not name the minimum and the fix", tc.version, msg)
 		}
 	}

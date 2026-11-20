@@ -1,13 +1,13 @@
-package inferscale
+package winglink
 
 import (
 	"fmt"
 	"strconv"
 
-	"github.com/sentnl/inferoute-node/inferoute-client/pkg/engine"
+	"github.com/Flockadoo/flockadoo/pkg/engine"
 )
 
-// Remote is the tailnet bind and the distributed flags from the server.
+// Remote is the Winglink bind and the distributed flags from the server.
 type Remote struct {
 	Host        string   `json:"host"`
 	Port        int      `json:"port"`

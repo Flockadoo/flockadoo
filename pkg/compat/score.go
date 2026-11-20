@@ -4,8 +4,8 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/sentnl/inferoute-node/inferoute-client/pkg/engine"
-	"github.com/sentnl/inferoute-node/inferoute-client/pkg/verify"
+	"github.com/Flockadoo/flockadoo/pkg/engine"
+	"github.com/Flockadoo/flockadoo/pkg/verify"
 )
 
 // FitStatus is a conservative model-fit classification.

@@ -4,7 +4,7 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/sentnl/inferoute-node/inferoute-client/internal/config"
+	"github.com/Flockadoo/flockadoo/internal/config"
 )
 
 // Plan item Q2, finding QUAL-3: the defaults are written once. A config the

@@ -130,12 +130,12 @@ func TestSaveRoundTrip(t *testing.T) {
 	in.Server.Port = 8080
 	in.Server.Host = "127.0.0.1"
 	in.Provider.APIKey = "test-key"
-	in.Provider.URL = "https://core.inferoute.com"
+	in.Provider.URL = "https://core.flockadoo.ai"
 	in.Provider.Engine = "llama_cpp"
 	in.Provider.LLMURL = "http://127.0.0.1:8081"
 	in.Provider.Model = "Qwen/Qwen2.5-7B-Instruct"
 	in.Provider.AutoStart = true
-	in.Provider.EngineBin = `C:\Users\you\AppData\Local\inferoute\llama.cpp\llama-server.exe`
+	in.Provider.EngineBin = `C:\Users\you\AppData\Local\flockadoo\llama.cpp\llama-server.exe`
 	in.Provider.GGUFFile = "qwen2.5-7b-instruct-q4_k_m.gguf"
 	in.Provider.ToolCallParser = "hermes"
 	in.Provider.ReasoningParser = "qwen3"
@@ -235,7 +235,7 @@ func TestResolvePlatformURL(t *testing.T) {
 }
 
 // Plan item Q2, decision DC11: provider_type is no longer a setting in the
-// config file. engine is the one setting; the value sent to the node is
+// config file. engine is the one setting; the value sent to the server is
 // derived from it.
 func TestASavedConfigHasNoProviderTypeLine(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "config.yaml")

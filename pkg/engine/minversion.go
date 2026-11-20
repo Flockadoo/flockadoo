@@ -4,19 +4,19 @@ import (
 	"errors"
 	"fmt"
 
-	"github.com/sentnl/inferoute-node/inferoute-client/pkg/nodeapi"
+	"github.com/Flockadoo/flockadoo/pkg/nodeapi"
 )
 
-// MinVLLMVersion is the oldest vLLM release Inferoute supports, for vLLM and
+// MinVLLMVersion is the oldest vLLM release Flockadoo supports, for vLLM and
 // vLLM Metal (which reports the vLLM release it runs). The YaRN override is a
 // complete rope_parameters dict (command.go), which needs the transformers 5
 // handling every release from 0.30 has; an older vLLM reads rope_scaling,
 // ignores the override and serves past the model's context with no error.
-// inferoute-node refuses a cluster pin below the same release
-// (pkg/cluster.MinVLLMVersion).
+// flockadoo-server refuses a flock pin below the same release
+// (pkg/flock.MinVLLMVersion).
 const MinVLLMVersion = "0.30.0"
 
-// ErrEngineTooOld marks an engine release older than Inferoute supports.
+// ErrEngineTooOld marks an engine release older than Flockadoo supports.
 var ErrEngineTooOld = errors.New("unsupported engine release")
 
 // TooOld reports whether version is a vLLM or vLLM Metal release older than
@@ -35,6 +35,6 @@ func CheckVersion(kind Kind, version string) error {
 	if !TooOld(kind, version) {
 		return nil
 	}
-	return fmt.Errorf("%w: %s %s is older than Inferoute supports (vLLM %s or newer). Run inferoute-client setup to install a supported release",
+	return fmt.Errorf("%w: %s %s is older than Flockadoo supports (vLLM %s or newer). Run flockadoo setup to install a supported release",
 		ErrEngineTooOld, Label(kind), version, MinVLLMVersion)
 }

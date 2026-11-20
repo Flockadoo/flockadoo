@@ -7,17 +7,17 @@ server:
   # unlimited.
   # max_concurrent_inference: 4
   # How many returning turns of conversations may wait for a free slot.
-  # Beyond this a turn is refused at once and Inferoute sends it elsewhere.
+  # Beyond this a turn is refused at once and Flockadoo sends it elsewhere.
   # session_queue_limit: 32
 
 # Provider configuration
 provider:
-  # Your provider API key from the Inferoute platform
+  # Your provider API key from the Flockadoo platform
   api_key: "your_api_key_here"
-  # URL of the central Inferoute system.
-  url: "https://core.inferoute.com"
+  # URL of the central Flockadoo system.
+  url: "https://core.flockadoo.ai"
   # Local engine: vllm, vllm-metal, or llama_cpp (empty means vllm).
-  # Re-run `inferoute-client setup` to change this.
+  # Re-run `flockadoo setup` to change this.
   # engine: "vllm"
   # engine_bin: ""  # absolute path when the binary is not on PATH
   llm_url: "http://127.0.0.1:8000"
@@ -33,7 +33,7 @@ provider:
 logging:
   # Log level: debug, info, warn, error
   level: "info"
-  # Log directory (defaults to ~/.local/state/inferoute/log if empty)
+  # Log directory (defaults to ~/.local/state/flockadoo/log if empty)
   log_dir: ""
   # Maximum size of log files in megabytes before rotation
   max_size: 100

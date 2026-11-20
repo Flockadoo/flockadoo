@@ -7,8 +7,8 @@ import (
 	"os"
 	"time"
 
-	"github.com/sentnl/inferoute-node/inferoute-client/internal/config"
-	"github.com/sentnl/inferoute-node/inferoute-client/pkg/engine"
+	"github.com/Flockadoo/flockadoo/internal/config"
+	"github.com/Flockadoo/flockadoo/pkg/engine"
 )
 
 // EnsureOnStart checks the configured inference engine before the dashboard.
@@ -39,7 +39,7 @@ func ensureOnStart(ctx context.Context, cfg *config.Config, io Streams, interact
 		io.In = os.Stdin
 	}
 
-	if err := refreshCluster(ctx, cfg); err != nil {
+	if err := refreshFlock(ctx, cfg); err != nil {
 		return err
 	}
 
@@ -53,7 +53,7 @@ func ensureOnStart(ctx context.Context, cfg *config.Config, io Streams, interact
 		url = engine.DefaultURL(kind)
 	}
 
-	switch cfg.Provider.ClusterMode {
+	switch cfg.Provider.FlockRole {
 	case "worker":
 		return observeWorker(io, kind, cfg)
 	case "master":
@@ -93,11 +93,11 @@ func ensureOnStart(ctx context.Context, cfg *config.Config, io Streams, interact
 		detected := engine.Detect(kind)
 		if detected.Unusable != "" {
 			_, _ = fmt.Fprintf(io.Out, "%s at %s cannot run (%s).\n", label, detected.Bin, detected.Unusable)
-			_, _ = fmt.Fprintln(io.Out, "Fix it with: inferoute-client setup")
+			_, _ = fmt.Fprintln(io.Out, "Fix it with: flockadoo setup")
 			return nil
 		}
 		_, _ = fmt.Fprintf(io.Out, "%s is not installed and is not running at %s.\n", label, url)
-		_, _ = fmt.Fprintln(io.Out, "Install it with: inferoute-client setup")
+		_, _ = fmt.Fprintln(io.Out, "Install it with: flockadoo setup")
 		return nil
 	}
 
@@ -134,7 +134,7 @@ func observeWorker(io Streams, kind engine.Kind, cfg *config.Config) error {
 		_, _ = fmt.Fprintln(io.Out, "Worker is running. It joins the master and does not serve HTTP.")
 		return nil
 	}
-	printSavedCommand(io.Out, cfg, docsClusterWorker)
+	printSavedCommand(io.Out, cfg, docsFlockWorker)
 	_, _ = fmt.Fprintln(io.Out, "Start it in another terminal. This client keeps running.")
 	return nil
 }
@@ -144,7 +144,7 @@ func observeMaster(ctx context.Context, io Streams, kind engine.Kind, label, url
 	case "ready":
 		_, _ = fmt.Fprintf(io.Out, "%s is ready at %s.\n", label, url)
 	case "not started":
-		printSavedCommand(io.Out, cfg, docsClusterMaster)
+		printSavedCommand(io.Out, cfg, docsFlockMaster)
 		_, _ = fmt.Fprintln(io.Out, "Start it in another terminal. This client keeps running.")
 	default:
 		_, _ = fmt.Fprintln(io.Out, state)

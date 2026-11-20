@@ -3,8 +3,8 @@ package verify
 import (
 	"context"
 
-	"github.com/sentnl/inferoute-node/inferoute-client/pkg/llm"
-	"github.com/sentnl/inferoute-node/inferoute-client/pkg/logger"
+	"github.com/Flockadoo/flockadoo/pkg/llm"
+	"github.com/Flockadoo/flockadoo/pkg/logger"
 	"go.uber.org/zap"
 )
 

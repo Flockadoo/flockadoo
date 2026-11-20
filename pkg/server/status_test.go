@@ -4,7 +4,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
-	"github.com/sentnl/inferoute-node/inferoute-client/internal/relay"
+	"github.com/Flockadoo/flockadoo/internal/relay"
 	"net"
 	"net/http"
 	"net/http/httptest"
@@ -12,9 +12,9 @@ import (
 	"testing"
 	"time"
 
-	"github.com/sentnl/inferoute-node/inferoute-client/internal/config"
-	"github.com/sentnl/inferoute-node/inferoute-client/pkg/health"
-	"github.com/sentnl/inferoute-node/inferoute-client/pkg/llm"
+	"github.com/Flockadoo/flockadoo/internal/config"
+	"github.com/Flockadoo/flockadoo/pkg/health"
+	"github.com/Flockadoo/flockadoo/pkg/llm"
 )
 
 func TestHandleDashboard(t *testing.T) {
@@ -100,7 +100,7 @@ func TestCapabilitiesStayOnline(t *testing.T) {
 
 func TestWorkerStatusUsesMasterURL(t *testing.T) {
 	s := newTestServer("http://unused", &fakeLLM{})
-	s.config.Provider.ClusterMode = "worker"
+	s.config.Provider.FlockRole = "worker"
 	s.config.Provider.NodeToken = "node-token"
 	s.config.Provider.LLMURL = "http://198.18.0.2:8000"
 	s.config.Provider.EngineArgs = []string{"--headless", "--master-addr", "198.18.0.1", "--port", "8000"}
@@ -187,13 +187,13 @@ func consoleOutput(t *testing.T, s *Server) string {
 }
 
 // An engine too old to serve is refused (the report carries no models and the
-// node marks the cluster unhealthy). The console and the status API say so and
+// server marks the flock unhealthy). The console and the status API say so and
 // why, instead of showing the session online and the model approved.
 func TestTheStatusSaysWhyTheEngineIsNotServing(t *testing.T) {
 	s := engineServer(t, &versionedEngine{version: "0.28.0"})
 
 	reason, _ := statusJSON(t, s)["not_serving"].(string)
-	for _, want := range []string{"vLLM Metal 0.28.0", "0.30.0 or newer", "inferoute-client setup"} {
+	for _, want := range []string{"vLLM Metal 0.28.0", "0.30.0 or newer", "flockadoo setup"} {
 		if !strings.Contains(reason, want) {
 			t.Errorf("/api/status not_serving = %q, want it to contain %q", reason, want)
 		}

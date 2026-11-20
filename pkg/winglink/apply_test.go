@@ -1,10 +1,10 @@
-package inferscale
+package winglink
 
 import (
 	"strings"
 	"testing"
 
-	"github.com/sentnl/inferoute-node/inferoute-client/pkg/engine"
+	"github.com/Flockadoo/flockadoo/pkg/engine"
 )
 
 func TestStatusAnsweredWithoutIP(t *testing.T) {
@@ -37,7 +37,7 @@ func TestParseStatusOfflineKeepsAddress(t *testing.T) {
 func TestReuseOnlineNodeSkipsFreshKey(t *testing.T) {
 	online := nodeState{IP: "198.18.0.4", ID: "n1", Online: true}
 	if reuseOnlineNode(true, online) {
-		t.Fatal("a new auth key must not reuse the old tailnet (that deletes the unused one-shot key)")
+		t.Fatal("a new auth key must not reuse the old network (that deletes the unused one-shot key)")
 	}
 	if !reuseOnlineNode(false, online) {
 		t.Fatal("reconnect without a new key should reuse an online node")
@@ -62,7 +62,7 @@ func TestPendingAuthKeyTreatsLeftoverAsFresh(t *testing.T) {
 	}
 	online := nodeState{IP: "198.18.0.4", ID: "n1", Online: true}
 	if reuseOnlineNode(pendingAuthKey("", "tskey-leftover"), online) {
-		t.Fatal("leftover key must not reuse the old tailnet or clearAuthKey would spend it")
+		t.Fatal("leftover key must not reuse the old network or clearAuthKey would spend it")
 	}
 	if !reuseOnlineNode(pendingAuthKey("", ""), online) {
 		t.Fatal("reconnect with no leftover should reuse an online node")
@@ -74,7 +74,7 @@ func TestUpArgsReconnectsWithoutKey(t *testing.T) {
 		t.Fatal(upArgs("http://127.0.0.1:8444", ""))
 	}
 	const key = "tskey-auth-test"
-	path := "/home/ubuntu/.local/share/inferoute/inferscale/auth-key"
+	path := "/home/ubuntu/.local/share/flockadoo/winglink/auth-key"
 	got := strings.Join(upArgs("http://127.0.0.1:8444", path), " ")
 	want := "up --login-server http://127.0.0.1:8444 --auth-key file:" + path
 	if got != want || strings.Contains(got, key) {
@@ -83,12 +83,12 @@ func TestUpArgsReconnectsWithoutKey(t *testing.T) {
 }
 
 func TestRootArgv(t *testing.T) {
-	bin, argv := rootArgv(0, "/usr/bin/inferscale", "up", "--auth-key", "k")
-	if bin != "/usr/bin/inferscale" || len(argv) != 3 || argv[0] != "up" {
+	bin, argv := rootArgv(0, "/usr/bin/winglink", "up", "--auth-key", "k")
+	if bin != "/usr/bin/winglink" || len(argv) != 3 || argv[0] != "up" {
 		t.Fatalf("root argv = %s %v", bin, argv)
 	}
-	bin, argv = rootArgv(1000, "/home/ubuntu/.local/share/inferoute/inferscale/inferscaled")
-	if bin != "sudo" || strings.Join(argv, " ") != "-n -- /home/ubuntu/.local/share/inferoute/inferscale/inferscaled" {
+	bin, argv = rootArgv(1000, "/home/ubuntu/.local/share/flockadoo/winglink/winglinkd")
+	if bin != "sudo" || strings.Join(argv, " ") != "-n -- /home/ubuntu/.local/share/flockadoo/winglink/winglinkd" {
 		t.Fatalf("user argv = %s %v", bin, argv)
 	}
 }

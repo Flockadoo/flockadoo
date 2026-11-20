@@ -5,8 +5,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/sentnl/inferoute-node/inferoute-client/internal/config"
-	"github.com/sentnl/inferoute-node/inferoute-client/internal/testenv/fakegateway"
+	"github.com/Flockadoo/flockadoo/internal/config"
+	"github.com/Flockadoo/flockadoo/internal/testenv/fakegateway"
 )
 
 // Plan item C1, decision DC8: a key rejected at start leaves the client up,

@@ -13,7 +13,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/sentnl/inferoute-node/inferoute-client/internal/config"
+	"github.com/Flockadoo/flockadoo/internal/config"
 )
 
 func dummyEngineBin(t *testing.T) string {
@@ -155,18 +155,18 @@ func TestEnsureOnStartWaitsWhenPortOpen(t *testing.T) {
 	}
 }
 
-func stubClusterRefresh(t *testing.T) {
+func stubFlockRefresh(t *testing.T) {
 	t.Helper()
-	old := refreshCluster
-	refreshCluster = func(context.Context, *config.Config) error { return nil }
-	t.Cleanup(func() { refreshCluster = old })
+	old := refreshFlock
+	refreshFlock = func(context.Context, *config.Config) error { return nil }
+	t.Cleanup(func() { refreshFlock = old })
 }
 
 func TestEnsureOnStartWorkerPrintsCommand(t *testing.T) {
-	stubClusterRefresh(t)
+	stubFlockRefresh(t)
 	cfg := &config.Config{}
 	cfg.Provider.Engine = "vllm"
-	cfg.Provider.ClusterMode = "worker"
+	cfg.Provider.FlockRole = "worker"
 	cfg.Provider.LLMURL = "http://127.0.0.1:1"
 	cfg.Provider.EngineArgs = []string{"serve", "Qwen/Qwen3-0.6B", "--headless", "--master-addr", "198.18.0.2"}
 	cfg.Provider.Model = "Qwen/Qwen3-0.6B"
@@ -179,16 +179,16 @@ func TestEnsureOnStartWorkerPrintsCommand(t *testing.T) {
 	if strings.Contains(text, "Start it now") {
 		t.Fatalf("prompted to start:\n%s", text)
 	}
-	if !strings.Contains(text, "--headless") || !strings.Contains(text, docsClusterWorker) || !strings.Contains(text, "keeps running") {
+	if !strings.Contains(text, "--headless") || !strings.Contains(text, docsFlockWorker) || !strings.Contains(text, "keeps running") {
 		t.Fatalf("stdout = %q", text)
 	}
 }
 
 func TestEnsureOnStartMasterNotStarted(t *testing.T) {
-	stubClusterRefresh(t)
+	stubFlockRefresh(t)
 	cfg := &config.Config{}
 	cfg.Provider.Engine = "vllm"
-	cfg.Provider.ClusterMode = "master"
+	cfg.Provider.FlockRole = "master"
 	cfg.Provider.LLMURL = "http://127.0.0.1:1"
 	cfg.Provider.EngineArgs = []string{
 		"serve", "Qwen/Qwen3-0.6B", "--nnodes", "2", "--node-rank", "0",
@@ -201,13 +201,13 @@ func TestEnsureOnStartMasterNotStarted(t *testing.T) {
 		t.Fatal(err)
 	}
 	text := out.String()
-	if strings.Contains(text, "Start it now") || !strings.Contains(text, docsClusterMaster) || !strings.Contains(text, "keeps running") {
+	if strings.Contains(text, "Start it now") || !strings.Contains(text, docsFlockMaster) || !strings.Contains(text, "keeps running") {
 		t.Fatalf("stdout = %q", text)
 	}
 }
 
 func TestEnsureOnStartMasterReady(t *testing.T) {
-	stubClusterRefresh(t)
+	stubFlockRefresh(t)
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		_, _ = w.Write([]byte(`{"data":[{"id":"Qwen/Qwen3-0.6B"}]}`))
 	}))
@@ -215,7 +215,7 @@ func TestEnsureOnStartMasterReady(t *testing.T) {
 
 	cfg := &config.Config{}
 	cfg.Provider.Engine = "vllm"
-	cfg.Provider.ClusterMode = "master"
+	cfg.Provider.FlockRole = "master"
 	cfg.Provider.LLMURL = srv.URL
 
 	var out bytes.Buffer

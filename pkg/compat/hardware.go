@@ -8,7 +8,7 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/sentnl/inferoute-node/inferoute-client/pkg/exechide"
+	"github.com/Flockadoo/flockadoo/pkg/exechide"
 )
 
 // MemoryKind describes which memory pool the scorer should use.

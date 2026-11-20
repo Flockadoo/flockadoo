@@ -8,8 +8,8 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/sentnl/inferoute-node/inferoute-client/internal/config"
-	"github.com/sentnl/inferoute-node/inferoute-client/pkg/verify"
+	"github.com/Flockadoo/flockadoo/internal/config"
+	"github.com/Flockadoo/flockadoo/pkg/verify"
 )
 
 // Spec is the argv used to start an engine.
@@ -56,7 +56,7 @@ func (o ServeOpts) ropeComplete() bool {
 }
 
 // ServeOptsFromConfig is the serve flags setup saved, for every command built
-// from a saved config: auto-start, the cluster refresh and the printed command.
+// from a saved config: auto-start, the flock refresh and the printed command.
 func ServeOptsFromConfig(cfg *config.Config) ServeOpts {
 	return ServeOpts{
 		ToolCallParser:     cfg.Provider.ToolCallParser,
@@ -129,7 +129,7 @@ func quote(s string) string {
 }
 
 // ServeSpec builds the start command for kind.
-// modelAlias is the Inferoute catalog alias; hfRepo is the HuggingFace id.
+// modelAlias is the Flockadoo catalog alias; hfRepo is the HuggingFace id.
 func ServeSpec(kind Kind, bin, modelAlias, hfRepo string, opts ServeOpts) Spec {
 	if bin == "" {
 		bin = defaultBinName(kind)
@@ -274,7 +274,7 @@ func NNodes(args []string) int {
 }
 
 // NodeSlots counts this machine plus online peers, out of --nnodes.
-// self is true when this process has a tailnet address.
+// self is true when this process has a Winglink address.
 func NodeSlots(self bool, onlinePeers, nnodes int) (online, need int) {
 	if nnodes < 2 {
 		return 0, 0
@@ -327,7 +327,7 @@ func hasArg(args []string, name string) bool {
 	return false
 }
 
-// Headless is a cluster worker. It never opens an HTTP port.
+// Headless is a flock worker. It never opens an HTTP port.
 func Headless(args []string) bool {
 	return hasArg(args, "--headless")
 }

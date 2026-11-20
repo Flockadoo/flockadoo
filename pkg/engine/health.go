@@ -128,7 +128,7 @@ func WaitHealthy(ctx context.Context, kind Kind, llmURL string, interval time.Du
 }
 
 // MasterState is what a multi-node master is doing right now.
-// peers is the count of other tailnet nodes that are online.
+// peers is the count of other Winglink nodes that are online.
 func MasterState(ctx context.Context, kind Kind, llmURL string, args []string, peers int) string {
 	if Healthy(ctx, kind, llmURL) {
 		return "ready"

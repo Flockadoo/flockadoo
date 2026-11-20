@@ -9,8 +9,8 @@ import (
 	"sync"
 	"time"
 
-	"github.com/sentnl/inferoute-node/inferoute-client/pkg/llm"
-	"github.com/sentnl/inferoute-node/inferoute-client/pkg/logger"
+	"github.com/Flockadoo/flockadoo/pkg/llm"
+	"github.com/Flockadoo/flockadoo/pkg/logger"
 	"go.uber.org/zap"
 )
 
@@ -38,13 +38,13 @@ type Verifier struct {
 	grace     time.Duration
 	states    map[string]*modelState
 	// engineRefusal, when set, refuses every request: the running engine is a
-	// release Inferoute does not support (engine.MinVLLMVersion).
+	// release Flockadoo does not support (engine.MinVLLMVersion).
 	engineRefusal string
 }
 
 // SetEngineRefusal refuses every request with reason while it is set, whatever
-// the node said about the model. The health reporter sets it when the running
-// engine is older than Inferoute supports and clears it ("") once it is not.
+// the server said about the model. The health reporter sets it when the running
+// engine is older than Flockadoo supports and clears it ("") once it is not.
 func (v *Verifier) SetEngineRefusal(reason string) {
 	v.mu.Lock()
 	v.engineRefusal = reason
@@ -56,23 +56,23 @@ type Verdict int
 
 const (
 	Serve       Verdict = iota // verified: fresh, or inside the outage grace
-	Refuse                     // the node answered, and not with "verified": 403
-	Unavailable                // no usable answer and the node cannot be asked: 503
+	Refuse                     // the server answered, and not with "verified": 403
+	Unavailable                // no usable answer and the server cannot be asked: 503
 )
 
 // errCatalogChanged marks every model due for a refresh.
 var errCatalogChanged = errors.New("the approved catalog changed")
 
 // Default timings (decision DC2): an answer is refreshed after 10 minutes,
-// and a verified one may still be used for 30 minutes more while the node
+// and a verified one may still be used for 30 minutes more while the server
 // cannot be asked.
 const (
 	DefaultRefreshAfter = 10 * time.Minute
 	DefaultOutageGrace  = 30 * time.Minute
 )
 
-// modelState is the last answer the node gave for one model and the key it
-// belongs to. Only an answer from the node changes status and answered; a
+// modelState is the last answer the server gave for one model and the key it
+// belongs to. Only an answer from the server changes status and answered; a
 // failure to ask sets lastErr and nothing else (invariant I14).
 type modelState struct {
 	entryID    string
@@ -85,7 +85,7 @@ type modelState struct {
 }
 
 // SetTiming sets how long an answer is fresh and, past that, how long a
-// verified answer may still be used while the node cannot be asked.
+// verified answer may still be used while the server cannot be asked.
 func (v *Verifier) SetTiming(refreshAfter, outageGrace time.Duration) {
 	v.mu.Lock()
 	defer v.mu.Unlock()
@@ -111,7 +111,7 @@ func (v *Verifier) currentKey(model string) (entryID, root string, stats map[str
 	return entry.ID, root, stats, err
 }
 
-// Verdict is the whole policy, read from state with no call to the node
+// Verdict is the whole policy, read from state with no call to the server
 // (decision DC2):
 //
 //	the running engine is unsupported (SetEngineRefusal) -> Refuse (403)
@@ -147,7 +147,7 @@ func (v *Verifier) Verdict(model string) (Verdict, string) {
 	return Unavailable, "model verification is temporarily unavailable"
 }
 
-// Status is what the health report says about model: the node's last
+// Status is what the health report says about model: the server's last
 // answer, or nothing once a verified answer's grace has run out (plan item
 // B3, detail 5: an outage is never reported as a failure).
 func (v *Verifier) Status(model string) Status {
@@ -171,7 +171,7 @@ func (v *Verifier) due(model string) bool {
 	return st == nil || st.answered.IsZero() || st.lastErr != nil || time.Since(st.answered) >= v.resultTTL
 }
 
-// Refresh asks the node about model once. Hashing and the call run outside
+// Refresh asks the server about model once. Hashing and the call run outside
 // the lock a request takes, and two refreshes of one model never overlap.
 // An answer replaces the state; a failure to ask records why and changes
 // nothing else.

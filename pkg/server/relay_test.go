@@ -13,8 +13,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/sentnl/inferoute-node/inferoute-client/internal/testenv/fakeengine"
-	"github.com/sentnl/inferoute-node/inferoute-client/pkg/llm"
+	"github.com/Flockadoo/flockadoo/internal/testenv/fakeengine"
+	"github.com/Flockadoo/flockadoo/pkg/llm"
 )
 
 // Plan item B2 (findings STR-1, STR-3, STR-5, NET-5; invariants I4, I5, I6).
@@ -78,7 +78,7 @@ func TestAStalledEngineFreesItsSlotWithinTheIdleLimit(t *testing.T) {
 // STR-1 is about a streamed answer: its engine client has no timeout, so
 // silence has to be cut here. A plain answer sends nothing until it is
 // generated; that silence is how it works, and its bound is the engine
-// client's timeout and the node's own limit. A plain answer that takes
+// client's timeout and the server's own limit. A plain answer that takes
 // longer than the idle limit comes back whole.
 func TestALongNonStreamingAnswerIsNotCutByTheIdleWatchdog(t *testing.T) {
 	r := newRig(t, 1)

@@ -13,8 +13,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/sentnl/inferoute-node/inferoute-client/internal/config"
-	"github.com/sentnl/inferoute-node/inferoute-client/pkg/verify"
+	"github.com/Flockadoo/flockadoo/internal/config"
+	"github.com/Flockadoo/flockadoo/pkg/verify"
 )
 
 func TestOptionsFor(t *testing.T) {
@@ -209,7 +209,7 @@ func TestServeOptsFromCatalogCopiesRopeTheta(t *testing.T) {
 	}
 }
 
-// Auto-start, the cluster refresh and printSavedCommand rebuild the command
+// Auto-start, the flock refresh and printSavedCommand rebuild the command
 // from the saved config through one helper, so no field is left behind.
 func TestServeOptsFromConfigCarriesEveryServeFlag(t *testing.T) {
 	t.Parallel()
@@ -243,7 +243,7 @@ func TestSpecFromConfigRefusesAnIncompleteRopeRow(t *testing.T) {
 	cfg.Provider.RopeType = "yarn"
 	cfg.Provider.RopeBaseContextLen = 32768
 	_, err := SpecFromConfig(cfg)
-	if !errors.Is(err, ErrIncompleteRope) || !strings.Contains(err.Error(), "inferoute-client setup") {
+	if !errors.Is(err, ErrIncompleteRope) || !strings.Contains(err.Error(), "flockadoo setup") {
 		t.Fatalf("SpecFromConfig = %v", err)
 	}
 	cfg.Provider.RopeTheta = 1000000

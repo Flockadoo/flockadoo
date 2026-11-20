@@ -1,4 +1,4 @@
-package inferscale
+package winglink
 
 import (
 	"os"
@@ -63,7 +63,7 @@ func TestLeftoverKeyIsPendingJoinOnEmptyRetry(t *testing.T) {
 	if _, err := persistAuthKey("tskey-one"); err != nil {
 		t.Fatal(err)
 	}
-	// resumeWorker / refreshCluster call BringUp with "".
+	// resumeWorker / refreshFlock call BringUp with "".
 	got, err := persistAuthKey("")
 	if err != nil || got != "tskey-one" {
 		t.Fatalf("retry = %q %v", got, err)
@@ -80,7 +80,7 @@ func TestAuthKeyRejected(t *testing.T) {
 	if !authKeyRejected("backend error: invalid pre auth key", "") {
 		t.Fatal("unknown key")
 	}
-	if authKeyRejected("inferscale up: signal: interrupt", "Start inferscaled") {
+	if authKeyRejected("winglink up: signal: interrupt", "Start winglinkd") {
 		t.Fatal("unrelated failure")
 	}
 }

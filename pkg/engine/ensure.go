@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/sentnl/inferoute-node/inferoute-client/internal/config"
+	"github.com/Flockadoo/flockadoo/internal/config"
 )
 
 // StartAndWait starts the configured engine if llm_url is down and waits until it is serving.
@@ -42,7 +42,7 @@ func StartAndWait(ctx context.Context, cfg *config.Config, logDir string) error 
 	if !usableEngineBin(spec.Bin) {
 		d := Detect(kind)
 		if d.Unusable != "" {
-			return fmt.Errorf("%s cannot run (%s); re-run inferoute-client setup", Label(kind), d.Unusable)
+			return fmt.Errorf("%s cannot run (%s); re-run flockadoo setup", Label(kind), d.Unusable)
 		}
 		return fmt.Errorf("%s is not installed and is not running at %s", Label(kind), url)
 	}
@@ -86,7 +86,7 @@ func SpecFromConfig(cfg *config.Config) (Spec, error) {
 	opts := ServeOptsFromConfig(cfg)
 	if kind != KindLlamaCpp {
 		if err := opts.Validate(); err != nil {
-			return Spec{}, fmt.Errorf("%w. Run inferoute-client setup again to save the model's current settings", err)
+			return Spec{}, fmt.Errorf("%w. Run flockadoo setup again to save the model's current settings", err)
 		}
 	}
 	spec := ServeSpec(kind, bin, cfg.Provider.Model, hfRepo, opts)

@@ -10,12 +10,12 @@ import (
 	"testing"
 	"time"
 
+	"github.com/Flockadoo/flockadoo/internal/testenv/fakegateway"
+	"github.com/Flockadoo/flockadoo/pkg/connect"
+	"github.com/Flockadoo/flockadoo/pkg/logger"
+	"github.com/Flockadoo/flockadoo/pkg/version"
 	"github.com/coder/websocket"
 	"github.com/hashicorp/yamux"
-	"github.com/sentnl/inferoute-node/inferoute-client/internal/testenv/fakegateway"
-	"github.com/sentnl/inferoute-node/inferoute-client/pkg/connect"
-	"github.com/sentnl/inferoute-node/inferoute-client/pkg/logger"
-	"github.com/sentnl/inferoute-node/inferoute-client/pkg/version"
 	"go.uber.org/zap"
 )
 

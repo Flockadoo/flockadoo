@@ -15,22 +15,22 @@ import (
 	"strings"
 	"time"
 
-	"github.com/sentnl/inferoute-node/inferoute-client/internal/config"
-	"github.com/sentnl/inferoute-node/inferoute-client/pkg/nodeapi"
-	"github.com/sentnl/inferoute-node/inferoute-client/pkg/setup"
-	"github.com/sentnl/inferoute-node/inferoute-client/pkg/version"
+	"github.com/Flockadoo/flockadoo/internal/config"
+	"github.com/Flockadoo/flockadoo/pkg/nodeapi"
+	"github.com/Flockadoo/flockadoo/pkg/setup"
+	"github.com/Flockadoo/flockadoo/pkg/version"
 )
 
-const githubRepo = "inferoute/inferoute-client"
+const githubRepo = "flockadoo/flockadoo"
 
-// Release is the newest client the node is advertising.
+// Release is the newest client the server is advertising.
 type Release struct {
 	Latest      string
 	Min         string
 	DownloadURL string
 }
 
-// FetchRelease reads the client release from the node. The node mirrors GitHub.
+// FetchRelease reads the client release from the server. The server mirrors GitHub.
 func FetchRelease(ctx context.Context, platformURL string) (Release, error) {
 	if platformURL == "" {
 		return Release{}, fmt.Errorf("platform URL is not set")
@@ -45,7 +45,7 @@ func FetchRelease(ctx context.Context, platformURL string) (Release, error) {
 	return rel, nil
 }
 
-// Remember stores the node's release so the running console and tray can show it.
+// Remember stores the server's release so the running console and tray can show it.
 func Remember(rel Release) {
 	if nodeapi.Newer(rel.Min, version.Version) {
 		nodeapi.NoteRequired(rel.Min, rel.Latest, rel.DownloadURL)
@@ -54,14 +54,14 @@ func Remember(rel Release) {
 	nodeapi.NoteLatest(rel.Latest)
 }
 
-// Notice is the line printed at startup. required means the node will reject this build.
+// Notice is the line printed at startup. required means the server will reject this build.
 func Notice(rel Release) (message string, required bool) {
 	cur := version.Version
 	if nodeapi.Newer(rel.Min, cur) {
-		return fmt.Sprintf("Update required: %s -> %s. Run 'inferoute-client update' then restart.", cur, rel.Latest), true
+		return fmt.Sprintf("Update required: %s -> %s. Run 'flockadoo update' then restart.", cur, rel.Latest), true
 	}
 	if nodeapi.Newer(rel.Latest, cur) {
-		return fmt.Sprintf("Update available: %s -> %s. Run 'inferoute-client update' then restart.", cur, rel.Latest), false
+		return fmt.Sprintf("Update available: %s -> %s. Run 'flockadoo update' then restart.", cur, rel.Latest), false
 	}
 	return "", false
 }
@@ -83,7 +83,7 @@ func Apply(ctx context.Context, platformURL string, checkOnly bool, out io.Write
 		return err
 	}
 	if !nodeapi.Newer(rel.Latest, version.Version) && !nodeapi.Newer(rel.Min, version.Version) {
-		_, _ = fmt.Fprintf(out, "inferoute-client %s is up to date.\n", version.Version)
+		_, _ = fmt.Fprintf(out, "flockadoo %s is up to date.\n", version.Version)
 		return nil
 	}
 	msg, _ := Notice(rel)
@@ -94,11 +94,11 @@ func Apply(ctx context.Context, platformURL string, checkOnly bool, out io.Write
 	if running, err := daemonRunning(ctx); err != nil {
 		return err
 	} else if running {
-		return fmt.Errorf("inferoute-client is running. Stop it, then run 'inferoute-client update' again")
+		return fmt.Errorf("flockadoo is running. Stop it, then run 'flockadoo update' again")
 	}
 	asset := assetName()
 	zipURL := assetURL(rel, asset)
-	dir, err := os.MkdirTemp("", "inferoute-update-*")
+	dir, err := os.MkdirTemp("", "flockadoo-update-*")
 	if err != nil {
 		return err
 	}
@@ -122,7 +122,7 @@ func Apply(ctx context.Context, platformURL string, checkOnly bool, out io.Write
 	if err := replaceExecutable(binPath); err != nil {
 		return err
 	}
-	_, _ = fmt.Fprintf(out, "Updated to %s. Restart inferoute-client.\n", rel.Latest)
+	_, _ = fmt.Fprintf(out, "Updated to %s. Restart flockadoo.\n", rel.Latest)
 	return nil
 }
 
@@ -161,7 +161,7 @@ func fetchFromNode(ctx context.Context, platformURL string) (Release, error) {
 }
 
 func assetName() string {
-	return fmt.Sprintf("inferoute-client-%s-%s.zip", runtime.GOOS, runtime.GOARCH) //nolint:forbidigo // the release asset for the platform this binary runs on (PLAT-2, item H1)
+	return fmt.Sprintf("flockadoo-%s-%s.zip", runtime.GOOS, runtime.GOARCH) //nolint:forbidigo // the release asset for the platform this binary runs on (PLAT-2, item H1)
 }
 
 func assetURL(rel Release, asset string) string {
@@ -263,7 +263,7 @@ func unzipBinary(zipPath, dir string) (string, error) {
 		if err != nil {
 			return "", err
 		}
-		dest := filepath.Join(dir, "inferoute-client.new")
+		dest := filepath.Join(dir, "flockadoo.new")
 		out, err := os.OpenFile(dest, os.O_CREATE|os.O_WRONLY|os.O_TRUNC, 0o755)
 		if err != nil {
 			_ = src.Close()
@@ -390,5 +390,5 @@ func configPath() (string, error) {
 	if err != nil {
 		return "", err
 	}
-	return filepath.Join(home, ".config", "inferoute", "config.yaml"), nil
+	return filepath.Join(home, ".config", "flockadoo", "config.yaml"), nil
 }

@@ -71,12 +71,12 @@ func TestLogsStayInFiles(t *testing.T) {
 		t.Fatalf("stdout = %q", out)
 	}
 
-	mainLog, err := os.ReadFile(filepath.Join(dir, "inferoute.log"))
+	mainLog, err := os.ReadFile(filepath.Join(dir, "flockadoo.log"))
 	if err != nil {
 		t.Fatal(err)
 	}
 	if !strings.Contains(string(mainLog), "hello") || !strings.Contains(string(mainLog), "boom") {
-		t.Fatalf("inferoute.log = %s", mainLog)
+		t.Fatalf("flockadoo.log = %s", mainLog)
 	}
 	errLog, err := os.ReadFile(filepath.Join(dir, "error.log"))
 	if err != nil {

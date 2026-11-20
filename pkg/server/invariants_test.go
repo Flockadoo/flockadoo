@@ -12,15 +12,15 @@ import (
 	"testing"
 	"time"
 
-	"github.com/sentnl/inferoute-node/inferoute-client/internal/config"
-	"github.com/sentnl/inferoute-node/inferoute-client/internal/testenv/fakeengine"
-	"github.com/sentnl/inferoute-node/inferoute-client/internal/testenv/fakegateway"
-	"github.com/sentnl/inferoute-node/inferoute-client/internal/testenv/fakeplatform"
-	"github.com/sentnl/inferoute-node/inferoute-client/pkg/capacity"
-	"github.com/sentnl/inferoute-node/inferoute-client/pkg/connect"
-	"github.com/sentnl/inferoute-node/inferoute-client/pkg/health"
-	"github.com/sentnl/inferoute-node/inferoute-client/pkg/llm"
-	"github.com/sentnl/inferoute-node/inferoute-client/pkg/logger"
+	"github.com/Flockadoo/flockadoo/internal/config"
+	"github.com/Flockadoo/flockadoo/internal/testenv/fakeengine"
+	"github.com/Flockadoo/flockadoo/internal/testenv/fakegateway"
+	"github.com/Flockadoo/flockadoo/internal/testenv/fakeplatform"
+	"github.com/Flockadoo/flockadoo/pkg/capacity"
+	"github.com/Flockadoo/flockadoo/pkg/connect"
+	"github.com/Flockadoo/flockadoo/pkg/health"
+	"github.com/Flockadoo/flockadoo/pkg/llm"
+	"github.com/Flockadoo/flockadoo/pkg/logger"
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
 	"go.uber.org/zap/zaptest/observer"
@@ -86,7 +86,7 @@ func newRig(t *testing.T, limit int32) *rig {
 	return r
 }
 
-// send sends a chat request through the gateway as the node does. A header
+// send sends a chat request through the gateway as the server does. A header
 // set to "" in hdr is removed.
 func (r *rig) send(ctx context.Context, body string, hdr map[string]string) (*http.Response, error) {
 	req, err := http.NewRequestWithContext(ctx, http.MethodPost, "/v1/chat/completions", strings.NewReader(body))
@@ -355,7 +355,7 @@ func TestABenchmarkClosesTheGateInTheNextCapacityReport(t *testing.T) {
 	}
 }
 
-// I12: the API key goes to the node only in the Authorization header. It is
+// I12: the API key goes to the server only in the Authorization header. It is
 // in no log line, no status page, no request body and no other header,
 // through a served request, a refused one, a capacity report and a health
 // report.
@@ -408,6 +408,6 @@ func TestTheKeyAppearsOnlyInTheAuthorizationHeader(t *testing.T) {
 		t.Fatal("the API key appears outside the Authorization header")
 	}
 	if authorized == 0 {
-		t.Fatal("no request to the node carried the key; the test did not exercise it")
+		t.Fatal("no request to the server carried the key; the test did not exercise it")
 	}
 }

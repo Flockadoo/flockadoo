@@ -11,16 +11,16 @@ import (
 	"strings"
 	"time"
 
-	"github.com/sentnl/inferoute-node/inferoute-client/internal/admission"
-	"github.com/sentnl/inferoute-node/inferoute-client/internal/relay"
-	"github.com/sentnl/inferoute-node/inferoute-client/pkg/usermsg"
-	"github.com/sentnl/inferoute-node/inferoute-client/pkg/verify"
+	"github.com/Flockadoo/flockadoo/internal/admission"
+	"github.com/Flockadoo/flockadoo/internal/relay"
+	"github.com/Flockadoo/flockadoo/pkg/usermsg"
+	"github.com/Flockadoo/flockadoo/pkg/verify"
 )
 
 const streamWriteDeadlineGrace = 5 * time.Second
 
 // maxRequestBody is the largest request body the relay reads: twice the
-// node's own limit (8 MiB), so the node's refusal comes first (finding NET-5).
+// node's own limit (8 MiB), so the server's refusal comes first (finding NET-5).
 const maxRequestBody = 16 << 20
 
 // maxStreamDuration is the longest stream deadline the platform's header can
@@ -29,7 +29,7 @@ const maxRequestBody = 16 << 20
 const maxStreamDuration = 24 * time.Hour
 
 // streamWriteDeadline is when a stream must stop being written. The platform
-// sends how long the stream may run (X-Inferoute-Timeout-Ms), and the deadline
+// sends how long the stream may run (X-Flockadoo-Timeout-Ms), and the deadline
 // is counted from when the request arrived here. It is a duration and not a
 // time of day because the platform's clock and this machine's are not the same.
 func streamWriteDeadline(header string, arrived time.Time) (time.Time, bool) {
@@ -63,7 +63,7 @@ func (s *Server) handleBusy(w http.ResponseWriter, r *http.Request) {
 	_ = json.NewEncoder(w).Encode(BusyResponse{Busy: s.slotsBusy()})
 }
 
-// writeJSONError answers a refused request with the node's error shape.
+// writeJSONError answers a refused request with the server's error shape.
 func writeJSONError(w http.ResponseWriter, status int, msg string) {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(status)
@@ -86,9 +86,9 @@ func (s *Server) handleEmbeddings(w http.ResponseWriter, r *http.Request) {
 }
 
 // defaultEngineIdleLimit ends a streamed engine answer that sends nothing for
-// this long. It is longer than the node's own limits on a stream (120 s to the
-// first token, 60 s between tokens), so the node's verdict comes first; this
-// one bounds what the node does not (finding STR-1).
+// this long. It is longer than the server's own limits on a stream (120 s to the
+// first token, 60 s between tokens), so the server's verdict comes first; this
+// one bounds what the server does not (finding STR-1).
 const defaultEngineIdleLimit = 180 * time.Second
 
 // errStalled is why the idle watchdog cancels an engine call.
@@ -130,8 +130,8 @@ func (s *Server) relayRequest(w http.ResponseWriter, r *http.Request, llmPath st
 	}
 
 	// The request arrived on the tunnel this client dialled with its key, so
-	// it comes from Inferoute. It is not checked with the node again
-	// (decision DC1): serving a request makes no call to the node.
+	// it comes from Flockadoo. It is not checked with the server again
+	// (decision DC1): serving a request makes no call to the server.
 
 	// A benchmark owns the engine: refuse before reading the body. The gate
 	// refuses it again, atomically, when the slot is taken.
@@ -188,7 +188,7 @@ func (s *Server) relayRequest(w http.ResponseWriter, r *http.Request, llmPath st
 	// (finding STR-4): the platform's time limit for a stream, counted from
 	// arrival.
 	ctx := r.Context()
-	if when, ok := streamWriteDeadline(r.Header.Get("X-Inferoute-Timeout-Ms"), start); ok {
+	if when, ok := streamWriteDeadline(r.Header.Get("X-Flockadoo-Timeout-Ms"), start); ok {
 		_ = http.NewResponseController(w).SetWriteDeadline(when)
 		var cancel context.CancelFunc
 		ctx, cancel = context.WithDeadline(ctx, when)
@@ -215,7 +215,7 @@ func (s *Server) relayRequest(w http.ResponseWriter, r *http.Request, llmPath st
 	// The watchdog bounds a stream only (finding STR-1): its engine client
 	// has no timeout. A plain answer sends nothing until it is generated, so
 	// its silence is normal; the engine client's timeout (llm_timeout_seconds)
-	// and the node's own limit bound it.
+	// and the server's own limit bound it.
 	var watchdog *time.Timer
 	if env.Stream {
 		watchdog = time.AfterFunc(idle, func() { cancelEngine(errStalled) })

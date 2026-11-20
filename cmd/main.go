@@ -16,39 +16,39 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/sentnl/inferoute-node/inferoute-client/internal/config"
-	"github.com/sentnl/inferoute-node/inferoute-client/pkg/benchmark"
-	"github.com/sentnl/inferoute-node/inferoute-client/pkg/capacity"
-	"github.com/sentnl/inferoute-node/inferoute-client/pkg/capprobe"
-	"github.com/sentnl/inferoute-node/inferoute-client/pkg/compat"
-	"github.com/sentnl/inferoute-node/inferoute-client/pkg/engine"
-	"github.com/sentnl/inferoute-node/inferoute-client/pkg/gpu"
-	"github.com/sentnl/inferoute-node/inferoute-client/pkg/health"
-	"github.com/sentnl/inferoute-node/inferoute-client/pkg/inferscale"
-	"github.com/sentnl/inferoute-node/inferoute-client/pkg/llm"
-	"github.com/sentnl/inferoute-node/inferoute-client/pkg/logger"
-	"github.com/sentnl/inferoute-node/inferoute-client/pkg/nodeapi"
-	"github.com/sentnl/inferoute-node/inferoute-client/pkg/server"
-	"github.com/sentnl/inferoute-node/inferoute-client/pkg/setup"
-	"github.com/sentnl/inferoute-node/inferoute-client/pkg/tray"
-	"github.com/sentnl/inferoute-node/inferoute-client/pkg/update"
-	"github.com/sentnl/inferoute-node/inferoute-client/pkg/usermsg"
-	"github.com/sentnl/inferoute-node/inferoute-client/pkg/verify"
-	"github.com/sentnl/inferoute-node/inferoute-client/pkg/version"
+	"github.com/Flockadoo/flockadoo/internal/config"
+	"github.com/Flockadoo/flockadoo/pkg/benchmark"
+	"github.com/Flockadoo/flockadoo/pkg/capacity"
+	"github.com/Flockadoo/flockadoo/pkg/capprobe"
+	"github.com/Flockadoo/flockadoo/pkg/compat"
+	"github.com/Flockadoo/flockadoo/pkg/engine"
+	"github.com/Flockadoo/flockadoo/pkg/gpu"
+	"github.com/Flockadoo/flockadoo/pkg/health"
+	"github.com/Flockadoo/flockadoo/pkg/llm"
+	"github.com/Flockadoo/flockadoo/pkg/logger"
+	"github.com/Flockadoo/flockadoo/pkg/nodeapi"
+	"github.com/Flockadoo/flockadoo/pkg/server"
+	"github.com/Flockadoo/flockadoo/pkg/setup"
+	"github.com/Flockadoo/flockadoo/pkg/tray"
+	"github.com/Flockadoo/flockadoo/pkg/update"
+	"github.com/Flockadoo/flockadoo/pkg/usermsg"
+	"github.com/Flockadoo/flockadoo/pkg/verify"
+	"github.com/Flockadoo/flockadoo/pkg/version"
+	"github.com/Flockadoo/flockadoo/pkg/winglink"
 	"go.uber.org/zap"
 )
 
 //go:generate go run github.com/akavel/rsrc@v0.10.2 -arch amd64 -ico ../pkg/tray/icon.ico -o rsrc_windows_amd64.syso
 
 const helpText = `
-Inferoute Client - A client for connecting to the Inferoute network
+Flockadoo Client - A client for connecting to the Flockadoo network
 
 Usage:
-  inferoute-client [flags]
-  inferoute-client setup [flags]
-  inferoute-client compatibility [flags]
-  inferoute-client update [--check]
-  inferoute-client benchmark
+  flockadoo [flags]
+  flockadoo setup [flags]
+  flockadoo compatibility [flags]
+  flockadoo update [--check]
+  flockadoo benchmark
 
 Commands:
   setup           Interactive engine, model, and API key wizard (safe to re-run)
@@ -59,13 +59,13 @@ Commands:
   benchmark       Ask the running client to measure concurrency again.
 
 Flags:
-  --config string   Path to configuration file (default: ~/.config/inferoute/config.yaml)
+  --config string   Path to configuration file (default: ~/.config/flockadoo/config.yaml)
   --tray            Windows only: run in the notification area (default on Windows)
   --console         Show the terminal dashboard (Windows: do not use the tray)
   --version         Show version information
   --help            Show this help message
 
-For more information, visit: https://github.com/inferoute/inferoute-client
+For more information, visit: https://github.com/flockadoo/flockadoo
 `
 
 func main() {
@@ -126,7 +126,7 @@ func main() {
 	}
 
 	if *showVersion {
-		fmt.Printf("inferoute-client %s\n", version.Version)
+		fmt.Printf("flockadoo %s\n", version.Version)
 		fmt.Printf("  commit: %s\n", version.Commit)
 		fmt.Printf("  built:  %s\n", version.Date)
 		os.Exit(0)
@@ -161,7 +161,7 @@ func main() {
 	update.RemoveStaleBackup()
 	checkClientVersion(cfg.Provider.URL)
 	if !cfg.HasAPIKey() && !cfg.EnrolledWorker() {
-		fatal("%s\nOr run: inferoute-client setup", usermsg.InvalidAPIKey)
+		fatal("%s\nOr run: flockadoo setup", usermsg.InvalidAPIKey)
 	}
 
 	useTray := tray.Supported() && !*consoleFlag
@@ -198,7 +198,7 @@ func main() {
 	_ = early.Close()
 	defer func() { _ = log.Sync() }()
 
-	logger.Info("Starting Inferoute Provider Client",
+	logger.Info("Starting Flockadoo Provider Client",
 		zap.String("config_path", *configPath),
 		zap.String("log_level", cfg.Logging.Level),
 		zap.String("log_dir", cfg.Logging.LogDir),
@@ -281,7 +281,7 @@ func main() {
 			}
 			err := healthReporter.SendHealthReport(ctx)
 			if setup.NodeRemoved(err) {
-				logger.Error("The owner removed this machine from the cluster. Re-run setup and paste a new join code.", zap.Error(err))
+				logger.Error("The owner removed this machine from the flock. Re-run setup and paste a new join code.", zap.Error(err))
 				return false
 			}
 			next := nodeapi.HealthInterval(err, health.ReportInterval)
@@ -387,7 +387,7 @@ func main() {
 		}
 	}
 
-	// Drain: take no new work, tell the node, and let what is running finish
+	// Drain: take no new work, tell the server, and let what is running finish
 	// for up to 60 s. A second interrupt stops at once (decision DC9).
 	logger.Info("Draining: no new requests; waiting up to 60s for those in progress (interrupt again to stop now)")
 	drainCtx, drainCancel := context.WithCancel(context.Background())
@@ -447,7 +447,7 @@ func runUpdate(args []string) error {
 }
 
 func watchClientVersion(ctx context.Context, platformURL string) {
-	if os.Getenv("INFEROUTE_IN_DOCKER") == "1" || platformURL == "" {
+	if os.Getenv("FLOCKADOO_IN_DOCKER") == "1" || platformURL == "" {
 		return
 	}
 	const timeout = 30 * time.Second
@@ -489,7 +489,7 @@ func watchClientVersion(ctx context.Context, platformURL string) {
 }
 
 func checkClientVersion(platformURL string) {
-	if os.Getenv("INFEROUTE_IN_DOCKER") == "1" {
+	if os.Getenv("FLOCKADOO_IN_DOCKER") == "1" {
 		return
 	}
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
@@ -517,7 +517,7 @@ func resolveConfigPath() (string, error) {
 		return "", fmt.Errorf("failed to get user home directory: %w", err)
 	}
 	locations := []string{
-		filepath.Join(homeDir, ".config", "inferoute", "config.yaml"),
+		filepath.Join(homeDir, ".config", "flockadoo", "config.yaml"),
 		"config.yaml",
 	}
 	for _, location := range locations {
@@ -545,7 +545,7 @@ func maybeFirstRunSetup(configPath string) error {
 		return nil
 	}
 	if !setup.IsInteractive() {
-		return fmt.Errorf("no valid configuration at %s\nRun: inferoute-client setup", configPath)
+		return fmt.Errorf("no valid configuration at %s\nRun: flockadoo setup", configPath)
 	}
 	fmt.Println("No provider API key configured. Starting setup...")
 	return setup.Run([]string{"--config", configPath})
@@ -573,7 +573,7 @@ func runBenchmark(args []string) error {
 }
 
 func startCapacity(ctx context.Context, cfg *config.Config, configPath, llmURL string, llmClient llm.Client, gpuMonitor *gpu.Monitor, catalog *verify.Catalog, srv *server.Server, reporter *health.Reporter) {
-	if cfg.EnrolledWorker() || cfg.Provider.ClusterMode == "worker" {
+	if cfg.EnrolledWorker() || cfg.Provider.FlockRole == "worker" {
 		return
 	}
 	sender := capacity.NewSender(cfg.Provider.URL, cfg.Provider.APIKey, srv.SlotSnapshot, llmClient)
@@ -606,7 +606,7 @@ func startCapacity(ctx context.Context, cfg *config.Config, configPath, llmURL s
 		Claim: srv.ClaimIdleSlot,
 		Note:  srv.SetCapabilities,
 		// A reasoning model is checked for its thinking coming back apart
-		// from the answer; the node routes it only to providers that pass.
+		// from the answer; the server routes it only to providers that pass.
 		Reasons: cfg.Provider.ReasoningParser != "",
 		// The checks are chat requests; an embedding model answers none.
 		Embedding: engine.IsEmbedding(cfg.Provider.Task),
@@ -623,8 +623,8 @@ func startCapacity(ctx context.Context, cfg *config.Config, configPath, llmURL s
 		Ready: func() bool {
 			probe, cancel := context.WithTimeout(ctx, 2*time.Second)
 			defer cancel()
-			if cfg.Provider.ClusterMode == "master" {
-				_, online := inferscale.Tailnet(probe)
+			if cfg.Provider.FlockRole == "master" {
+				_, online := winglink.Status(probe)
 				return engine.MasterState(probe, kind, llmURL, cfg.Provider.EngineArgs, online) == "ready"
 			}
 			return engine.Healthy(probe, kind, llmURL)

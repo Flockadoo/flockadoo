@@ -10,12 +10,12 @@ import (
 	"sync"
 	"time"
 
-	"github.com/sentnl/inferoute-node/inferoute-client/pkg/version"
+	"github.com/Flockadoo/flockadoo/pkg/version"
 )
 
 const (
-	HeaderClientVersion       = "X-Inferoute-Client-Version"
-	HeaderLatestClientVersion = "X-Inferoute-Latest-Client-Version"
+	HeaderClientVersion       = "X-Flockadoo-Client-Version"
+	HeaderLatestClientVersion = "X-Flockadoo-Latest-Client-Version"
 
 	// UpgradeRetryInterval is how long the health loop waits after a 426
 	// before trying again.
@@ -31,7 +31,7 @@ const (
 	UpdateRequired  UpdateStatus = "required"
 )
 
-// ErrUpgradeRequired is returned when the node answers 426.
+// ErrUpgradeRequired is returned when the server answers 426.
 type ErrUpgradeRequired struct {
 	Min         string `json:"min_version"`
 	Latest      string `json:"latest_version"`
@@ -128,7 +128,7 @@ func IsUpgradeRequired(err error) bool {
 	return errors.As(err, &up)
 }
 
-// NewHTTPClient is the client used for every call to the Inferoute node.
+// NewHTTPClient is the client used for every call to the Flockadoo node.
 // It stamps the version headers and records update signals from responses.
 func NewHTTPClient(timeout time.Duration) *http.Client {
 	return &http.Client{

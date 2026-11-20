@@ -1,4 +1,4 @@
-package inferscale
+package winglink
 
 import (
 	_ "embed"
@@ -8,8 +8,8 @@ import (
 	"runtime"
 )
 
-// release.json pins the Inferscale release this client installs: its
-// version, its source commit and the SHA-256 of every file. Inferscale's
+// release.json pins the Winglink release this client installs: its
+// version, its source commit and the SHA-256 of every file. Winglink's
 // release workflow opens a pull request that changes it, and only a
 // maintainer merges it (plan item S1, decision DC6). Nothing at run time
 // changes the version or a checksum.
@@ -17,7 +17,7 @@ import (
 //go:embed release.json
 var releaseJSON []byte
 
-// Pin is the pinned Inferscale release.
+// Pin is the pinned Winglink release.
 type Pin struct {
 	Version string            `json:"version"`
 	Commit  string            `json:"commit"`
@@ -26,7 +26,7 @@ type Pin struct {
 
 // ErrNotPinned: this build pins no file for the asset, so it is not
 // downloaded or run.
-var ErrNotPinned = errors.New("this build pins no Inferscale release for this platform; update the client")
+var ErrNotPinned = errors.New("this build pins no Winglink release for this platform; update the client")
 
 func embeddedPin() (Pin, error) {
 	var p Pin
@@ -44,7 +44,7 @@ func (p Pin) sum(name string) (string, error) {
 	return p.SHA256[name], nil
 }
 
-// Version is the pinned Inferscale release.
+// Version is the pinned Winglink release.
 func Version() string {
 	p, _ := embeddedPin()
 	return p.Version
@@ -60,16 +60,16 @@ func Asset(goos, goarch string) (cli, daemon string, err error) {
 	}
 	switch goos {
 	case "linux", "darwin":
-		return "inferscale-" + goos + "-" + goarch, "inferscaled-" + goos + "-" + goarch, nil
+		return "winglink-" + goos + "-" + goarch, "winglinkd-" + goos + "-" + goarch, nil
 	case "windows":
-		return "inferscale-windows-" + goarch + ".zip", "", nil
+		return "winglink-windows-" + goarch + ".zip", "", nil
 	default:
 		return "", "", fmt.Errorf("unsupported OS %s", goos)
 	}
 }
 
 func downloadURLFor(p Pin, name string) string {
-	return "https://github.com/Inferoute/inferoute-tailscale/releases/download/" + p.Version + "/" + name
+	return "https://github.com/Flockadoo/winglink/releases/download/" + p.Version + "/" + name
 }
 
 func hostAsset() (cli, daemon string, err error) {

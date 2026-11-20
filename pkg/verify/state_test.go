@@ -8,14 +8,14 @@ import (
 	"testing"
 	"time"
 
-	"github.com/sentnl/inferoute-node/inferoute-client/internal/testenv/fakeplatform"
+	"github.com/Flockadoo/flockadoo/internal/testenv/fakeplatform"
 )
 
 // Plan item B3 (finding ADM-5, invariant I14, decision DC2): verification
 // is state a background refresher keeps; the request path only reads it. A
-// verified answer is used while fresh and, when the node cannot be asked,
+// verified answer is used while fresh and, when the server cannot be asked,
 // for a grace period after; an explicit negative refuses at once; a failure
-// to reach the node is never recorded as a failed verification. The tests
+// to reach the server is never recorded as a failed verification. The tests
 // use the real clock with milliseconds: fresh for 100ms, grace 400ms more.
 
 const (
@@ -107,7 +107,7 @@ func TestAnExplicitRejectionBlocksAtOnce(t *testing.T) {
 	time.Sleep(2 * refreshAfter)
 	w.nodeSays("failed")
 	w.v.Refresh(context.Background(), "m")
-	expectVerdict(t, w, "m", Refuse, "the node said failed")
+	expectVerdict(t, w, "m", Refuse, "the server said failed")
 }
 
 // 4. A new or changed model inherits nothing: during an outage, changed
@@ -134,14 +134,14 @@ func TestRecoveryRestoresTheVerdict(t *testing.T) {
 	expectVerdict(t, w, "m", Unavailable, "never verified, node down")
 	w.nodeSays("verified")
 	w.v.Refresh(context.Background(), "m")
-	expectVerdict(t, w, "m", Serve, "the node is back and says verified")
+	expectVerdict(t, w, "m", Serve, "the server is back and says verified")
 	time.Sleep(2 * refreshAfter)
 	w.nodeSays("failed")
 	w.v.Refresh(context.Background(), "m")
-	expectVerdict(t, w, "m", Refuse, "the node is back and says failed")
+	expectVerdict(t, w, "m", Refuse, "the server is back and says failed")
 }
 
-// 6. A failure to reach the node is never recorded as a failed
+// 6. A failure to reach the server is never recorded as a failed
 // verification, in the verdict or in the health report's status.
 func TestAnOutageIsNeverRecordedAsFailed(t *testing.T) {
 	w := newWorld(t, "m")
@@ -151,14 +151,14 @@ func TestAnOutageIsNeverRecordedAsFailed(t *testing.T) {
 	time.Sleep(2 * refreshAfter)
 	w.v.Refresh(context.Background(), "m")
 	if st := w.v.Status("m"); st == StatusFailed {
-		t.Fatalf("the status reported to the node is %q during an outage", st)
+		t.Fatalf("the status reported to the server is %q during an outage", st)
 	}
 	if _, why := w.v.Verdict("m"); why == string(StatusFailed) {
 		t.Fatalf("the verdict's reason is %q during an outage", why)
 	}
 }
 
-// 7. Never verified, and the node cannot be asked: 503.
+// 7. Never verified, and the server cannot be asked: 503.
 func TestNeverVerifiedDuringAnOutageIsUnavailable(t *testing.T) {
 	w := newWorld(t, "m")
 	w.nodeDown()
@@ -172,7 +172,7 @@ func TestARefreshInProgressDoesNotDelayARequest(t *testing.T) {
 	w.nodeSays("verified")
 	w.v.Refresh(context.Background(), "m")
 	time.Sleep(2 * refreshAfter)
-	// The node hangs for the refresh, and for anything else that asks.
+	// The server hangs for the refresh, and for anything else that asks.
 	w.plat.Next(http.MethodPost, "/api/provider/verify-model", fakeplatform.Hang(), fakeplatform.Hang())
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
@@ -183,7 +183,7 @@ func TestARefreshInProgressDoesNotDelayARequest(t *testing.T) {
 	select {
 	case <-done:
 	case <-time.After(time.Second):
-		t.Fatal("a request waited on the node while a refresh was in progress")
+		t.Fatal("a request waited on the server while a refresh was in progress")
 	}
 }
 

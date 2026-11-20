@@ -36,6 +36,28 @@ func TestRejectsAnUntidyGoMod(t *testing.T) {
 	}
 }
 
+// The rebrand plan, stage 4: a retired name in a file or in a path fails the
+// check, an allowed line passes, and an entry that allows nothing fails too,
+// so the list only shrinks. The clean fixture has none.
+func TestRejectsRetiredNames(t *testing.T) {
+	out, err := runFixture(t, "old-names", stepNames)
+	if err == nil {
+		t.Fatalf("retired names were accepted; output:\n%s", out)
+	}
+	for _, want := range []string{
+		"README.md:2: the old brand",
+		"(the path): the old word for a flock",
+		"allows nothing any more; remove it: gone.txt",
+	} {
+		if !strings.Contains(out, want) {
+			t.Errorf("the output does not say %q:\n%s", want, out)
+		}
+	}
+	if strings.Contains(out, "README.md:3") {
+		t.Errorf("an allowed line was reported:\n%s", out)
+	}
+}
+
 func TestRejectsAForbiddenImport(t *testing.T) {
 	out, err := runFixture(t, "forbidden-import", stepLint)
 	if err == nil {
@@ -207,7 +229,7 @@ func TestReportHome(t *testing.T) {
 }
 
 func allStepNames() []string {
-	return []string{stepFormat, stepTidy, stepVet + " linux/amd64", stepVet + " darwin/arm64", stepVet + " windows/amd64", stepLint, stepTests, stepFeatures}
+	return []string{stepFormat, stepTidy, stepVet + " linux/amd64", stepVet + " darwin/arm64", stepVet + " windows/amd64", stepLint, stepTests, stepFeatures, stepNames}
 }
 
 // runFixture runs the named steps (all of them when none is named) against a

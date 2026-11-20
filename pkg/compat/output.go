@@ -9,7 +9,7 @@ import (
 	"text/tabwriter"
 )
 
-// Report is the stable JSON document emitted by `inferoute-client compatibility --json`.
+// Report is the stable JSON document emitted by `flockadoo compatibility --json`.
 type Report struct {
 	Hardware Hardware      `json:"hardware"`
 	Models   []ModelResult `json:"models"`

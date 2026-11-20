@@ -31,9 +31,9 @@ func serve(t *testing.T, body []byte) (*httptest.Server, *int) {
 }
 
 func TestAFileWithThePinnedHashIsHandedOver(t *testing.T) {
-	body := []byte("the real inferscale binary")
+	body := []byte("the real winglink binary")
 	srv, _ := serve(t, body)
-	path, err := Verified(context.Background(), srv.Client(), srv.URL+"/inferscale", sum(body), t.TempDir())
+	path, err := Verified(context.Background(), srv.Client(), srv.URL+"/winglink", sum(body), t.TempDir())
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -47,7 +47,7 @@ func TestAFileWithThePinnedHashIsHandedOver(t *testing.T) {
 func TestAFileWithAnotherHashIsRefusedAndRemoved(t *testing.T) {
 	srv, _ := serve(t, []byte("a tampered binary"))
 	dir := t.TempDir()
-	if _, err := Verified(context.Background(), srv.Client(), srv.URL+"/inferscale", sum([]byte("the real one")), dir); err == nil {
+	if _, err := Verified(context.Background(), srv.Client(), srv.URL+"/winglink", sum([]byte("the real one")), dir); err == nil {
 		t.Fatal("a file whose hash differs from the pin was accepted")
 	}
 	if left, _ := os.ReadDir(dir); len(left) != 0 {
@@ -60,7 +60,7 @@ func TestAFileWithAnotherHashIsRefusedAndRemoved(t *testing.T) {
 func TestNoPinnedHashMeansNoDownload(t *testing.T) {
 	srv, hits := serve(t, []byte("anything"))
 	for _, pin := range []string{"", "not-a-sha256"} {
-		if _, err := Verified(context.Background(), srv.Client(), srv.URL+"/inferscale", pin, t.TempDir()); err == nil {
+		if _, err := Verified(context.Background(), srv.Client(), srv.URL+"/winglink", pin, t.TempDir()); err == nil {
 			t.Fatalf("pin %q: a download with no valid pinned hash was accepted", pin)
 		}
 	}
@@ -71,7 +71,7 @@ func TestNoPinnedHashMeansNoDownload(t *testing.T) {
 
 // An installed file is checked against the pin before it is run.
 func TestAnInstalledFileIsCheckedAgainstThePin(t *testing.T) {
-	path := filepath.Join(t.TempDir(), "inferscaled")
+	path := filepath.Join(t.TempDir(), "winglinkd")
 	if err := os.WriteFile(path, []byte("an old binary"), 0o600); err != nil {
 		t.Fatal(err)
 	}
@@ -86,7 +86,7 @@ func TestAnInstalledFileIsCheckedAgainstThePin(t *testing.T) {
 	}
 }
 
-// Moved from pkg/inferscale (TestDownloadTruncatedRetries): a body cut short
+// Moved from pkg/winglink (TestDownloadTruncatedRetries): a body cut short
 // is refused and leaves nothing behind, and a retry that gets the whole file
 // succeeds. Its last step, that an existing file was kept without a
 // download, is gone with that behaviour: an installed file is now checked

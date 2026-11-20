@@ -20,13 +20,13 @@ func LogPath(logDir string) string {
 	if logDir == "" {
 		home, err := os.UserHomeDir()
 		if err == nil {
-			logDir = filepath.Join(home, ".local", "state", "inferoute", "log")
+			logDir = filepath.Join(home, ".local", "state", "flockadoo", "log")
 		}
 	}
 	return filepath.Join(logDir, "engine.log")
 }
 
-// StartDetached launches spec so it survives inferoute-client exit.
+// StartDetached launches spec so it survives flockadoo exit.
 // The returned channel receives the process exit error (or nil) once.
 func StartDetached(spec Spec, logPath string) (<-chan error, error) {
 	if spec.Bin == "" {

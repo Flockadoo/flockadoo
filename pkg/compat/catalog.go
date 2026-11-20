@@ -11,14 +11,14 @@ import (
 	"strings"
 	"time"
 
-	"github.com/sentnl/inferoute-node/inferoute-client/pkg/engine"
-	"github.com/sentnl/inferoute-node/inferoute-client/pkg/nodeapi"
-	"github.com/sentnl/inferoute-node/inferoute-client/pkg/verify"
+	"github.com/Flockadoo/flockadoo/pkg/engine"
+	"github.com/Flockadoo/flockadoo/pkg/nodeapi"
+	"github.com/Flockadoo/flockadoo/pkg/verify"
 )
 
-const defaultCatalogURL = "https://core.inferoute.com"
+const defaultCatalogURL = "https://core.flockadoo.ai"
 
-// FetchCatalog loads approved builds from the public Inferoute catalog.
+// FetchCatalog loads approved builds from the public Flockadoo catalog.
 // When providerType is empty, the vLLM catalog is fetched.
 func FetchCatalog(ctx context.Context, catalogURL, providerType string) ([]verify.CatalogEntry, error) {
 	base := strings.TrimRight(catalogURL, "/")

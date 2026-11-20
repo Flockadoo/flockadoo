@@ -1,6 +1,6 @@
 //go:build !windows
 
-package inferscale
+package winglink
 
 import (
 	"context"
@@ -17,13 +17,13 @@ import (
 func euid() int { return os.Geteuid() }
 
 // ensureSudo caches a sudo credential when this process is not root.
-// Later inferscale commands use sudo -n and do not prompt again.
+// Later winglink commands use sudo -n and do not prompt again.
 func ensureSudo(ctx context.Context) error {
 	if os.Geteuid() == 0 {
 		return nil
 	}
 	if _, err := exec.LookPath("sudo"); err != nil {
-		return fmt.Errorf("inferscale needs root to create %s, and sudo is not installed", TUN)
+		return fmt.Errorf("winglink needs root to create %s, and sudo is not installed", TUN)
 	}
 	// Cached by an earlier ensureSudo in this setup. -n would otherwise
 	// print "a password is required" and we would print the banner again.
@@ -33,7 +33,7 @@ func ensureSudo(ctx context.Context) error {
 	if probe.Run() == nil {
 		return nil
 	}
-	fmt.Fprintf(os.Stderr, "inferscale needs root to create %s\n", TUN) //nolint:forbidigo // sudo prompts for the password on the operator's terminal during setup (QUAL-8, item K1)
+	fmt.Fprintf(os.Stderr, "winglink needs root to create %s\n", TUN) //nolint:forbidigo // sudo prompts for the password on the operator's terminal during setup (QUAL-8, item K1)
 	cmd := exec.CommandContext(ctx, "sudo", "-v")
 	cmd.Stdin = os.Stdin
 	cmd.Stdout = os.Stdout //nolint:forbidigo // sudo prompts for the password on the operator's terminal during setup (QUAL-8, item K1)

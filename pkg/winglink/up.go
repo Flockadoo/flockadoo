@@ -1,4 +1,4 @@
-package inferscale
+package winglink
 
 import (
 	"bytes"
@@ -6,7 +6,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"github.com/sentnl/inferoute-node/inferoute-client/internal/download"
+	"github.com/Flockadoo/flockadoo/internal/download"
 	"io"
 	"net/http"
 	"os"
@@ -23,17 +23,17 @@ var WithWait = func(msg string, fn func() error) error {
 	return fn()
 }
 
-// BringUp installs the pinned binaries, starts inferscaled, and joins the tailnet.
+// BringUp installs the pinned binaries, starts winglinkd, and joins the Winglink network.
 // authKey is empty when this machine already joined.
 func BringUp(ctx context.Context, loginServer, authKey string) (ip, nodeID string, err error) {
 	if goos := runtime.GOOS; goos != "linux" { //nolint:forbidigo // platform branch in shared code (PLAT-2, item H1)
-		return "", "", fmt.Errorf("inferscale needs a Linux TUN; this machine is %s", goos)
+		return "", "", fmt.Errorf("winglink needs a Linux TUN; this machine is %s", goos)
 	}
 	// Exchange already spent the join code. The key has to be on disk before
 	// download or sudo can fail and the next run passes "".
 	// A leftover from that failed up is still a pending join: resumeWorker
-	// and refreshCluster both call BringUp with "". Treating it as "already
-	// joined" reuses the old tailnet and clearAuthKey deletes the unused key.
+	// and refreshFlock both call BringUp with "". Treating it as "already
+	// joined" reuses the old network and clearAuthKey deletes the unused key.
 	supplied := strings.TrimSpace(authKey)
 	if authKey, err = persistAuthKey(authKey); err != nil {
 		return "", "", err
@@ -51,7 +51,7 @@ func BringUp(ctx context.Context, loginServer, authKey string) (ip, nodeID strin
 		}
 	}
 	var cli string
-	if err := WithWait("Downloading inferscale", func() error {
+	if err := WithWait("Downloading winglink", func() error {
 		var derr error
 		cli, derr = ensureBins(ctx)
 		return derr
@@ -62,13 +62,13 @@ func BringUp(ctx context.Context, loginServer, authKey string) (ip, nodeID strin
 		if err := ensureSudo(ctx); err != nil {
 			return "", "", err
 		}
-		if err := WithWait("Starting inferscale", func() error {
+		if err := WithWait("Starting winglink", func() error {
 			return ensureDaemon(ctx, cli)
 		}); err != nil {
 			return "", "", err
 		}
 	}
-	// A new key is a new cluster. Drop the old node so up does not resume
+	// A new key is a new flock. Drop the old node so up does not resume
 	// it or refuse with "can't change --login-server". logout uses sudo -n,
 	// so cache sudo first — otherwise logout is a no-op on an already-running
 	// daemon and the online shortcut below would delete the unused key.
@@ -85,11 +85,11 @@ func BringUp(ctx context.Context, loginServer, authKey string) (ip, nodeID strin
 	// A saved address is not a connection. Offline still has the old IPv4.
 	if st, err := readState(ctx, cli); err == nil && reuseOnlineNode(freshKey, st) {
 		clearAuthKey()
-		_, _ = fmt.Fprintf(os.Stdout, "Inferscale address: %s\n", st.IP) //nolint:forbidigo // bring-up runs inside setup, on the operator's terminal (QUAL-8, item K1)
+		_, _ = fmt.Fprintf(os.Stdout, "Winglink address: %s\n", st.IP) //nolint:forbidigo // bring-up runs inside setup, on the operator's terminal (QUAL-8, item K1)
 		return st.IP, st.ID, nil
 	}
 	if loginServer == "" && authKey == "" {
-		return "", "", fmt.Errorf("inferscale is not connected and the one-shot key was already used")
+		return "", "", fmt.Errorf("winglink is not connected and the one-shot key was already used")
 	}
 	if err := ensureSudo(ctx); err != nil {
 		return "", "", err
@@ -110,13 +110,13 @@ func BringUp(ctx context.Context, loginServer, authKey string) (ip, nodeID strin
 	logAt := fileSize(daemonLogPath())
 	var stderr bytes.Buffer
 	cmd.Stderr = io.MultiWriter(os.Stderr, &stderr) //nolint:forbidigo // bring-up runs inside setup, on the operator's terminal (QUAL-8, item K1)
-	if err := WithWait("Joining the tailnet", func() error {
+	if err := WithWait("Joining Winglink", func() error {
 		if err := cmd.Run(); err != nil {
 			if authKeyRejected(stderr.String(), readFrom(daemonLogPath(), logAt)) {
 				clearAuthKey()
-				return fmt.Errorf("inferscale up: one-shot key was rejected: %w", err)
+				return fmt.Errorf("winglink up: one-shot key was rejected: %w", err)
 			}
-			return fmt.Errorf("inferscale up: %w", err)
+			return fmt.Errorf("winglink up: %w", err)
 		}
 		clearAuthKey()
 		return nil
@@ -125,7 +125,7 @@ func BringUp(ctx context.Context, loginServer, authKey string) (ip, nodeID strin
 	}
 	ip, nodeID, err = waitOnline(ctx, cli)
 	if err == nil {
-		_, _ = fmt.Fprintf(os.Stdout, "Inferscale address: %s\n", ip) //nolint:forbidigo // bring-up runs inside setup, on the operator's terminal (QUAL-8, item K1)
+		_, _ = fmt.Fprintf(os.Stdout, "Winglink address: %s\n", ip) //nolint:forbidigo // bring-up runs inside setup, on the operator's terminal (QUAL-8, item K1)
 	}
 	return ip, nodeID, err
 }
@@ -137,7 +137,7 @@ func pendingAuthKey(supplied, persisted string) bool {
 }
 
 // reuseOnlineNode is the already-joined shortcut. A pending key (caller-supplied
-// or leftover) is a cluster switch: keep the key and run `up` instead of
+// or leftover) is a flock switch: keep the key and run `up` instead of
 // returning the old IP.
 func reuseOnlineNode(freshKey bool, st nodeState) bool {
 	return !freshKey && st.Online && st.IP != ""
@@ -155,7 +155,7 @@ func upArgs(loginServer, authKeyPath string) []string {
 	return args
 }
 
-const TUN = "inferscale0"
+const TUN = "winglink0"
 
 // rootArgv is the argv that runs name as root. euid 0 runs it directly.
 // Otherwise sudo -n, which uses the credential from ensureSudo.
@@ -191,7 +191,7 @@ func startDaemon(ctx context.Context, daemon string) error {
 		detach(cmd)
 		return cmd.Start()
 	}
-	// -b asks for nothing (sudo -n) and backgrounds inferscaled after auth.
+	// -b asks for nothing (sudo -n) and backgrounds winglinkd after auth.
 	cmd := exec.CommandContext(ctx, "sudo", "-n", "-b", "--", daemon) //nolint:gosec // G204: daemon passed rootOwned above
 	cmd.Stdin = os.Stdin
 	cmd.Stdout = logf
@@ -204,7 +204,7 @@ func daemonLogPath() string {
 	if err != nil {
 		return ""
 	}
-	return filepath.Join(home, ".local", "state", "inferoute", "log", "inferscaled.log")
+	return filepath.Join(home, ".local", "state", "flockadoo", "log", "winglinkd.log")
 }
 
 func openDaemonLog() io.WriteCloser {
@@ -322,10 +322,10 @@ func readFrom(path string, off int64) string {
 	return string(b[:n])
 }
 
-const libexecDir = "/usr/local/libexec/inferoute"
+const libexecDir = "/usr/local/libexec/flockadoo"
 
 func binPaths() (cli, daemon string) {
-	return filepath.Join(libexecDir, "inferscale"), filepath.Join(libexecDir, "inferscaled")
+	return filepath.Join(libexecDir, "winglink"), filepath.Join(libexecDir, "winglinkd")
 }
 
 // stateDir holds the one-shot key. The binaries do not live here.
@@ -334,7 +334,7 @@ func stateDir() (string, error) {
 	if err != nil {
 		return "", err
 	}
-	dir := filepath.Join(home, ".local", "share", "inferoute", "inferscale")
+	dir := filepath.Join(home, ".local", "share", "flockadoo", "winglink")
 	if err := os.MkdirAll(dir, 0o755); err != nil {
 		return "", err
 	}
@@ -415,11 +415,11 @@ func ensureBins(ctx context.Context) (string, error) {
 		}
 	}
 	if err := rootOwned(cli); err != nil {
-		return "", fmt.Errorf("inferscale install: %w", err)
+		return "", fmt.Errorf("winglink install: %w", err)
 	}
 	if daemonName != "" {
 		if err := rootOwned(daemon); err != nil {
-			return "", fmt.Errorf("inferscaled install: %w", err)
+			return "", fmt.Errorf("winglinkd install: %w", err)
 		}
 	}
 	return cli, nil
@@ -514,9 +514,9 @@ func ensureDaemon(ctx context.Context, cli string) error {
 	if daemonReady(ctx, cli) == nil {
 		return nil
 	}
-	daemon := filepath.Join(filepath.Dir(cli), "inferscaled")
+	daemon := filepath.Join(filepath.Dir(cli), "winglinkd")
 	if err := startDaemon(ctx, daemon); err != nil {
-		return fmt.Errorf("start inferscaled: %w", err)
+		return fmt.Errorf("start winglinkd: %w", err)
 	}
 	deadline := time.Now().Add(10 * time.Second)
 	var last error
@@ -532,7 +532,7 @@ func ensureDaemon(ctx context.Context, cli string) error {
 		case <-time.After(200 * time.Millisecond):
 		}
 	}
-	msg := "inferscaled did not answer"
+	msg := "winglinkd did not answer"
 	if tail := tailFile(daemonLogPath(), 800); tail != "" {
 		msg += ": " + tail
 	} else if last != nil {
@@ -634,7 +634,7 @@ func waitOnline(ctx context.Context, cli string) (string, string, error) {
 		if err != nil {
 			last = err
 		} else {
-			last = fmt.Errorf("inferscale is offline")
+			last = fmt.Errorf("winglink is offline")
 		}
 		if time.Now().After(deadline) || ctx.Err() != nil {
 			if ctx.Err() != nil {
@@ -650,11 +650,11 @@ func waitOnline(ctx context.Context, cli string) (string, string, error) {
 	}
 }
 
-// CLI is the root-owned inferscale binary. A user-writable PATH entry is ignored.
+// CLI is the root-owned winglink binary. A user-writable PATH entry is ignored.
 func CLI() (string, error) {
 	cli, err := trustedCLI()
 	if err != nil {
-		return "", fmt.Errorf("inferscale is not installed: %w", err)
+		return "", fmt.Errorf("winglink is not installed: %w", err)
 	}
 	return cli, nil
 }
@@ -664,7 +664,7 @@ func trustedCLI() (string, error) {
 	if err := rootOwned(cli); err == nil {
 		return cli, nil
 	}
-	path, err := exec.LookPath("inferscale")
+	path, err := exec.LookPath("winglink")
 	if err != nil {
 		return "", err
 	}
@@ -683,13 +683,13 @@ func ipv4(ctx context.Context, cli string) (string, error) {
 	}
 	ip := strings.TrimSpace(string(out))
 	if ip == "" {
-		return "", fmt.Errorf("inferscale has no ipv4")
+		return "", fmt.Errorf("winglink has no ipv4")
 	}
 	return ip, nil
 }
 
-// Tailnet is this machine's tailnet IPv4 and how many other nodes are online.
-func Tailnet(ctx context.Context) (ip string, onlinePeers int) {
+// Status is this machine's Winglink IPv4 and how many other nodes are online.
+func Status(ctx context.Context) (ip string, onlinePeers int) {
 	cli, err := trustedCLI()
 	if err != nil {
 		return "", 0

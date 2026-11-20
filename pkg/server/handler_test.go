@@ -13,11 +13,11 @@ import (
 	"testing"
 	"time"
 
+	"github.com/Flockadoo/flockadoo/internal/config"
+	"github.com/Flockadoo/flockadoo/pkg/llm"
+	"github.com/Flockadoo/flockadoo/pkg/logger"
+	"github.com/Flockadoo/flockadoo/pkg/verify"
 	"github.com/gorilla/mux"
-	"github.com/sentnl/inferoute-node/inferoute-client/internal/config"
-	"github.com/sentnl/inferoute-node/inferoute-client/pkg/llm"
-	"github.com/sentnl/inferoute-node/inferoute-client/pkg/logger"
-	"github.com/sentnl/inferoute-node/inferoute-client/pkg/verify"
 	"go.uber.org/zap"
 )
 
@@ -50,11 +50,11 @@ func (f *fakeLLM) ForwardRequest(ctx context.Context, path string, body []byte, 
 }
 
 // nodeStub is a node the relay must never call: serving a request makes no
-// call to the node (decision DC1).
+// call to the server (decision DC1).
 func nodeStub(t *testing.T) *httptest.Server {
 	t.Helper()
 	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		t.Errorf("the relay called the node: %s %s", r.Method, r.URL.Path)
+		t.Errorf("the relay called the server: %s %s", r.Method, r.URL.Path)
 		w.WriteHeader(http.StatusNotFound)
 	}))
 	t.Cleanup(ts.Close)
@@ -100,10 +100,10 @@ func TestWriteDeadlineOnRealServer(t *testing.T) {
 		t.Fatal(err)
 	}
 	req.Header.Set("X-Request-Id", "good-hmac")
-	req.Header.Set("X-Inferoute-Timeout-Ms", "600000")
+	req.Header.Set("X-Flockadoo-Timeout-Ms", "600000")
 	// A time of day from another machine's clock is not used. This one is in
 	// the past, which used to fail every write.
-	req.Header.Set("X-Inferoute-Deadline", time.Now().Add(-time.Hour).UTC().Format(time.RFC3339))
+	req.Header.Set("X-Flockadoo-Deadline", time.Now().Add(-time.Hour).UTC().Format(time.RFC3339))
 	resp, err := http.DefaultClient.Do(req)
 	if err != nil {
 		t.Fatal(err)

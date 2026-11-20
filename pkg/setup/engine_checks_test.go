@@ -11,8 +11,8 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/sentnl/inferoute-node/inferoute-client/internal/config"
-	"github.com/sentnl/inferoute-node/inferoute-client/pkg/engine"
+	"github.com/Flockadoo/flockadoo/internal/config"
+	"github.com/Flockadoo/flockadoo/pkg/engine"
 )
 
 // skipWithoutVLLM skips where the wizard turns vLLM into llama.cpp: neither a
@@ -182,16 +182,16 @@ func TestDeclinedReinstallTurnsAutoStartOff(t *testing.T) {
 	}
 }
 
-// A cluster pinned below the minimum would install a release every client
+// A flock pinned below the minimum would install a release every client
 // refuses, so setup stops before installing or joining.
-func TestSetupRefusesAClusterPinBelowTheMinimum(t *testing.T) {
+func TestSetupRefusesAFlockPinBelowTheMinimum(t *testing.T) {
 	if engine.RuntimeKind(runtime.GOOS, engine.KindVLLM) != engine.KindVLLM {
-		t.Skip("clusters and their vLLM pin are Linux only") //nolint:forbidigo // platform test: macOS serves vLLM rows with vLLM Metal and Windows with llama.cpp, and neither joins a cluster
+		t.Skip("Team Flocks and their vLLM pin are Linux only") //nolint:forbidigo // platform test: macOS serves vLLM rows with vLLM Metal and Windows with llama.cpp, and neither joins a Team Flock
 	}
 	singlePlan(t)
-	clusterPlan = func(*config.Config) (clusterSettings, error) {
-		return clusterSettings{
-			Role: "worker", Name: "inferoute-cluster1",
+	flockPlan = func(*config.Config) (flockSettings, error) {
+		return flockSettings{
+			Role: "worker", Name: "flockadoo-flock1",
 			Model: "Qwen/Qwen3-0.6B", ServiceType: "vllm", VLLMVersion: "0.29.2",
 		}, nil
 	}

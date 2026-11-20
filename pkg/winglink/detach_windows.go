@@ -1,6 +1,6 @@
 //go:build windows
 
-package inferscale
+package winglink
 
 import "os/exec"
 

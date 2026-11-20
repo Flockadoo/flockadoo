@@ -9,10 +9,10 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/sentnl/inferoute-node/inferoute-client/internal/config"
+	"github.com/Flockadoo/flockadoo/internal/config"
 )
 
-// vLLM 0.30.0 is the oldest release Inferoute supports: the YaRN override is a
+// vLLM 0.30.0 is the oldest release Flockadoo supports: the YaRN override is a
 // rope_parameters dict, which needs the transformers 5 handling every release
 // from 0.30 has. vLLM Metal reports the vLLM release it runs. llama.cpp builds
 // are never too old, and a version that cannot be read is not treated as old.
@@ -50,7 +50,7 @@ func TestCheckVersionNamesTheReleaseTheMinimumAndTheFix(t *testing.T) {
 	if !errors.Is(err, ErrEngineTooOld) {
 		t.Fatalf("CheckVersion = %v", err)
 	}
-	for _, want := range []string{"0.29.2", "0.30.0", "inferoute-client setup"} {
+	for _, want := range []string{"0.29.2", "0.30.0", "flockadoo setup"} {
 		if !strings.Contains(err.Error(), want) {
 			t.Errorf("%q does not mention %s", err, want)
 		}

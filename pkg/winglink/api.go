@@ -1,4 +1,4 @@
-package inferscale
+package winglink
 
 import (
 	"bytes"
@@ -20,7 +20,7 @@ type enrollResult struct {
 }
 
 type sessionResult struct {
-	Mode             string `json:"cluster_mode"`
+	Mode             string `json:"flock_mode"`
 	Role             string `json:"role"`
 	Name             string `json:"name"`
 	Model            string `json:"model"`
@@ -61,7 +61,7 @@ func ReportIP(ctx context.Context, base, token string, worker bool, ip, nodeID s
 		path = "/api/provider/network/node/ip"
 	}
 	body := map[string]any{
-		"tailnet_ip":        ip,
+		"winglink_ip":       ip,
 		"headscale_node_id": nodeID,
 	}
 	if gpu != nil {

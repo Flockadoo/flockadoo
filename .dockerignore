@@ -11,7 +11,7 @@
 .cursor
 
 # Build artifacts
-inferoute-client
+flockadoo
 *.exe
 *.dll
 *.so

@@ -1,8 +1,8 @@
-// Package fakegateway is the node's connect-gateway for tests (plan section
+// Package fakegateway is the server's connect-gateway for tests (plan section
 // 17.2). It accepts the client's WebSocket with a bearer check, runs yamux in
-// client mode on top, and opens one stream per request the way the node's
+// client mode on top, and opens one stream per request the way the server's
 // reverse proxy does (node: pkg/api/connect/service.go, Accept and newProxy).
-// A second session with the same key replaces the first, as on the node.
+// A second session with the same key replaces the first, as on the server.
 //
 // The controls break the connection in the ways the real one breaks: Drop
 // (the network goes away), Replace (another client took the key), Blackhole
@@ -28,7 +28,7 @@ import (
 )
 
 // headerClientVersion is the header the client sends its version in.
-const headerClientVersion = "X-Inferoute-Client-Version"
+const headerClientVersion = "X-Flockadoo-Client-Version"
 
 // Gateway is a running fake gateway. It stops when the test ends.
 type Gateway struct {
@@ -125,7 +125,7 @@ func (g *Gateway) accept(w http.ResponseWriter, r *http.Request) {
 	delete(g.hijacked, r.RemoteAddr)
 	g.mu.Unlock()
 
-	// As on the node: the session outlives the upgrade request.
+	// As on the server: the session outlives the upgrade request.
 	netConn := websocket.NetConn(context.WithoutCancel(r.Context()), ws, websocket.MessageBinary)
 	hole := &holeConn{Conn: netConn, closed: make(chan struct{})}
 	cfg := yamux.DefaultConfig()
@@ -141,7 +141,7 @@ func (g *Gateway) accept(w http.ResponseWriter, r *http.Request) {
 	}
 	s := &session{
 		ws: ws, ys: ys, raw: raw, hole: hole,
-		// The node's proxy transport: one stream per request, no reuse.
+		// The server's proxy transport: one stream per request, no reuse.
 		client: &http.Client{Transport: &http.Transport{
 			DialContext:       func(context.Context, string, string) (net.Conn, error) { return ys.Open() },
 			DisableKeepAlives: true,
@@ -182,7 +182,7 @@ func (g *Gateway) notify() {
 	g.changed = make(chan struct{})
 }
 
-// writeError answers the way the node does: {"error": message}.
+// writeError answers the way the server does: {"error": message}.
 func writeError(w http.ResponseWriter, status int, msg string) {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(status)
@@ -234,7 +234,7 @@ func (g *Gateway) await(t testing.TB, what string, cond func() bool) {
 	}
 }
 
-// Do sends req to the client over the live session, as the node's proxy
+// Do sends req to the client over the live session, as the server's proxy
 // does: a new stream, http://provider as the host. The caller reads and
 // closes the response body.
 func (g *Gateway) Do(req *http.Request) (*http.Response, error) {
@@ -257,7 +257,7 @@ func (g *Gateway) Drop() {
 	}
 }
 
-// Replace closes the live session the way the node does when another client
+// Replace closes the live session the way the server does when another client
 // connects with the same key.
 func (g *Gateway) Replace() {
 	if s := g.takeLive(); s != nil {
@@ -299,7 +299,7 @@ func (g *Gateway) Blackhole() {
 	}
 }
 
-// RejectNext answers the next dial with status and the node's error body
+// RejectNext answers the next dial with status and the server's error body
 // for msg (401, 426, 503), without upgrading.
 func (g *Gateway) RejectNext(status int, msg string) {
 	g.mu.Lock()

@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Inferoute Provider Client</title>
+<title>Flockadoo Provider Client</title>
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='7' fill='%23111111'/%3E%3Cpath fill='%23D7FD52' transform='translate(4 6) scale(1.027)' d='M20.655 6.299C21.388 9.416 20.37 13.918 16.176 19.52C17.039 16.885 17.831 13.331 16.637 9.918C18.204 8.861 19.579 7.652 20.655 6.299Z'/%3E%3C/svg%3E">
 <style>
   :root {
@@ -57,7 +57,7 @@
 </head>
 <body>
 <main>
-  <div class="banner">INFEROUTE PROVIDER CLIENT</div>
+  <div class="banner">FLOCKADOO PROVIDER CLIENT</div>
   <div id="app">Loading status…</div>
   <footer>Refreshes every 3 seconds. Closing this tab does not stop the client — use Quit on the tray icon.</footer>
 </main>
@@ -97,6 +97,8 @@ function render(s) {
     }).join("");
   }
   const gpu = s.gpu || {};
+  // How the screens show this machine's stored role (docs/naming.md).
+  const flockLabel = (role) => ({ master: "Team · master", worker: "Team · worker" })[role] || "Solo";
   const reqs = Array.isArray(s.recent_requests) ? s.recent_requests : [];
   let reqHtml;
   if (reqs.length === 0) {
@@ -106,28 +108,24 @@ function render(s) {
       `<div>${esc(r.time)} UTC ${esc(r.method)} ${esc(r.path)} <span class="${statusCls(r.status)}">${esc(r.status)}</span> ${esc(r.duration)}</div>`
     ).join("");
   }
-  const tunnel = s.cloudflare_tunnel_url
-    ? row("Cloudflare Tunnel URL", esc(s.cloudflare_tunnel_url))
-    : "";
   let updateHtml = "";
   if (s.update_status === "required" || s.update_status === "available") {
     const color = s.update_status === "required" ? "#f66" : "#fc6";
-    updateHtml = `<div style="color:${color};margin:8px 0">Update ${esc(s.update_status)}: ${esc(s.client_version)} -&gt; ${esc(s.latest_version)}. Run inferoute-client update, then restart.</div>`;
+    updateHtml = `<div style="color:${color};margin:8px 0">Update ${esc(s.update_status)}: ${esc(s.client_version)} -&gt; ${esc(s.latest_version)}. Run flockadoo update, then restart.</div>`;
   }
   document.getElementById("app").innerHTML = `
     ${updateHtml}
     ${row("Last Health Update", esc(s.last_health_update))}
     ${row("Session Status", esc(s.session_status || "online"), s.session_status === "benchmarking" ? "warn" : "ok")}
     ${s.not_serving ? row("Not serving", esc(s.not_serving), "bad") : ""}
-    ${row("Provider Type", esc(s.provider_type))}
+    ${row("Engine", esc(s.provider_type))}
     ${row("Provider API Key", esc(s.provider_api_key))}
-    ${row("Provider URL", esc(s.provider_url))}
+    ${row("Platform URL", esc(s.provider_url))}
     ${row("LLM URL", esc(s.llm_url))}
-    ${s.tailnet_ip ? row("Tailnet IP", esc(s.tailnet_ip)) : ""}
+    ${s.winglink_ip ? row("Winglink IP", esc(s.winglink_ip)) : ""}
     ${s.peers ? row("Peers", esc(s.peers)) : ""}
-    ${tunnel}
-    <h2>CLUSTER STATUS</h2>
-    ${row("Cluster", esc(s.cluster || "single"))}
+    <h2>FLOCK STATUS</h2>
+    ${row("Flock", esc(flockLabel(s.flock)))}
     ${s.engine_note ? row("Benchmark", esc(s.engine_note)) : ""}
     ${s.connection_reason ? row("Connection", esc(s.connection_reason), "warn") : ""}
     ${s.capability_line ? row("Capabilities", esc(s.capability_line)) : ""}

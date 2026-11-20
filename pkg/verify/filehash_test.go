@@ -9,7 +9,7 @@ import (
 )
 
 // Characterization tests for the per-file hash (plan item Q2): they pin the
-// algorithm the node's bootstrap script uses, before the only test that
+// algorithm the server's bootstrap script uses, before the only test that
 // reached it (through the dead WeightFingerprint helper) goes with it. The
 // expected values were computed independently with Python's hashlib.
 

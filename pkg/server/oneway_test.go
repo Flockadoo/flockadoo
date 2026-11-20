@@ -9,17 +9,17 @@ import (
 	"testing"
 	"time"
 
-	"github.com/sentnl/inferoute-node/inferoute-client/internal/config"
-	"github.com/sentnl/inferoute-node/inferoute-client/internal/testenv/fakeengine"
-	"github.com/sentnl/inferoute-node/inferoute-client/internal/testenv/fakegateway"
-	"github.com/sentnl/inferoute-node/inferoute-client/pkg/connect"
-	"github.com/sentnl/inferoute-node/inferoute-client/pkg/health"
-	"github.com/sentnl/inferoute-node/inferoute-client/pkg/llm"
+	"github.com/Flockadoo/flockadoo/internal/config"
+	"github.com/Flockadoo/flockadoo/internal/testenv/fakeengine"
+	"github.com/Flockadoo/flockadoo/internal/testenv/fakegateway"
+	"github.com/Flockadoo/flockadoo/pkg/connect"
+	"github.com/Flockadoo/flockadoo/pkg/health"
+	"github.com/Flockadoo/flockadoo/pkg/llm"
 )
 
 // Plan item B2, first pull request (findings NET-9 and SEC-4, decisions DC1
 // and DC3): inference has one way in, the tunnel, and serving a request makes
-// no call to the node.
+// no call to the server.
 
 // The local listener answers the dashboard and its APIs, and no inference.
 func TestTheLocalListenerServesNoInference(t *testing.T) {
@@ -44,7 +44,7 @@ func TestTheLocalListenerServesNoInference(t *testing.T) {
 		t.Errorf("the local listener sent %d requests to the engine", n)
 	}
 	if n := len(r.plat.AllRequests()); n != 0 {
-		t.Errorf("the local listener made %d calls to the node", n)
+		t.Errorf("the local listener made %d calls to the server", n)
 	}
 }
 
@@ -66,20 +66,20 @@ func TestTheDashboardAndItsAPIsStillAnswer(t *testing.T) {
 	}
 }
 
-// Serving an inference request over the tunnel makes no call to the node.
+// Serving an inference request over the tunnel makes no call to the server.
 func TestAnInferenceRequestMakesNoCallToTheNode(t *testing.T) {
 	r := newRig(t, 1)
 	if status, body := r.call(t, streamBody, nil); status != http.StatusOK {
 		t.Fatalf("status %d (%s)", status, body)
 	}
 	if reqs := r.plat.AllRequests(); len(reqs) != 0 {
-		t.Fatalf("serving one request made %d calls to the node, the first to %s", len(reqs), reqs[0].Path)
+		t.Fatalf("serving one request made %d calls to the server, the first to %s", len(reqs), reqs[0].Path)
 	}
 }
 
-// With the node unreachable, a request that arrives over the tunnel is
+// With the server unreachable, a request that arrives over the tunnel is
 // still served: the tunnel, dialled by the client with its key, is what says
-// a request comes from Inferoute.
+// a request comes from Flockadoo.
 func TestARequestIsServedWhileTheNodeIsUnreachable(t *testing.T) {
 	eng := fakeengine.VLLM(t, fakeengine.Model(rigModel))
 	gw := fakegateway.New(t, rigKey)

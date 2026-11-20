@@ -478,7 +478,7 @@ func NoUsage(chunks ...string) Response { return streamOf(chunks, nil) }
 
 // InflatedUsage streams the chunks with a usage event claiming
 // completionTokens, far more than were generated. The client must pass it
-// through unchanged; judging it is the node's job.
+// through unchanged; judging it is the server's job.
 func InflatedUsage(completionTokens int, chunks ...string) Response {
 	return streamOf(chunks, &Usage{PromptTokens: 1, CompletionTokens: completionTokens})
 }

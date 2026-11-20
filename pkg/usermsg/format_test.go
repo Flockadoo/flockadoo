@@ -5,9 +5,9 @@ import (
 	"fmt"
 	"testing"
 
-	"github.com/sentnl/inferoute-node/inferoute-client/pkg/connect"
-	"github.com/sentnl/inferoute-node/inferoute-client/pkg/llm"
-	"github.com/sentnl/inferoute-node/inferoute-client/pkg/verify"
+	"github.com/Flockadoo/flockadoo/pkg/connect"
+	"github.com/Flockadoo/flockadoo/pkg/llm"
+	"github.com/Flockadoo/flockadoo/pkg/verify"
 )
 
 func TestConsoleLLMUnreachable(t *testing.T) {

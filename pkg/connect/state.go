@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/sentnl/inferoute-node/inferoute-client/pkg/logger"
+	"github.com/Flockadoo/flockadoo/pkg/logger"
 	"go.uber.org/zap"
 )
 
@@ -58,7 +58,7 @@ func (s State) Terminal() bool {
 }
 
 // CloseReplaced is the WebSocket close code the gateway sends when a newer
-// session with the same key replaces this one (decision DC8). The node does
+// session with the same key replaces this one (decision DC8). The server does
 // not send it yet; until it does, the client infers a replacement from
 // sessions that keep ending early.
 const CloseReplaced = 4001
@@ -70,7 +70,7 @@ const shortSessionsBeforeWarning = 3
 
 var (
 	// ErrUpgradeRequired: the gateway answered the dial with 426.
-	ErrUpgradeRequired = errors.New("this client version is too old for Inferoute")
+	ErrUpgradeRequired = errors.New("this client version is too old for Flockadoo")
 	// ErrReplaced: the gateway closed the session for a newer one.
 	ErrReplaced = errors.New("another client connected with this API key")
 )

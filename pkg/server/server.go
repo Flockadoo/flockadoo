@@ -10,20 +10,20 @@ import (
 
 	"errors"
 
+	"github.com/Flockadoo/flockadoo/internal/admission"
+	"github.com/Flockadoo/flockadoo/internal/config"
+	"github.com/Flockadoo/flockadoo/internal/relay"
+	"github.com/Flockadoo/flockadoo/pkg/capacity"
+	"github.com/Flockadoo/flockadoo/pkg/connect"
+	"github.com/Flockadoo/flockadoo/pkg/engine"
+	"github.com/Flockadoo/flockadoo/pkg/gpu"
+	"github.com/Flockadoo/flockadoo/pkg/health"
+	"github.com/Flockadoo/flockadoo/pkg/llm"
+	"github.com/Flockadoo/flockadoo/pkg/logger"
+	"github.com/Flockadoo/flockadoo/pkg/usermsg"
+	"github.com/Flockadoo/flockadoo/pkg/verify"
+	"github.com/Flockadoo/flockadoo/pkg/winglink"
 	"github.com/gorilla/mux"
-	"github.com/sentnl/inferoute-node/inferoute-client/internal/admission"
-	"github.com/sentnl/inferoute-node/inferoute-client/internal/config"
-	"github.com/sentnl/inferoute-node/inferoute-client/internal/relay"
-	"github.com/sentnl/inferoute-node/inferoute-client/pkg/capacity"
-	"github.com/sentnl/inferoute-node/inferoute-client/pkg/connect"
-	"github.com/sentnl/inferoute-node/inferoute-client/pkg/engine"
-	"github.com/sentnl/inferoute-node/inferoute-client/pkg/gpu"
-	"github.com/sentnl/inferoute-node/inferoute-client/pkg/health"
-	"github.com/sentnl/inferoute-node/inferoute-client/pkg/inferscale"
-	"github.com/sentnl/inferoute-node/inferoute-client/pkg/llm"
-	"github.com/sentnl/inferoute-node/inferoute-client/pkg/logger"
-	"github.com/sentnl/inferoute-node/inferoute-client/pkg/usermsg"
-	"github.com/sentnl/inferoute-node/inferoute-client/pkg/verify"
 	"go.uber.org/zap"
 )
 
@@ -396,7 +396,7 @@ func (s *Server) gatewayConnected() bool {
 
 // TunnelActive is false once the tunnel has stopped for good (a rejected
 // key, a replacement, an upgrade required): the client then stops reporting
-// to the node and waits for the operator (decision DC8).
+// to the server and waits for the operator (decision DC8).
 func (s *Server) TunnelActive() bool {
 	c := s.tunnel()
 	return c == nil || !c.State().Terminal()
@@ -426,7 +426,7 @@ func (s *Server) redrawConsole() {
 	var buf bytes.Buffer
 	buf.WriteString("\033[H\033[2J")
 	buf.WriteString("\033[1;36m╔════════════════════════════════════════════════════════════════╗\n")
-	buf.WriteString("║                     INFEROUTE PROVIDER CLIENT                    ║\n")
+	buf.WriteString("║                     FLOCKADOO PROVIDER CLIENT                    ║\n")
 	buf.WriteString("╚════════════════════════════════════════════════════════════════╝\033[0m\n")
 
 	fmt.Fprintf(&buf, "\033[1;35mLast Health Update            \033[0m%s\n", snap.LastHealthUpdate)
@@ -446,13 +446,13 @@ func (s *Server) redrawConsole() {
 	}
 	switch snap.UpdateStatus {
 	case "required":
-		fmt.Fprintf(&buf, "\033[1;31mUpdate required: %s -> %s. Run 'inferoute-client update' then restart.\033[0m\n", snap.ClientVersion, snap.LatestVersion)
+		fmt.Fprintf(&buf, "\033[1;31mUpdate required: %s -> %s. Run 'flockadoo update' then restart.\033[0m\n", snap.ClientVersion, snap.LatestVersion)
 	case "available":
-		fmt.Fprintf(&buf, "\033[1;33mUpdate available: %s -> %s. Run 'inferoute-client update' then restart.\033[0m\n", snap.ClientVersion, snap.LatestVersion)
+		fmt.Fprintf(&buf, "\033[1;33mUpdate available: %s -> %s. Run 'flockadoo update' then restart.\033[0m\n", snap.ClientVersion, snap.LatestVersion)
 	}
-	fmt.Fprintf(&buf, "\033[1;35mProvider Type                 \033[0m%s\n", snap.ProviderType)
+	fmt.Fprintf(&buf, "\033[1;35mEngine                        \033[0m%s\n", snap.ProviderType)
 	fmt.Fprintf(&buf, "\033[1;35mProvider API Key              \033[0m%s\n", snap.ProviderAPIKey)
-	fmt.Fprintf(&buf, "\033[1;35mProvider URL                  \033[0m%s\n", snap.ProviderURL)
+	fmt.Fprintf(&buf, "\033[1;35mPlatform URL                  \033[0m%s\n", snap.ProviderURL)
 	fmt.Fprintf(&buf, "\033[1;35mLLM URL                       \033[0m%s\n", snap.LLMURL)
 	state := "connecting"
 	switch {
@@ -467,7 +467,7 @@ func (s *Server) redrawConsole() {
 	}
 	fmt.Fprintf(&buf, "\033[1;35mPlatform connection           \033[0m%s\n", state)
 
-	s.writeClusterStatus(s.ctx, &buf, snap)
+	s.writeFlockStatus(s.ctx, &buf, snap)
 
 	gpuInfo := snap.GPU
 	if gpuInfo == nil {
@@ -512,7 +512,7 @@ func (s *Server) engineStatus(ctx context.Context) string {
 		return ""
 	}
 	kind, _ := engine.ParseKind(s.config.Provider.Engine)
-	switch s.config.Provider.ClusterMode {
+	switch s.config.Provider.FlockRole {
 	case "worker":
 		if engine.WorkerAlive(kind, s.config.Provider.EngineArgs) {
 			return "running"
@@ -521,31 +521,41 @@ func (s *Server) engineStatus(ctx context.Context) string {
 	case "master":
 		ctx, cancel := context.WithTimeout(ctx, 2*time.Second)
 		defer cancel()
-		_, peers := inferscale.Tailnet(ctx)
+		_, peers := winglink.Status(ctx)
 		return engine.MasterState(ctx, kind, s.config.Provider.LLMURL, s.config.Provider.EngineArgs, peers)
 	default:
 		return ""
 	}
 }
 
-func (s *Server) writeClusterStatus(ctx context.Context, buf *bytes.Buffer, snap StatusSnapshot) {
+// flockLabel is how the screens show this machine's stored role: Solo for a
+// one-machine flock, Team · master or Team · worker for a Team Flock
+// (docs/naming.md in internal-docs). The status API keeps the stored value.
+func flockLabel(role string) string {
+	switch role {
+	case "master":
+		return "Team · master"
+	case "worker":
+		return "Team · worker"
+	default:
+		return "Solo"
+	}
+}
+
+func (s *Server) writeFlockStatus(ctx context.Context, buf *bytes.Buffer, snap StatusSnapshot) {
 	buf.WriteString("\033[1;36m╔════════════════════════════════════════════════════════════════╗\n")
-	buf.WriteString("║                          CLUSTER STATUS                          ║\n")
+	buf.WriteString("║                           FLOCK STATUS                           ║\n")
 	buf.WriteString("╚════════════════════════════════════════════════════════════════╝\033[0m\n")
 
-	cluster := snap.Cluster
-	if cluster == "" {
-		cluster = "single"
-	}
-	fmt.Fprintf(buf, "\033[1;35m%-30s\033[0m%s\n", "Cluster", cluster)
+	fmt.Fprintf(buf, "\033[1;35m%-30s\033[0m%s\n", "Flock", flockLabel(snap.Flock))
 	if line := s.engineStatus(ctx); line != "" {
-		fmt.Fprintf(buf, "\033[1;35m%-30s\033[0m%s\n", "Engine", line)
+		fmt.Fprintf(buf, "\033[1;35m%-30s\033[0m%s\n", "Engine state", line)
 	}
 	if snap.Nodes != "" {
 		fmt.Fprintf(buf, "\033[1;35m%-30s\033[0m%s\n", "Nodes", snap.Nodes)
 	}
-	if snap.TailnetIP != "" {
-		fmt.Fprintf(buf, "\033[1;35m%-30s\033[0m%s\n", "Tailnet IP", snap.TailnetIP)
+	if snap.WinglinkIP != "" {
+		fmt.Fprintf(buf, "\033[1;35m%-30s\033[0m%s\n", "Winglink IP", snap.WinglinkIP)
 	}
 
 	models := snap.Models
@@ -626,7 +636,7 @@ func (s *Server) logError(errMsg string) {
 }
 
 // verifyModel is the verdict for the model a request names, read from the
-// verifier's state with no call to the node (plan item B3). With no
+// verifier's state with no call to the server (plan item B3). With no
 // verifier, every model is served.
 func (s *Server) verifyModel(model string) (verify.Verdict, string) {
 	if s.verifier == nil {

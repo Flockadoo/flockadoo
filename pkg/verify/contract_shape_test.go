@@ -12,7 +12,7 @@ func TestVerifyRequestShape(t *testing.T) {
 	got, err := json.Marshal(verifyModelRequest{
 		Alias: "qwen2.5-7b-instruct", ServiceType: "vllm", SizeBytes: 100,
 		Files: []FileMeasurement{{Name: "model.safetensors", Hash: "abc", HashMethod: "sha256", Size: 100}},
-		// The node reads stale (node: pkg/api/provider/models.go, Stale); the
+		// The server reads stale (node: pkg/api/provider/models.go, Stale); the
 		// client sends it when a model's weights changed since its last
 		// measurement. The golden lacked it until the fake platform's check
 		// caught it (plan item B3).

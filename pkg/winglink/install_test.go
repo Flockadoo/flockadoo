@@ -1,9 +1,9 @@
 //go:build !windows
 
-// The cluster code is Linux only, and on Windows every root operation
+// The flock code is Linux only, and on Windows every root operation
 // refuses (root_windows.go), so installBinary cannot run there.
 
-package inferscale
+package winglink
 
 import (
 	"context"
@@ -20,7 +20,7 @@ import (
 	"sync"
 	"testing"
 
-	"github.com/sentnl/inferoute-node/inferoute-client/internal/download"
+	"github.com/Flockadoo/flockadoo/internal/download"
 )
 
 // Plan item S1, follow-up (review finding, 2026-11-18): the pinned SHA-256
@@ -112,14 +112,14 @@ func installRig(t *testing.T, body []byte) (fake *fakeRoot, url, sum, dest strin
 	h := sha256.Sum256(body)
 	fake = &fakeRoot{userDir: userDir}
 	fake.use(t)
-	return fake, srv.URL + "/inferscaled-linux-amd64", hex.EncodeToString(h[:]), filepath.Join(t.TempDir(), "inferscaled")
+	return fake, srv.URL + "/winglinkd-linux-amd64", hex.EncodeToString(h[:]), filepath.Join(t.TempDir(), "winglinkd")
 }
 
 // The finding: a file rewritten after its check is never installed.
 func TestABinaryChangedAfterItsCheckIsNeverInstalled(t *testing.T) {
-	pinned := []byte("the pinned inferscaled")
+	pinned := []byte("the pinned winglinkd")
 	fake, url, sum, dest := installRig(t, pinned)
-	fake.rewrite = []byte("not the pinned inferscaled")
+	fake.rewrite = []byte("not the pinned winglinkd")
 
 	err := installBinary(context.Background(), url, sum, dest)
 
@@ -137,7 +137,7 @@ func TestABinaryChangedAfterItsCheckIsNeverInstalled(t *testing.T) {
 // The positive control: an unchanged download is installed, and nothing is
 // left in the provider's temporary directory or next to the binary.
 func TestAVerifiedBinaryIsInstalled(t *testing.T) {
-	pinned := []byte("the pinned inferscaled")
+	pinned := []byte("the pinned winglinkd")
 	fake, url, sum, dest := installRig(t, pinned)
 
 	if err := installBinary(context.Background(), url, sum, dest); err != nil {

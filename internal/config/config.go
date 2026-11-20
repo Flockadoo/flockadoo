@@ -7,15 +7,15 @@ import (
 	"strings"
 	"time"
 
-	"github.com/sentnl/inferoute-node/inferoute-client/pkg/logger"
+	"github.com/Flockadoo/flockadoo/pkg/logger"
 	"gopkg.in/yaml.v3"
 )
 
-// DefaultPlatformURL is the production Inferoute API.
-const DefaultPlatformURL = "https://core.inferoute.com"
+// DefaultPlatformURL is the production Flockadoo API.
+const DefaultPlatformURL = "https://core.flockadoo.ai"
 
-// EnvPlatformURL is the testing override for the Inferoute API base.
-const EnvPlatformURL = "INFEROUTE_URL"
+// EnvPlatformURL is the testing override for the Flockadoo API base.
+const EnvPlatformURL = "FLOCKADOO_URL"
 
 // Config represents the application configuration
 type Config struct {
@@ -48,7 +48,7 @@ type Config struct {
 		URL    string `yaml:"url"`
 		// Engine is the local inference binary: vllm, vllm-metal, llama_cpp.
 		// Empty means vllm. It is the one engine setting: the provider type
-		// the node is told is derived from it (PlatformType).
+		// the server is told is derived from it (PlatformType).
 		Engine string `yaml:"engine,omitempty"`
 		// EngineBin is an absolute path when the binary is not on PATH.
 		EngineBin string `yaml:"engine_bin,omitempty"`
@@ -79,9 +79,9 @@ type Config struct {
 		GGUFFile string `yaml:"gguf_file,omitempty"`
 		// Task is chat or embedding, from the catalog. Empty means chat.
 		Task string `yaml:"task,omitempty"`
-		// ClusterMode is single, master, or worker. Empty means single.
-		ClusterMode string `yaml:"cluster_mode,omitempty"`
-		// NodeToken is the worker (or master) credential for tailnet routes.
+		// FlockRole is single, master, or worker. Empty means single.
+		FlockRole string `yaml:"flock_role,omitempty"`
+		// NodeToken is the worker (or master) credential for the flock's routes.
 		NodeToken string `yaml:"node_token,omitempty"`
 		// EngineArgs and EngineEnv are the last server-built serve command.
 		EngineArgs []string `yaml:"engine_args,omitempty"`
@@ -106,7 +106,7 @@ func Defaults() *Config {
 	cfg.Provider.LLMURL = "http://127.0.0.1:8000"
 	cfg.Provider.LLMTimeoutSeconds = minLLMTimeoutSeconds
 	if homeDir, err := os.UserHomeDir(); err == nil {
-		cfg.Logging.LogDir = filepath.Join(homeDir, ".local", "state", "inferoute", "log")
+		cfg.Logging.LogDir = filepath.Join(homeDir, ".local", "state", "flockadoo", "log")
 	}
 	cfg.Logging.Level = "info"
 	cfg.Logging.MaxSize = 100
@@ -168,7 +168,7 @@ func (c *Config) normalize() {
 	}
 }
 
-// PlatformType is the provider type the node is told for this config's
+// PlatformType is the provider type the server is told for this config's
 // engine: llama_cpp, or vllm for vLLM and vLLM Metal.
 func (c *Config) PlatformType() string {
 	return PlatformType(c.Provider.Engine)
@@ -183,7 +183,7 @@ func (c *Config) ExplicitConcurrency() (int, bool) {
 	return *c.Server.MaxConcurrentInference, true
 }
 
-// PlatformType is the Inferoute provider_type for a local engine.
+// PlatformType is the Flockadoo provider_type for a local engine.
 func PlatformType(engine string) string {
 	if strings.EqualFold(strings.TrimSpace(engine), "llama_cpp") {
 		return "llama_cpp"
@@ -191,13 +191,13 @@ func PlatformType(engine string) string {
 	return "vllm"
 }
 
-// DefaultPath is ~/.config/inferoute/config.yaml.
+// DefaultPath is ~/.config/flockadoo/config.yaml.
 func DefaultPath() (string, error) {
 	home, err := os.UserHomeDir()
 	if err != nil {
 		return "", fmt.Errorf("user home directory: %w", err)
 	}
-	return filepath.Join(home, ".config", "inferoute", "config.yaml"), nil
+	return filepath.Join(home, ".config", "flockadoo", "config.yaml"), nil
 }
 
 // HasAPIKey reports whether api_key is set to a real value.
@@ -211,7 +211,7 @@ func (c *Config) EnrolledWorker() bool {
 	if c == nil {
 		return false
 	}
-	return c.Provider.ClusterMode == "worker" && strings.TrimSpace(c.Provider.NodeToken) != ""
+	return c.Provider.FlockRole == "worker" && strings.TrimSpace(c.Provider.NodeToken) != ""
 }
 
 // Save writes cfg to path, creating the parent directory.
@@ -267,7 +267,7 @@ func (c *Config) LocalDashboardURL() string {
 	return fmt.Sprintf("http://127.0.0.1:%d/", c.Server.Port)
 }
 
-// PlatformURLFromEnv returns INFEROUTE_URL when set.
+// PlatformURLFromEnv returns FLOCKADOO_URL when set.
 func PlatformURLFromEnv() string {
 	return strings.TrimRight(strings.TrimSpace(os.Getenv(EnvPlatformURL)), "/")
 }
@@ -283,13 +283,13 @@ func EngineFromEnv() string {
 }
 
 // InDocker reports whether the client runs in its Docker image, which sets
-// INFEROUTE_IN_DOCKER=1. The image is updated by pulling, not by self-update.
+// FLOCKADOO_IN_DOCKER=1. The image is updated by pulling, not by self-update.
 func InDocker() bool {
-	return os.Getenv("INFEROUTE_IN_DOCKER") == "1"
+	return os.Getenv("FLOCKADOO_IN_DOCKER") == "1"
 }
 
-// ResolvePlatformURL picks the Inferoute API base.
-// Order: explicit flag, INFEROUTE_URL, existing config (as written), production default.
+// ResolvePlatformURL picks the Flockadoo API base.
+// Order: explicit flag, FLOCKADOO_URL, existing config (as written), production default.
 func ResolvePlatformURL(explicit, fromConfig string) string {
 	if v := strings.TrimRight(strings.TrimSpace(explicit), "/"); v != "" {
 		return v

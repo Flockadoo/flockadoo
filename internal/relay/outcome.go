@@ -12,8 +12,8 @@ const (
 	RefusedModel                                  // a model this machine does not serve
 	RefusedTooLarge                               // the body is over the limit
 	RefusedBadRequest                             // the body is not a JSON object
-	RefusedUnverified                             // the node said the model is not verified: 403
-	RefusedVerificationUnavailable                // no usable verdict and the node cannot be asked: 503
+	RefusedUnverified                             // the server said the model is not verified: 403
+	RefusedVerificationUnavailable                // no usable verdict and the server cannot be asked: 503
 	EngineUnreachable                             // the engine could not be asked
 	EngineFailed                                  // the engine's answer broke off
 	ConsumerGone                                  // the gateway went away

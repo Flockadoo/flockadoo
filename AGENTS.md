@@ -1,8 +1,8 @@
-# Working on inferoute-client
+# Working on flockadoo
 
-The provider's half of Inferoute: one Go binary that relays inference between the platform's gateway tunnel and a local engine (vLLM, vLLM Metal or llama.cpp), with reporters around it (health, capacity, capability probes, concurrency benchmark), a setup wizard, a self-updater and the multi-machine cluster code. The client never interprets a response body; it copies the engine's bytes. Everything it reports to the node is a claim, not proof.
+The provider's half of Flockadoo: one Go binary that relays inference between the platform's gateway tunnel and a local engine (vLLM, vLLM Metal or llama.cpp), with reporters around it (health, capacity, capability probes, concurrency benchmark), a setup wizard, a self-updater and the multi-machine flock code. The client never interprets a response body; it copies the engine's bytes. Everything it reports to the server is a claim, not proof.
 
-What each feature is and where it lives: `FEATURES.yaml`. The audit and refactor plan: `inferoute-plans/client_reliability_audit_3d9b52e7.plan.md` (findings, invariants I1 to I14 in section 13, the target packages in section 14, the backlog in section 20).
+What each feature is and where it lives: `FEATURES.yaml`. The audit and refactor plan: `flockadoo-plans/client_reliability_audit_3d9b52e7.plan.md` (findings, invariants I1 to I14 in section 13, the target packages in section 14, the backlog in section 20).
 
 ## Commands
 
@@ -20,9 +20,9 @@ The check needs golangci-lint v2.15.0 (`go install github.com/golangci/golangci-
 Today's packages are under `pkg/`; they move to `internal/` as the backlog item that reworks each one lands (plan section 14). The target:
 
 - `internal/admission`: the concurrency gate and slots. `internal/tunnel`: the gateway session. `internal/engine`: talking to a running engine. `internal/relay`: the inference handler. These are the request path.
-- `internal/platform`: every call to the node, with request and response types and typed errors.
+- `internal/platform`: every call to the server, with request and response types and typed errors.
 - `internal/health`, `capacity`, `capability`, `benchmark`, `verify`, `catalog`: the reporters.
-- `internal/hardware`, `enginectl` (install and start engines), `cluster` (tailnet, roles, the node-built command): the machine.
+- `internal/hardware`, `enginectl` (install and start engines), `flock` (Winglink, roles, the server-built command): the machine.
 - `internal/setup`, `compat`, `update`, `ui`, `download`: operator-facing. `internal/testenv`: the fakes.
 
 A new engine is one adapter in `engine`, one file in `enginectl` and one row in `Kind`. A new capability is one row in the capability table. A new node endpoint is one method in `platform` and one golden in `pkg/contract/testdata`.
@@ -40,17 +40,17 @@ A new engine is one adapter in `engine`, one file in `enginectl` and one row in 
 
 - Never log or store a request or response body. Never add a usage number the engine did not send.
 - An engine call needs a concurrency slot, released exactly once.
-- A new call to the node needs a request golden (and a response golden if the client reads the response).
+- A new call to the server needs a request golden (and a response golden if the client reads the response).
 - A new engine, or an engine version that changes its stream, needs a recording before the adapter changes. Never write a recording by hand.
-- The API key, the node token and the tailnet key never appear in logs, the dashboard, the status API or anything sent to the node except the authorization header (I12).
+- The API key, the node token and the Winglink key never appear in logs, the dashboard, the status API or anything sent to the server except the authorization header (I12).
 - Model verification identifies a model; it does not prove one. Safetensors are hashed by header only (architecture and tensor layout, not the weights), and a modified client can report anything (finding SEC-2). Nothing may treat the client's verification as proof.
 
 ## Never
 
-- Run `setup`, `update` or the cluster code for real; use `sudo`; write outside `t.TempDir()`.
-- Contact `core.inferoute.com` or any real host from a test. Tests use `httptest` and, after item A2, `internal/testenv`.
+- Run `setup`, `update` or the flock code for real; use `sudo`; write outside `t.TempDir()`.
+- Contact `core.flockadoo.ai` or any real host from a test. Tests use `httptest` and, after item A2, `internal/testenv`.
 - Change a golden or a recording to make a test pass.
-- Modify inferoute-node from this repository. A change the node depends on needs the node-side change agreed first.
+- Modify flockadoo-server from this repository. A change the server depends on needs the server-side change agreed first.
 
 ## Definition of done
 
@@ -72,4 +72,4 @@ Not done: a behaviour change with no test that failed before it and no reason gi
 
 ## Needs human review
 
-`CODEOWNERS` enforces these. A change that touches: anything that runs as root or with `sudo` (the cluster and tailnet code); anything that downloads or executes (engine installers, the updater, the tailnet binaries); how credentials are stored, sent or shown; a golden, or the request and response types of a call to the node; the concurrency limit and the benchmark's thresholds (they are policy); the CI and release workflows. The pinned Inferscale version and checksums (item S1) are stricter still: automation may open that pull request, and only a maintainer merges it.
+`CODEOWNERS` enforces these. A change that touches: anything that runs as root or with `sudo` (the flock and Winglink code); anything that downloads or executes (engine installers, the updater, the Winglink binaries); how credentials are stored, sent or shown; a golden, or the request and response types of a call to the server; the concurrency limit and the benchmark's thresholds (they are policy); the CI and release workflows. The pinned Winglink version and checksums (item S1) are stricter still: automation may open that pull request, and only a maintainer merges it.
