@@ -48,6 +48,9 @@ func TestRejectsRetiredNames(t *testing.T) {
 		"README.md:2: the old brand",
 		"(the path): the old word for a flock",
 		"allows nothing any more; remove it: gone.txt",
+		// The brand's domain is flockadoo.ai; .com is not ours. The line
+		// names it as a host and as an escaped regex.
+		"README.md:4: the brand on the wrong domain (it is flockadoo.ai)",
 	} {
 		if !strings.Contains(out, want) {
 			t.Errorf("the output does not say %q:\n%s", want, out)
