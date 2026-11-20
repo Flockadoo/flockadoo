@@ -33,6 +33,7 @@ var retiredNames = []struct {
 	{"the old brand", regexp.MustCompile(`(?i)infer(?:oute|scale|bid)|sent[n]l`)},
 	{"the network's old name (say Winglink)", regexp.MustCompile(`(?i)tail[n]et`)},
 	{"the old word for a flock", regexp.MustCompile(`(?i)clus[t]er`)},
+	{"the brand on the wrong domain (it is flockadoo.ai)", regexp.MustCompile(`(?i)flockadoo(\\)?\.com`)},
 }
 
 type allowedName struct {
