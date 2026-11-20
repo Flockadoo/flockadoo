@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/Flockadoo/flockadoo/internal/testenv/fakeplatform"
+	"github.com/Flockadoo/flockadoo/pkg/llm"
 )
 
 // Plan item B3 (finding ADM-5, invariant I14, decision DC2): verification
@@ -184,6 +185,78 @@ func TestARefreshInProgressDoesNotDelayARequest(t *testing.T) {
 	case <-done:
 	case <-time.After(time.Second):
 		t.Fatal("a request waited on the server while a refresh was in progress")
+	}
+}
+
+// reportModel is what the health report says about model right now.
+func reportModel(ctx context.Context, w *world, model string) llm.Model {
+	// The test catalog has no max_model_len, so the engine is never asked.
+	return w.v.ApplyToModels(ctx, nil, []llm.Model{{ID: model}})[0]
+}
+
+// 10. The first report after a restart carries the answer of the refresh
+// already in progress. Without it the report went out with no fingerprint,
+// the server judged the model failed, and the machine was red until the next
+// report three minutes later (seen on the Mac mini, 2026-11-20).
+func TestTheFirstReportCarriesTheAnswerOfARefreshInProgress(t *testing.T) {
+	w := newWorld(t, "m")
+	w.plat.Next(http.MethodPost, "/api/provider/verify-model", fakeplatform.Delayed(300*time.Millisecond,
+		fakeplatform.JSON(http.StatusOK, map[string]string{"verification_status": "verified", "weight_fingerprint": "abc"})))
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	go w.v.Refresh(ctx, "m") // the background refresher, started with the report
+	w.plat.AwaitRequests(t, http.MethodPost, "/api/provider/verify-model", 1)
+	got := reportModel(ctx, w, "m")
+	if got.VerificationStatus != string(StatusVerified) || got.WeightFingerprint != "abc" {
+		t.Fatalf("the first report says status %q, fingerprint %q; want %q and %q, the answer of the refresh in progress",
+			got.VerificationStatus, got.WeightFingerprint, StatusVerified, "abc")
+	}
+}
+
+// 11. A report that already has an answer does not wait for a refresh in
+// progress: a slow or unreachable server never holds up the reports.
+func TestAReportWithAnAnswerDoesNotWaitForARefresh(t *testing.T) {
+	w := newWorld(t, "m")
+	w.nodeSays("verified")
+	w.v.Refresh(context.Background(), "m")
+	time.Sleep(2 * refreshAfter)
+	w.plat.Next(http.MethodPost, "/api/provider/verify-model", fakeplatform.Hang(), fakeplatform.Hang())
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	go w.v.Refresh(ctx, "m")
+	w.plat.AwaitRequests(t, http.MethodPost, "/api/provider/verify-model", 2)
+	done := make(chan llm.Model, 1)
+	go func() { done <- reportModel(ctx, w, "m") }()
+	select {
+	case got := <-done:
+		if got.VerificationStatus != string(StatusVerified) {
+			t.Fatalf("the report says %q, want the last answer %q", got.VerificationStatus, StatusVerified)
+		}
+	case <-time.After(time.Second):
+		t.Fatal("a report with an answer waited on a refresh in progress")
+	}
+}
+
+// 12. The wait for a first answer ends with the report's context, and a
+// report with no answer never says failed (invariant I14).
+func TestTheFirstReportWaitsNoLongerThanItsContext(t *testing.T) {
+	w := newWorld(t, "m")
+	w.plat.Next(http.MethodPost, "/api/provider/verify-model", fakeplatform.Hang(), fakeplatform.Hang())
+	refreshCtx, cancelRefresh := context.WithCancel(context.Background())
+	defer cancelRefresh()
+	go w.v.Refresh(refreshCtx, "m")
+	w.plat.AwaitRequests(t, http.MethodPost, "/api/provider/verify-model", 1)
+	ctx, cancel := context.WithTimeout(context.Background(), 200*time.Millisecond)
+	defer cancel()
+	done := make(chan llm.Model, 1)
+	go func() { done <- reportModel(ctx, w, "m") }()
+	select {
+	case got := <-done:
+		if got.VerificationStatus == string(StatusFailed) {
+			t.Fatalf("a report with no answer says %q", got.VerificationStatus)
+		}
+	case <-time.After(2 * time.Second):
+		t.Fatal("the report kept waiting after its context ended")
 	}
 }
 

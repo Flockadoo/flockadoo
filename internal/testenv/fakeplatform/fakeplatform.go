@@ -91,6 +91,7 @@ type Reply struct {
 	status int
 	body   []byte
 	hang   bool
+	delay  time.Duration
 	state  func(p *Platform, r Request) (int, []byte) // stateful defaults; called with p.mu held
 }
 
@@ -108,6 +109,13 @@ func NoContent() Reply { return Reply{status: http.StatusNoContent} }
 
 // Hang accepts the request and never answers; the client's timeout decides.
 func Hang() Reply { return Reply{hang: true} }
+
+// Delayed holds the request for d, then answers r: a server that is slow but
+// answers. A client that gives up first gets nothing.
+func Delayed(d time.Duration, r Reply) Reply {
+	r.delay = d
+	return r
+}
 
 // NodeRemoved is the server's answer to a flock machine whose node token was
 // revoked because the owner removed it.
@@ -265,6 +273,13 @@ func (p *Platform) serveHTTP(w http.ResponseWriter, r *http.Request) {
 	if ok && reply.hang {
 		<-r.Context().Done()
 		return
+	}
+	if ok && reply.delay > 0 {
+		select {
+		case <-time.After(reply.delay):
+		case <-r.Context().Done():
+			return
+		}
 	}
 	writeBody(w, status, out)
 }

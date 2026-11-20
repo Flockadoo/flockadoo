@@ -140,6 +140,19 @@ func TestHangHoldsUntilTheClientGivesUp(t *testing.T) {
 	}
 }
 
+func TestDelayedAnswersAfterTheDelay(t *testing.T) {
+	p := fakeplatform.New(t, "key")
+	p.Next(http.MethodPost, "/api/provider/verify-model", fakeplatform.Delayed(150*time.Millisecond, fakeplatform.JSON(http.StatusOK, map[string]string{"verification_status": "verified"})))
+	start := time.Now()
+	status, body := call(t, http.MethodPost, p.URL+"/api/provider/verify-model", "key", `{}`)
+	if took := time.Since(start); took < 150*time.Millisecond {
+		t.Fatalf("answered after %v, want at least the 150ms delay", took)
+	}
+	if status != http.StatusOK || !strings.Contains(body, `"verified"`) {
+		t.Fatalf("delayed reply = %d %s", status, body)
+	}
+}
+
 // The deployment register keeps state the way the server does: registering a
 // new fingerprint bumps the revision and resets the attempt.
 func TestTheDeploymentRegisterKeepsState(t *testing.T) {

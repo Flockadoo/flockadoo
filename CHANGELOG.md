@@ -1,5 +1,10 @@
 # Changelog
 
+## [Unreleased]
+
+- After a restart, the first health report waits (up to a minute) for the model's verification answer that is already being fetched. It used to go out without one, so Flockadoo recorded the model as failed and the machine as unavailable until the next report, three minutes later. A report for a model that already has an answer never waits.
+- Hashing the weight files no longer holds up requests or health reports. It used to run under the verifier's lock, so while a large `.bin` was hashed (about 20 seconds for a 2 GB file) every request waited for it.
+
 ## [0.44.0] - 2026-11-20
 
 - Inferoute is now Flockadoo, Inferscale is now Winglink, and a provider's cluster is now a flock: a Solo Flock is one machine, a Team Flock is a master and its workers. The binary is `flockadoo` (`flockadoo setup`, `flockadoo update`); the config is `~/.config/flockadoo/config.yaml`, where `provider.cluster_mode` is now `provider.flock_role`; the dashboard and the console say FLOCK STATUS, Platform URL and Engine. The client talks to `core.flockadoo.ai`, with the `X-Flockadoo-*` headers and a `flockadoo/<version>` User-Agent, and joins a Team Flock over Winglink (`winglink`, `winglinkd`, interface `winglink0`). Nothing keeps the old names: a machine on the old client is reinstalled.
