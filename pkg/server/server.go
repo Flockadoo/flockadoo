@@ -450,9 +450,9 @@ func (s *Server) redrawConsole() {
 	case "available":
 		fmt.Fprintf(&buf, "\033[1;33mUpdate available: %s -> %s. Run 'flockadoo update' then restart.\033[0m\n", snap.ClientVersion, snap.LatestVersion)
 	}
-	fmt.Fprintf(&buf, "\033[1;35mProvider Type                 \033[0m%s\n", snap.ProviderType)
+	fmt.Fprintf(&buf, "\033[1;35mEngine                        \033[0m%s\n", snap.ProviderType)
 	fmt.Fprintf(&buf, "\033[1;35mProvider API Key              \033[0m%s\n", snap.ProviderAPIKey)
-	fmt.Fprintf(&buf, "\033[1;35mProvider URL                  \033[0m%s\n", snap.ProviderURL)
+	fmt.Fprintf(&buf, "\033[1;35mPlatform URL                  \033[0m%s\n", snap.ProviderURL)
 	fmt.Fprintf(&buf, "\033[1;35mLLM URL                       \033[0m%s\n", snap.LLMURL)
 	state := "connecting"
 	switch {
@@ -528,18 +528,28 @@ func (s *Server) engineStatus(ctx context.Context) string {
 	}
 }
 
+// flockLabel is how the screens show this machine's stored role: Solo for a
+// one-machine flock, Team · master or Team · worker for a Team Flock
+// (docs/naming.md in internal-docs). The status API keeps the stored value.
+func flockLabel(role string) string {
+	switch role {
+	case "master":
+		return "Team · master"
+	case "worker":
+		return "Team · worker"
+	default:
+		return "Solo"
+	}
+}
+
 func (s *Server) writeFlockStatus(ctx context.Context, buf *bytes.Buffer, snap StatusSnapshot) {
 	buf.WriteString("\033[1;36m╔════════════════════════════════════════════════════════════════╗\n")
-	buf.WriteString("║                          CLUSTER STATUS                          ║\n")
+	buf.WriteString("║                           FLOCK STATUS                           ║\n")
 	buf.WriteString("╚════════════════════════════════════════════════════════════════╝\033[0m\n")
 
-	cluster := snap.Cluster
-	if cluster == "" {
-		cluster = "single"
-	}
-	fmt.Fprintf(buf, "\033[1;35m%-30s\033[0m%s\n", "Cluster", cluster)
+	fmt.Fprintf(buf, "\033[1;35m%-30s\033[0m%s\n", "Flock", flockLabel(snap.Flock))
 	if line := s.engineStatus(ctx); line != "" {
-		fmt.Fprintf(buf, "\033[1;35m%-30s\033[0m%s\n", "Engine", line)
+		fmt.Fprintf(buf, "\033[1;35m%-30s\033[0m%s\n", "Engine state", line)
 	}
 	if snap.Nodes != "" {
 		fmt.Fprintf(buf, "\033[1;35m%-30s\033[0m%s\n", "Nodes", snap.Nodes)

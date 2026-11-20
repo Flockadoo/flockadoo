@@ -54,7 +54,7 @@ type StatusSnapshot struct {
 	UpdateStatus     string        `json:"update_status"`
 	WinglinkIP       string        `json:"winglink_ip,omitempty"`
 	Peers            string        `json:"peers,omitempty"`
-	Cluster          string        `json:"cluster,omitempty"`
+	Flock            string        `json:"flock,omitempty"`
 	Nodes            string        `json:"nodes,omitempty"`
 	// NotServing is why the running engine is refused (too old), so the
 	// client advertises no model; empty while it serves.
@@ -119,22 +119,22 @@ func (s *Server) snapshot(ctx context.Context) StatusSnapshot {
 	}
 
 	upd := nodeapi.State()
-	tailnetIP, online := winglink.Status(ctx)
+	winglinkIP, online := winglink.Status(ctx)
 	peers := ""
 	if online > 0 {
 		peers = fmt.Sprintf("%d online", online)
 	}
-	cluster := "single"
+	flock := "single"
 	nodes := ""
 	if s.config != nil {
 		switch s.config.Provider.FlockRole {
 		case "master", "worker":
-			cluster = s.config.Provider.FlockRole
+			flock = s.config.Provider.FlockRole
 		}
-		if joined, need := engine.NodeSlots(tailnetIP != "", online, engine.NNodes(s.config.Provider.EngineArgs)); need > 0 {
+		if joined, need := engine.NodeSlots(winglinkIP != "", online, engine.NNodes(s.config.Provider.EngineArgs)); need > 0 {
 			nodes = fmt.Sprintf("%d/%d", joined, need)
-			if cluster == "single" {
-				cluster = "master"
+			if flock == "single" {
+				flock = "master"
 			}
 		}
 	}
@@ -154,9 +154,9 @@ func (s *Server) snapshot(ctx context.Context) StatusSnapshot {
 		ClientVersion:    version.Version,
 		LatestVersion:    upd.Latest,
 		UpdateStatus:     string(upd.Status),
-		WinglinkIP:       tailnetIP,
+		WinglinkIP:       winglinkIP,
 		Peers:            peers,
-		Cluster:          cluster,
+		Flock:            flock,
 		Nodes:            nodes,
 		NotServing:       notServing,
 		EngineNote:       s.engineNoteText(),

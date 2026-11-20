@@ -187,7 +187,7 @@ func consoleOutput(t *testing.T, s *Server) string {
 }
 
 // An engine too old to serve is refused (the report carries no models and the
-// node marks the cluster unhealthy). The console and the status API say so and
+// server marks the flock unhealthy). The console and the status API say so and
 // why, instead of showing the session online and the model approved.
 func TestTheStatusSaysWhyTheEngineIsNotServing(t *testing.T) {
 	s := engineServer(t, &versionedEngine{version: "0.28.0"})

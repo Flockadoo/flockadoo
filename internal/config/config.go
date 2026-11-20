@@ -81,7 +81,7 @@ type Config struct {
 		Task string `yaml:"task,omitempty"`
 		// FlockRole is single, master, or worker. Empty means single.
 		FlockRole string `yaml:"flock_role,omitempty"`
-		// NodeToken is the worker (or master) credential for tailnet routes.
+		// NodeToken is the worker (or master) credential for the flock's routes.
 		NodeToken string `yaml:"node_token,omitempty"`
 		// EngineArgs and EngineEnv are the last server-built serve command.
 		EngineArgs []string `yaml:"engine_args,omitempty"`

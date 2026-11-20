@@ -56,7 +56,7 @@ func (o ServeOpts) ropeComplete() bool {
 }
 
 // ServeOptsFromConfig is the serve flags setup saved, for every command built
-// from a saved config: auto-start, the cluster refresh and the printed command.
+// from a saved config: auto-start, the flock refresh and the printed command.
 func ServeOptsFromConfig(cfg *config.Config) ServeOpts {
 	return ServeOpts{
 		ToolCallParser:     cfg.Provider.ToolCallParser,
@@ -327,7 +327,7 @@ func hasArg(args []string, name string) bool {
 	return false
 }
 
-// Headless is a cluster worker. It never opens an HTTP port.
+// Headless is a flock worker. It never opens an HTTP port.
 func Headless(args []string) bool {
 	return hasArg(args, "--headless")
 }

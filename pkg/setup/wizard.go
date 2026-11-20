@@ -73,7 +73,7 @@ func Execute(opts Options, io Streams) error {
 	}
 	var plan flockSettings
 	var planErr error
-	if err := SpinWhile(io.Out, "Reading cluster settings", func() error {
+	if err := SpinWhile(io.Out, "Reading flock settings", func() error {
 		plan, planErr = flockPlan(cfg)
 		return nil
 	}); err != nil {
@@ -109,16 +109,16 @@ func Execute(opts Options, io Streams) error {
 		pinned = strings.TrimSpace(plan.VLLMVersion)
 	}
 	// First-time workers must wait for the master's pin. An existing vLLM
-	// install is not a pin — joining with it starts a mixed-version cluster.
+	// install is not a pin — joining with it starts a mixed-version flock.
 	// Enrolled re-runs keep going when the engine route omits the version
 	// (transient fetch miss); those machines already joined.
 	if plan.Role == "worker" && kind == engine.KindVLLM && pinned == "" && !cfg.EnrolledWorker() {
-		return fmt.Errorf("this cluster has no vLLM version yet. Run setup on the master first")
+		return fmt.Errorf("this flock has no vLLM version yet. Run setup on the master first")
 	}
 	// Every machine installs the pin, and the client refuses a release below
-	// the minimum, so such a pin would stop the whole cluster.
+	// the minimum, so such a pin would stop the whole flock.
 	if pinned != "" && engine.TooOld(kind, pinned) {
-		return fmt.Errorf("this cluster pins vLLM %s, and Flockadoo needs vLLM %s or newer. Ask the cluster owner to change the vLLM version on the Nodes page", pinned, engine.MinVLLMVersion)
+		return fmt.Errorf("this flock pins vLLM %s, and Flockadoo needs vLLM %s or newer. Ask the flock's owner to change the vLLM version on the Nodes page", pinned, engine.MinVLLMVersion)
 	}
 	// unsupported is an installed vLLM older than Flockadoo supports that is
 	// still in place: it is never started.
@@ -128,8 +128,8 @@ func Execute(opts Options, io Streams) error {
 		var notice, question, kept, want string
 		switch {
 		case pinned != "" && have != "" && have != pinned:
-			question = fmt.Sprintf("vLLM %s is installed. This cluster uses vLLM %s. Reinstall it now?", have, pinned)
-			kept = fmt.Sprintf("Leaving vLLM %s installed. This cluster uses vLLM %s, so it may not start.", have, pinned)
+			question = fmt.Sprintf("vLLM %s is installed. This flock uses vLLM %s. Reinstall it now?", have, pinned)
+			kept = fmt.Sprintf("Leaving vLLM %s installed. This flock uses vLLM %s, so it may not start.", have, pinned)
 			want = pinned
 		case engine.TooOld(kind, have):
 			unsupported = true
@@ -291,7 +291,7 @@ func applyAPIKey(cfg *config.Config, opts Options, io Streams) error {
 		cfg.Provider.NodeToken = ""
 		cfg.Provider.FlockRole = ""
 	} else if cfg.EnrolledWorker() {
-		_, _ = fmt.Fprintln(io.Out, "This machine is already in the cluster.")
+		_, _ = fmt.Fprintln(io.Out, "This machine is already in the flock.")
 		return nil
 	}
 	key := explicit
@@ -376,11 +376,11 @@ func resolveEngine(goos, name string) (engine.Kind, error) {
 }
 
 func printFlock(out io.Writer, plan flockSettings) {
-	name := firstNonEmpty(plan.Name, "this cluster")
+	name := firstNonEmpty(plan.Name, "this flock")
 	if plan.Role == "worker" {
-		_, _ = fmt.Fprintf(out, "\nJoining cluster %s\n", name)
+		_, _ = fmt.Fprintf(out, "\nJoining Team Flock %s\n", name)
 	} else {
-		_, _ = fmt.Fprintf(out, "\nCluster %s\n", name)
+		_, _ = fmt.Fprintf(out, "\nTeam Flock %s\n", name)
 	}
 	_, _ = fmt.Fprintf(out, "Model: %s\n", modelLabel(plan))
 	if plan.VLLMVersion != "" {
@@ -394,7 +394,7 @@ func mixedGPUWarning(local, master string) string {
 	if local == "" || master == "" || local == master {
 		return ""
 	}
-	return fmt.Sprintf("This machine has %s. The master has %s. Mixed GPUs are untested on Flockadoo and the cluster may not start.", local, master)
+	return fmt.Sprintf("This machine has %s. The master has %s. Mixed GPUs are untested on Flockadoo and the flock may not start.", local, master)
 }
 
 var localGPUProduct = readGPUProduct
@@ -441,7 +441,7 @@ func flockEntry(opts Options, kind engine.Kind, platformURL string, plan flockSe
 	if opts.OfflineCatalog != "" {
 		entries, err = compat.LoadOfflineCatalog(opts.OfflineCatalog, engine.CatalogType(kind))
 	} else {
-		err = SpinWhile(io.Out, "Loading the cluster model", func() error {
+		err = SpinWhile(io.Out, "Loading the flock's model", func() error {
 			var fetchErr error
 			entries, fetchErr = compat.FetchCatalog(ctx, platformURL, engine.CatalogType(kind))
 			return fetchErr

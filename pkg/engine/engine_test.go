@@ -209,7 +209,7 @@ func TestServeOptsFromCatalogCopiesRopeTheta(t *testing.T) {
 	}
 }
 
-// Auto-start, the cluster refresh and printSavedCommand rebuild the command
+// Auto-start, the flock refresh and printSavedCommand rebuild the command
 // from the saved config through one helper, so no field is left behind.
 func TestServeOptsFromConfigCarriesEveryServeFlag(t *testing.T) {
 	t.Parallel()

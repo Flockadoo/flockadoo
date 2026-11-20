@@ -281,7 +281,7 @@ func main() {
 			}
 			err := healthReporter.SendHealthReport(ctx)
 			if setup.NodeRemoved(err) {
-				logger.Error("The owner removed this machine from the cluster. Re-run setup and paste a new join code.", zap.Error(err))
+				logger.Error("The owner removed this machine from the flock. Re-run setup and paste a new join code.", zap.Error(err))
 				return false
 			}
 			next := nodeapi.HealthInterval(err, health.ReportInterval)

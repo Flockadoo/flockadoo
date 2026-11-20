@@ -97,6 +97,8 @@ function render(s) {
     }).join("");
   }
   const gpu = s.gpu || {};
+  // How the screens show this machine's stored role (docs/naming.md).
+  const flockLabel = (role) => ({ master: "Team · master", worker: "Team · worker" })[role] || "Solo";
   const reqs = Array.isArray(s.recent_requests) ? s.recent_requests : [];
   let reqHtml;
   if (reqs.length === 0) {
@@ -106,9 +108,6 @@ function render(s) {
       `<div>${esc(r.time)} UTC ${esc(r.method)} ${esc(r.path)} <span class="${statusCls(r.status)}">${esc(r.status)}</span> ${esc(r.duration)}</div>`
     ).join("");
   }
-  const tunnel = s.cloudflare_tunnel_url
-    ? row("Cloudflare Tunnel URL", esc(s.cloudflare_tunnel_url))
-    : "";
   let updateHtml = "";
   if (s.update_status === "required" || s.update_status === "available") {
     const color = s.update_status === "required" ? "#f66" : "#fc6";
@@ -119,15 +118,14 @@ function render(s) {
     ${row("Last Health Update", esc(s.last_health_update))}
     ${row("Session Status", esc(s.session_status || "online"), s.session_status === "benchmarking" ? "warn" : "ok")}
     ${s.not_serving ? row("Not serving", esc(s.not_serving), "bad") : ""}
-    ${row("Provider Type", esc(s.provider_type))}
+    ${row("Engine", esc(s.provider_type))}
     ${row("Provider API Key", esc(s.provider_api_key))}
-    ${row("Provider URL", esc(s.provider_url))}
+    ${row("Platform URL", esc(s.provider_url))}
     ${row("LLM URL", esc(s.llm_url))}
     ${s.winglink_ip ? row("Winglink IP", esc(s.winglink_ip)) : ""}
     ${s.peers ? row("Peers", esc(s.peers)) : ""}
-    ${tunnel}
-    <h2>CLUSTER STATUS</h2>
-    ${row("Cluster", esc(s.cluster || "single"))}
+    <h2>FLOCK STATUS</h2>
+    ${row("Flock", esc(flockLabel(s.flock)))}
     ${s.engine_note ? row("Benchmark", esc(s.engine_note)) : ""}
     ${s.connection_reason ? row("Connection", esc(s.connection_reason), "warn") : ""}
     ${s.capability_line ? row("Capabilities", esc(s.capability_line)) : ""}

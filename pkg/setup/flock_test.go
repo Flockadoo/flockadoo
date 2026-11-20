@@ -127,7 +127,7 @@ func TestPrepareFlockLookupFailureKeepsFlockCommand(t *testing.T) {
 		t.Fatal(err)
 	}
 	if cfg.Provider.FlockRole != "master" || cfg.Provider.NodeToken != "node-old" {
-		t.Fatalf("wiped cluster identity mode=%q token=%q", cfg.Provider.FlockRole, cfg.Provider.NodeToken)
+		t.Fatalf("wiped flock identity role=%q token=%q", cfg.Provider.FlockRole, cfg.Provider.NodeToken)
 	}
 	if strings.Join(cfg.Provider.EngineArgs, " ") != "serve mistral --nnodes 2" {
 		t.Fatalf("args = %v", cfg.Provider.EngineArgs)

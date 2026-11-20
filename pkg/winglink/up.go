@@ -23,7 +23,7 @@ var WithWait = func(msg string, fn func() error) error {
 	return fn()
 }
 
-// BringUp installs the pinned binaries, starts winglinkd, and joins the tailnet.
+// BringUp installs the pinned binaries, starts winglinkd, and joins the Winglink network.
 // authKey is empty when this machine already joined.
 func BringUp(ctx context.Context, loginServer, authKey string) (ip, nodeID string, err error) {
 	if goos := runtime.GOOS; goos != "linux" { //nolint:forbidigo // platform branch in shared code (PLAT-2, item H1)
@@ -33,7 +33,7 @@ func BringUp(ctx context.Context, loginServer, authKey string) (ip, nodeID strin
 	// download or sudo can fail and the next run passes "".
 	// A leftover from that failed up is still a pending join: resumeWorker
 	// and refreshFlock both call BringUp with "". Treating it as "already
-	// joined" reuses the old tailnet and clearAuthKey deletes the unused key.
+	// joined" reuses the old network and clearAuthKey deletes the unused key.
 	supplied := strings.TrimSpace(authKey)
 	if authKey, err = persistAuthKey(authKey); err != nil {
 		return "", "", err
@@ -68,7 +68,7 @@ func BringUp(ctx context.Context, loginServer, authKey string) (ip, nodeID strin
 			return "", "", err
 		}
 	}
-	// A new key is a new cluster. Drop the old node so up does not resume
+	// A new key is a new flock. Drop the old node so up does not resume
 	// it or refuse with "can't change --login-server". logout uses sudo -n,
 	// so cache sudo first — otherwise logout is a no-op on an already-running
 	// daemon and the online shortcut below would delete the unused key.
@@ -110,7 +110,7 @@ func BringUp(ctx context.Context, loginServer, authKey string) (ip, nodeID strin
 	logAt := fileSize(daemonLogPath())
 	var stderr bytes.Buffer
 	cmd.Stderr = io.MultiWriter(os.Stderr, &stderr) //nolint:forbidigo // bring-up runs inside setup, on the operator's terminal (QUAL-8, item K1)
-	if err := WithWait("Joining the tailnet", func() error {
+	if err := WithWait("Joining Winglink", func() error {
 		if err := cmd.Run(); err != nil {
 			if authKeyRejected(stderr.String(), readFrom(daemonLogPath(), logAt)) {
 				clearAuthKey()
@@ -137,7 +137,7 @@ func pendingAuthKey(supplied, persisted string) bool {
 }
 
 // reuseOnlineNode is the already-joined shortcut. A pending key (caller-supplied
-// or leftover) is a cluster switch: keep the key and run `up` instead of
+// or leftover) is a flock switch: keep the key and run `up` instead of
 // returning the old IP.
 func reuseOnlineNode(freshKey bool, st nodeState) bool {
 	return !freshKey && st.Online && st.IP != ""
@@ -688,7 +688,7 @@ func ipv4(ctx context.Context, cli string) (string, error) {
 	return ip, nil
 }
 
-// Tailnet is this machine's Winglink IPv4 and how many other nodes are online.
+// Status is this machine's Winglink IPv4 and how many other nodes are online.
 func Status(ctx context.Context) (ip string, onlinePeers int) {
 	cli, err := trustedCLI()
 	if err != nil {

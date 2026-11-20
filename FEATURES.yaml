@@ -41,7 +41,7 @@ features:
     tests: [pkg/health/advertise_test.go, pkg/verify/engines_test.go, pkg/verify/contract_shape_test.go]
 
   - name: Health report
-    entry: Reporter.SendHealthReport, every 3 minutes and after each connect; node health for a cluster worker
+    entry: Reporter.SendHealthReport, every 3 minutes and after each connect; node health for a Team Flock worker
     code: [pkg/health/reporter.go]
     tests: [pkg/health/reporter_test.go, pkg/health/advertise_test.go, pkg/health/provider_type_test.go, pkg/contract/shape_test.go]
 
@@ -91,7 +91,7 @@ features:
     tests: [pkg/gpu/*_test.go]
     invariants: [I10]
 
-  - name: Cluster (vLLM, Linux)
+  - name: Team Flock (vLLM, Linux)
     entry: winglink.BringUp and setup.prepareFlock; the server-built engine command
     code: [pkg/winglink/*.go, pkg/winglink/release.json, internal/download/*.go, .github/workflows/winglink-pin.yml, pkg/setup/flock.go, pkg/engine/command.go, pkg/engine/alive.go]
     tests: [pkg/winglink/*_test.go, internal/download/*_test.go, pkg/setup/flock_test.go]
@@ -205,7 +205,7 @@ invariants:
     pending: E2
     notes: finding CAP-4
   - id: I10
-    statement: an unsupported platform is refused with an explicit error when the tailnet binaries are chosen
+    statement: an unsupported platform is refused with an explicit error when the Winglink binaries are chosen
     tests: [TestAssetNames]
   - id: I10-hardware
     statement: an unsupported platform and a missing or unreadable GPU are reported as such, not as Unknown or false
@@ -218,9 +218,9 @@ invariants:
     statement: the API key appears only in the Authorization header, never in logs, the status page or a body
     tests: [TestTheKeyAppearsOnlyInTheAuthorizationHeader]
   - id: I12-flock-secrets
-    statement: the node token and the tailnet key appear nowhere but where they are used either
+    statement: the node token and the Winglink key appear nowhere but where they are used either
     pending: K1
-    notes: the cluster code cannot run in the harness until K1 isolates it
+    notes: the flock code cannot run in the harness until K1 isolates it
   - id: I14
     statement: inference is served only on a verified verdict for this deployment, fresh or inside the 30-minute outage grace; a failure to reach the server is never recorded as a failed verification
     tests: [TestAShortOutageDoesNotInterruptAVerifiedModel, TestAContinuingOutageEndsInUnavailable, TestAnExplicitRejectionBlocksAtOnce, TestANewOrChangedModelInheritsNoVerdict, TestRecoveryRestoresTheVerdict, TestAnOutageIsNeverRecordedAsFailed, TestNeverVerifiedDuringAnOutageIsUnavailable, TestARefreshInProgressDoesNotDelayARequest, TestRequestsMakeNoVerifyCalls]

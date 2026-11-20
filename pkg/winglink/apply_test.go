@@ -37,7 +37,7 @@ func TestParseStatusOfflineKeepsAddress(t *testing.T) {
 func TestReuseOnlineNodeSkipsFreshKey(t *testing.T) {
 	online := nodeState{IP: "198.18.0.4", ID: "n1", Online: true}
 	if reuseOnlineNode(true, online) {
-		t.Fatal("a new auth key must not reuse the old tailnet (that deletes the unused one-shot key)")
+		t.Fatal("a new auth key must not reuse the old network (that deletes the unused one-shot key)")
 	}
 	if !reuseOnlineNode(false, online) {
 		t.Fatal("reconnect without a new key should reuse an online node")
@@ -62,7 +62,7 @@ func TestPendingAuthKeyTreatsLeftoverAsFresh(t *testing.T) {
 	}
 	online := nodeState{IP: "198.18.0.4", ID: "n1", Online: true}
 	if reuseOnlineNode(pendingAuthKey("", "tskey-leftover"), online) {
-		t.Fatal("leftover key must not reuse the old tailnet or clearAuthKey would spend it")
+		t.Fatal("leftover key must not reuse the old network or clearAuthKey would spend it")
 	}
 	if !reuseOnlineNode(pendingAuthKey("", ""), online) {
 		t.Fatal("reconnect with no leftover should reuse an online node")

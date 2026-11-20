@@ -33,11 +33,11 @@ Team docs (how the client works, benchmarking, metrics) are in the **internal-do
 ### Quick Start with Installation Script
 
 ### Prerequisites
-- Visit [www.flockadoo.ai](https://www.flockadoo.ai), sign up and create a cluster to obtain your API key. See [Signup Process](https://docs.flockadoo.ai/requirements/signup) for how to create and copy the key from cluster **Settings**.
+- Visit [www.flockadoo.ai](https://www.flockadoo.ai), sign up and create a flock to obtain your API key. See [Signup Process](https://docs.flockadoo.ai/requirements/signup) for how to create and copy the key from the flock's **Settings**.
 
 #### Linux / macOS one-liner
 
-Works on Linux (amd64/arm64) and macOS (Apple Silicon). Intel Macs are not supported. The wizard asks for your API key, then the engine and model. A cluster API key skips that and uses the model chosen for the cluster. A join code installs vLLM and confirms the cluster at the end:
+Works on Linux (amd64/arm64) and macOS (Apple Silicon). Intel Macs are not supported. The wizard asks for your API key, then the engine and model. A Team Flock API key skips that and uses the model chosen for the flock. A join code installs vLLM and confirms the flock at the end:
 
 ```bash
 curl -fsSL https://raw.githubusercontent.com/flockadoo/flockadoo/main/scripts/install.sh | bash
@@ -75,7 +75,7 @@ curl -fsSL https://raw.githubusercontent.com/flockadoo/flockadoo/main/scripts/in
 
 `PROVIDER_MODEL` is required. It must be an [approved model](https://docs.flockadoo.ai/provider-client/approved-models) for your engine, and your engine must serve it under that exact name. The install stops with an error if it is not. To list the models this machine can serve, run `flockadoo compatibility`.
 
-With a multi-node cluster key or a join code, leave `PROVIDER_MODEL` unset. The cluster's model is used.
+With a Team Flock key or a join code, leave `PROVIDER_MODEL` unset. The flock's model is used.
 
 The client does not install or start the engine in this mode.
 

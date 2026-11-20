@@ -39,7 +39,7 @@ type flockSettings struct {
 	MasterGPU   string
 }
 
-// flockPlan is replaced in tests. Production reads the cluster the key belongs to.
+// flockPlan is replaced in tests. Production reads the flock the key belongs to.
 var flockPlan = flockPlanReal
 
 func flockPlanReal(cfg *config.Config) (flockSettings, error) {
@@ -47,7 +47,7 @@ func flockPlanReal(cfg *config.Config) (flockSettings, error) {
 	if cfg.EnrolledWorker() {
 		model := strings.TrimSpace(cfg.Provider.Model)
 		if model == "" {
-			return flockSettings{}, fmt.Errorf("this machine is in a cluster but has no saved model. Re-run setup with a new join code")
+			return flockSettings{}, fmt.Errorf("this machine is in a flock but has no saved model. Re-run setup with a new join code")
 		}
 		settings := flockSettings{
 			Role: "worker", Model: model, ServiceType: firstNonEmpty(cfg.Provider.Engine, "vllm"),
@@ -66,7 +66,7 @@ func flockPlanReal(cfg *config.Config) (flockSettings, error) {
 			return flockSettings{}, fmt.Errorf("join code: %w", err)
 		}
 		if strings.TrimSpace(info.Model) == "" {
-			return flockSettings{}, fmt.Errorf("cluster %s has no model set. Choose one in the dashboard, then re-run setup", firstNonEmpty(info.Name, "this cluster"))
+			return flockSettings{}, fmt.Errorf("flock %s has no model set. Choose one in the dashboard, then re-run setup", firstNonEmpty(info.Name, "this flock"))
 		}
 		return flockSettings{
 			Role: "worker", Name: info.Name, Model: info.Model,
@@ -79,7 +79,7 @@ func flockPlanReal(cfg *config.Config) (flockSettings, error) {
 		return flockSettings{Role: "single"}, err
 	}
 	if strings.TrimSpace(sess.Model) == "" {
-		return flockSettings{}, fmt.Errorf("cluster %s has no model set. Choose one in the dashboard, then re-run setup", firstNonEmpty(sess.Name, "this cluster"))
+		return flockSettings{}, fmt.Errorf("flock %s has no model set. Choose one in the dashboard, then re-run setup", firstNonEmpty(sess.Name, "this flock"))
 	}
 	return flockSettings{
 		Role: "master", Name: sess.Name, Model: sess.Model,
@@ -88,7 +88,7 @@ func flockPlanReal(cfg *config.Config) (flockSettings, error) {
 	}, nil
 }
 
-// prepareFlock is replaced in tests. Production joins the tailnet when the
+// prepareFlock is replaced in tests. Production joins Winglink when the
 // key is a multi-node master key or a join- code, then rewrites the engine spec.
 var prepareFlock = prepareFlockReal
 
@@ -108,7 +108,7 @@ func NodeRemoved(err error) bool {
 }
 
 func removedErr(err error) error {
-	return fmt.Errorf("the owner removed this machine from the cluster. Re-run setup and paste a new join code: %w", err)
+	return fmt.Errorf("the owner removed this machine from the flock. Re-run setup and paste a new join code: %w", err)
 }
 
 func dropIfRemoved(cfg *config.Config, err error) error {
@@ -163,8 +163,8 @@ func prepareFlockReal(cfg *config.Config, spec *engine.Spec) error {
 		role = decideFlock(key, sess.Mode, err)
 		if role == "single" {
 			if err != nil {
-				// A failed lookup must not wipe a saved cluster command.
-				fmt.Fprintf(os.Stderr, "could not read cluster mode (%v); continuing as a single node\n", err)
+				// A failed lookup must not wipe a saved flock command.
+				fmt.Fprintf(os.Stderr, "could not read the flock's mode (%v); continuing as a Solo Flock\n", err)
 				return nil
 			}
 			cfg.Provider.FlockRole = ""

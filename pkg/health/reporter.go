@@ -229,7 +229,7 @@ func (r *Reporter) sendNodeHealth(ctx context.Context, status string, gpuInfo *g
 	return nil
 }
 
-// installedEngineVersion is a cluster worker's engine version. A worker's
+// installedEngineVersion is a flock worker's engine version. A worker's
 // headless rank serves no HTTP, so the binary is asked, with a deadline.
 func installedEngineVersion(ctx context.Context, r *Reporter) string {
 	kind, ok := engine.ParseKind(r.config.Provider.Engine)

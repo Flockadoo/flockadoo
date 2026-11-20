@@ -109,7 +109,7 @@ func NoContent() Reply { return Reply{status: http.StatusNoContent} }
 // Hang accepts the request and never answers; the client's timeout decides.
 func Hang() Reply { return Reply{hang: true} }
 
-// NodeRemoved is the server's answer to a cluster machine whose node token was
+// NodeRemoved is the server's answer to a flock machine whose node token was
 // revoked because the owner removed it.
 func NodeRemoved() Reply {
 	return JSON(http.StatusUnauthorized, map[string]string{"error": "invalid node token"})
@@ -269,7 +269,7 @@ func (p *Platform) serveHTTP(w http.ResponseWriter, r *http.Request) {
 	writeBody(w, status, out)
 }
 
-// needsProviderKey: the provider routes take the provider key; a cluster
+// needsProviderKey: the provider routes take the provider key; a flock
 // machine's node routes take its node token instead.
 func needsProviderKey(path string) bool {
 	return strings.HasPrefix(path, "/api/provider/") && !strings.HasPrefix(path, "/api/provider/network/node/")

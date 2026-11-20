@@ -12,7 +12,7 @@ import (
 // complete rope_parameters dict (command.go), which needs the transformers 5
 // handling every release from 0.30 has; an older vLLM reads rope_scaling,
 // ignores the override and serves past the model's context with no error.
-// flockadoo-server refuses a cluster pin below the same release
+// flockadoo-server refuses a flock pin below the same release
 // (pkg/flock.MinVLLMVersion).
 const MinVLLMVersion = "0.30.0"
 

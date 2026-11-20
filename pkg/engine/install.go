@@ -122,7 +122,7 @@ func ensureUV(ctx context.Context, w io.Writer, home string) (string, error) {
 
 // checkTorchCUDA fails setup when the host driver cannot load the CUDA
 // runtime bundled in the torch wheel. Otherwise that shows up later, on
-// `vllm serve`, after the cluster has started waiting.
+// `vllm serve`, after the flock has started waiting.
 func checkTorchCUDA(ctx context.Context, w io.Writer, venv string) error {
 	if _, err := exec.LookPath("nvidia-smi"); err != nil {
 		_, _ = fmt.Fprintln(w, "Skipping PyTorch CUDA check (nvidia-smi not found).")
@@ -263,7 +263,7 @@ const versionTimeout = 20 * time.Second
 // InstalledVersion reads `<bin> --version` from stdout (a warning on stderr is
 // not the version); the last field is the release. It gives up when ctx ends
 // or after versionTimeout. The daemon reads the running engine's version over
-// HTTP instead (finding ENG-4); this is for setup and cluster workers.
+// HTTP instead (finding ENG-4); this is for setup and flock workers.
 func InstalledVersion(ctx context.Context, bin string) string {
 	bin = strings.TrimSpace(bin)
 	if bin == "" {

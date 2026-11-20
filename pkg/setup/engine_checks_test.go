@@ -182,11 +182,11 @@ func TestDeclinedReinstallTurnsAutoStartOff(t *testing.T) {
 	}
 }
 
-// A cluster pinned below the minimum would install a release every client
+// A flock pinned below the minimum would install a release every client
 // refuses, so setup stops before installing or joining.
-func TestSetupRefusesAClusterPinBelowTheMinimum(t *testing.T) {
+func TestSetupRefusesAFlockPinBelowTheMinimum(t *testing.T) {
 	if engine.RuntimeKind(runtime.GOOS, engine.KindVLLM) != engine.KindVLLM {
-		t.Skip("clusters and their vLLM pin are Linux only") //nolint:forbidigo // platform test: macOS serves vLLM rows with vLLM Metal and Windows with llama.cpp, and neither joins a cluster
+		t.Skip("Team Flocks and their vLLM pin are Linux only") //nolint:forbidigo // platform test: macOS serves vLLM rows with vLLM Metal and Windows with llama.cpp, and neither joins a Team Flock
 	}
 	singlePlan(t)
 	flockPlan = func(*config.Config) (flockSettings, error) {
