@@ -1,0 +1,13 @@
+# Where a retired name may stay (internal/tools/check/names.go): a path glob,
+# a tab, and a regular expression the line must match. An entry that allows
+# nothing fails the check, so this list only shrinks. Additions need review.
+
+# This list, which quotes the lines it allows.
+internal/tools/check/names_allow.txt	.
+
+# History: released changelog entries keep their wording.
+CHANGELOG.md	.
+
+# The names step's own fixture, which holds retired names on purpose.
+internal/tools/check/testdata/old-names/*	.
+internal/tools/check/testdata/old-names/internal/tools/check/*	.

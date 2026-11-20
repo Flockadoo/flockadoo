@@ -26,6 +26,7 @@ const (
 	stepTests  = "tests"
 
 	stepFeatures = "features"
+	stepNames    = "names"
 )
 
 // golangciVersion is the one version whose findings the configuration is
@@ -72,7 +73,7 @@ func steps() []step {
 			return goTool(ctx, o, w, env, "vet", "./...")
 		}})
 	}
-	return append(s, step{stepLint, lint}, step{stepTests, tests}, step{stepFeatures, checkFeatures})
+	return append(s, step{stepLint, lint}, step{stepTests, tests}, step{stepFeatures, checkFeatures}, step{stepNames, checkNames})
 }
 
 // run runs the steps in order and stops at the first failure (plan section

@@ -94,9 +94,9 @@ func TestExecuteMasterUsesClusterModel(t *testing.T) {
 		t.Fatalf("Execute: %v\n%s\n%s", err, out.String(), errBuf.String())
 	}
 	if strings.Contains(out.String(), "Models that should fit") {
-		t.Fatalf("cluster setup showed the single-machine list:\n%s", out.String())
+		t.Fatalf("Team Flock setup showed the single-machine list:\n%s", out.String())
 	}
-	if !strings.Contains(out.String(), "Cluster inferoute-cluster1") || !strings.Contains(out.String(), "Qwen3 0.6B (Qwen/Qwen3-0.6B)") {
+	if !strings.Contains(out.String(), "Team Flock inferoute-cluster1") || !strings.Contains(out.String(), "Qwen3 0.6B (Qwen/Qwen3-0.6B)") {
 		t.Fatalf("stdout = %s", out.String())
 	}
 	serve := "vllm serve Qwen/Qwen3-0.6B"
@@ -158,7 +158,7 @@ func TestExecuteWorkerInstallsAndConfirms(t *testing.T) {
 	if strings.Contains(text, "Models that should fit") || strings.Contains(text, "Inference engine:") || strings.Contains(text, "Install it now?") {
 		t.Fatalf("worker was prompted:\n%s", text)
 	}
-	if !strings.Contains(text, "Joining cluster inferoute-cluster1") || !strings.Contains(text, "Qwen3 0.6B (Qwen/Qwen3-0.6B)") {
+	if !strings.Contains(text, "Joining Team Flock inferoute-cluster1") || !strings.Contains(text, "Qwen3 0.6B (Qwen/Qwen3-0.6B)") {
 		t.Fatalf("stdout = %s", text)
 	}
 	if !strings.Contains(text, "Run this after the master is up") || !strings.Contains(text, docsClusterWorker) {
@@ -552,7 +552,7 @@ func TestPastedJoinCodeSkipsEngineAndModel(t *testing.T) {
 	if strings.Contains(text, "Models that should fit") || strings.Contains(text, "Inference engine:") {
 		t.Fatalf("join code still asked for engine or model:\n%s", text)
 	}
-	if !strings.Contains(text, "Joining cluster inferoute-cluster1") || !strings.Contains(text, "Provider API key or join code") {
+	if !strings.Contains(text, "Joining Team Flock inferoute-cluster1") || !strings.Contains(text, "Provider API key or join code") {
 		t.Fatalf("stdout = %s", text)
 	}
 }
@@ -592,7 +592,7 @@ func TestEnrolledWorkerSkipsKeyPrompt(t *testing.T) {
 		t.Fatal(err)
 	}
 	text := out.String()
-	if strings.Contains(text, "Provider API key or join code") || !strings.Contains(text, "already in the cluster") {
+	if strings.Contains(text, "Provider API key or join code") || !strings.Contains(text, "already in the flock") {
 		t.Fatalf("stdout = %s", text)
 	}
 }
