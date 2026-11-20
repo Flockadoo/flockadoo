@@ -63,7 +63,7 @@ func TestLeftoverKeyIsPendingJoinOnEmptyRetry(t *testing.T) {
 	if _, err := persistAuthKey("tskey-one"); err != nil {
 		t.Fatal(err)
 	}
-	// resumeWorker / refreshCluster call BringUp with "".
+	// resumeWorker / refreshFlock call BringUp with "".
 	got, err := persistAuthKey("")
 	if err != nil || got != "tskey-one" {
 		t.Fatalf("retry = %q %v", got, err)

@@ -579,7 +579,7 @@ func (n *notes) all() []string {
 }
 
 // Every check is a chat request, and an embedding model answers no chat. Its
-// deployment is still registered and reported, so the node drops the last
+// deployment is still registered and reported, so the server drops the last
 // model's results (I9), with no capability in the report (I8). The engine is
 // not asked, the report is not repeated, and the console shows no
 // "unverified, retrying" line.

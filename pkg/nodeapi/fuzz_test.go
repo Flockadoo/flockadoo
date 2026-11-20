@@ -2,7 +2,7 @@ package nodeapi
 
 import "testing"
 
-// Plan item Q3: release versions come from the node.
+// Plan item Q3: release versions come from the server.
 func FuzzNewer(f *testing.F) {
 	f.Add("1.2.3", "1.2.2")
 	f.Add("v0.43.0", "dev")
@@ -17,7 +17,7 @@ func FuzzNewer(f *testing.F) {
 	})
 }
 
-// Plan item Q3: a 426 body comes from the node.
+// Plan item Q3: a 426 body comes from the server.
 func FuzzParseUpgrade(f *testing.F) {
 	f.Add([]byte(`{"error":"client upgrade required","min_version":"1.2.0","latest_version":"1.3.0"}`))
 	f.Add([]byte(`{"min_version":12}`))

@@ -100,7 +100,7 @@ func TestCapabilitiesStayOnline(t *testing.T) {
 
 func TestWorkerStatusUsesMasterURL(t *testing.T) {
 	s := newTestServer("http://unused", &fakeLLM{})
-	s.config.Provider.ClusterMode = "worker"
+	s.config.Provider.FlockRole = "worker"
 	s.config.Provider.NodeToken = "node-token"
 	s.config.Provider.LLMURL = "http://198.18.0.2:8000"
 	s.config.Provider.EngineArgs = []string{"--headless", "--master-addr", "198.18.0.1", "--port", "8000"}

@@ -2,7 +2,7 @@
 # Copies flockadoo-server's stream corpus (real engine output, recorded with the
 # node's scripts/record_sse.sh) into the client's test data, with a SHA256SUMS
 # file, so both repositories test the same bytes (plan section 17.1). Never
-# edit a recording here or there; re-record in the node and copy again.
+# edit a recording here or there; re-record in the server and copy again.
 #
 #   scripts/copy_corpus.sh ../flockadoo-server
 set -euo pipefail

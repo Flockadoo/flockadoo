@@ -369,7 +369,7 @@ func TestRecordsBodiesAndTheMostRequestsAtOnce(t *testing.T) {
 }
 
 // The corpus is copied from flockadoo-server with a checksum file; an edited
-// or added file is caught here (the node's rule: recordings are never
+// or added file is caught here (the server's rule: recordings are never
 // written by hand).
 func TestTheCorpusMatchesItsChecksums(t *testing.T) {
 	if err := fakeengine.VerifyCorpus(); err != nil {

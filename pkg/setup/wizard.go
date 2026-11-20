@@ -71,10 +71,10 @@ func Execute(opts Options, io Streams) error {
 	if err := applyAPIKey(cfg, opts, io); err != nil {
 		return err
 	}
-	var plan clusterSettings
+	var plan flockSettings
 	var planErr error
 	if err := SpinWhile(io.Out, "Reading cluster settings", func() error {
-		plan, planErr = clusterPlan(cfg)
+		plan, planErr = flockPlan(cfg)
 		return nil
 	}); err != nil {
 		return err
@@ -89,7 +89,7 @@ func Execute(opts Options, io Streams) error {
 		if err != nil {
 			return err
 		}
-		printCluster(io.Out, plan)
+		printFlock(io.Out, plan)
 		if plan.Role == "worker" {
 			if msg := mixedGPUWarning(localGPUProduct(), plan.MasterGPU); msg != "" {
 				_, _ = fmt.Fprintln(io.Err, msg)
@@ -216,7 +216,7 @@ func Execute(opts Options, io Streams) error {
 
 	var entry verify.CatalogEntry
 	if plan.Role == "master" || plan.Role == "worker" {
-		entry = clusterEntry(opts, kind, platformURL, plan, io)
+		entry = flockEntry(opts, kind, platformURL, plan, io)
 		cfg.Provider.Model = entry.Alias
 	} else {
 		entry, err = applyModel(cfg, opts, kind, platformURL, io)
@@ -241,7 +241,7 @@ func Execute(opts Options, io Streams) error {
 	}
 	applyServeOpts(cfg, entry, hfRepo)
 	spec := engine.ServeSpec(kind, bin, entry.Alias, hfRepo, serveOpts)
-	if err := prepareCluster(cfg, &spec); err != nil {
+	if err := prepareFlock(cfg, &spec); err != nil {
 		if saveErr := config.Save(path, cfg); saveErr != nil {
 			return saveErr
 		}
@@ -254,7 +254,7 @@ func Execute(opts Options, io Streams) error {
 	}
 
 	if plan.Role == "master" || plan.Role == "worker" {
-		printClusterStart(io.Out, plan.Role, spec)
+		printFlockStart(io.Out, plan.Role, spec)
 	} else if err := maybeStart(kind, spec, cfg, opts, detected.Found && !unsupported, io); err != nil {
 		if saveErr := config.Save(path, cfg); saveErr != nil {
 			return saveErr
@@ -289,7 +289,7 @@ func applyAPIKey(cfg *config.Config, opts Options, io Streams) error {
 	explicit := credential(opts.APIKey)
 	if cfg.EnrolledWorker() && explicit != "" && explicit != saved {
 		cfg.Provider.NodeToken = ""
-		cfg.Provider.ClusterMode = ""
+		cfg.Provider.FlockRole = ""
 	} else if cfg.EnrolledWorker() {
 		_, _ = fmt.Fprintln(io.Out, "This machine is already in the cluster.")
 		return nil
@@ -375,7 +375,7 @@ func resolveEngine(goos, name string) (engine.Kind, error) {
 	return engine.RuntimeKind(goos, k), nil
 }
 
-func printCluster(out io.Writer, plan clusterSettings) {
+func printFlock(out io.Writer, plan flockSettings) {
 	name := firstNonEmpty(plan.Name, "this cluster")
 	if plan.Role == "worker" {
 		_, _ = fmt.Fprintf(out, "\nJoining cluster %s\n", name)
@@ -423,7 +423,7 @@ func localGPU(ctx context.Context) *gpu.GPUInfo {
 	return info
 }
 
-func modelLabel(plan clusterSettings) string {
+func modelLabel(plan flockSettings) string {
 	name := strings.TrimSpace(plan.DisplayName)
 	alias := strings.TrimSpace(plan.Model)
 	if name == "" || strings.EqualFold(name, alias) {
@@ -432,7 +432,7 @@ func modelLabel(plan clusterSettings) string {
 	return name + " (" + alias + ")"
 }
 
-func clusterEntry(opts Options, kind engine.Kind, platformURL string, plan clusterSettings, io Streams) verify.CatalogEntry {
+func flockEntry(opts Options, kind engine.Kind, platformURL string, plan flockSettings, io Streams) verify.CatalogEntry {
 	fallback := verify.CatalogEntry{Alias: plan.Model, ServiceType: "vllm"}
 	ctx, cancel := context.WithTimeout(context.Background(), 45*time.Second) //nolint:forbidigo // the wizard has no caller context yet (CLU-4, item K1)
 	defer cancel()
@@ -576,19 +576,19 @@ func formatSpec(spec engine.Spec) string {
 }
 
 const (
-	docsClusterMaster = "https://docs.flockadoo.ai/provider/multi-node-clusters#start-the-master-first"
-	docsClusterWorker = "https://docs.flockadoo.ai/provider/joining-a-cluster#start-when-the-owner-says"
+	docsFlockMaster = "https://docs.flockadoo.ai/provider/team-flocks#start-the-master-first"
+	docsFlockWorker = "https://docs.flockadoo.ai/provider/joining-a-flock#start-when-the-owner-says"
 )
 
-func printClusterStart(out io.Writer, role string, spec engine.Spec) {
+func printFlockStart(out io.Writer, role string, spec engine.Spec) {
 	_, _ = fmt.Fprintf(out, "\n%s\n", formatSpec(spec))
 	if role == "worker" {
 		_, _ = fmt.Fprintln(out, "Run this after the master is up. Then start flockadoo.")
-		_, _ = fmt.Fprintln(out, docsClusterWorker)
+		_, _ = fmt.Fprintln(out, docsFlockWorker)
 		return
 	}
 	_, _ = fmt.Fprintln(out, "Start vLLM first using the command above. Workers join once the master is running and waiting. Then start flockadoo.")
-	_, _ = fmt.Fprintln(out, docsClusterMaster)
+	_, _ = fmt.Fprintln(out, docsFlockMaster)
 }
 
 func maybeStart(kind engine.Kind, spec engine.Spec, cfg *config.Config, opts Options, haveBin bool, io Streams) error {

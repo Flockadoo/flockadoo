@@ -42,7 +42,7 @@ func nextPost(t *testing.T, posts <-chan capturedPost) capturedPost {
 	case p := <-posts:
 		return p
 	case <-time.After(5 * time.Second):
-		t.Fatal("no capacity report reached the node")
+		t.Fatal("no capacity report reached the server")
 		return capturedPost{}
 	}
 }

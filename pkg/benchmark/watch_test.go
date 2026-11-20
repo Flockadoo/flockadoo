@@ -123,7 +123,7 @@ func TestMeasureSkipsWhenInflightNeverDrains(t *testing.T) {
 }
 
 // A stream longer than drainWait used to be retried on the next poll. The
-// gate opened for 5s, a new stream took the slot, and the node stayed shut.
+// gate opened for 5s, a new stream took the slot, and the server stayed shut.
 func TestTimedOutDrainWaitsForIdleBeforeClosingAgain(t *testing.T) {
 	old := drainWait
 	drainWait = 30 * time.Millisecond

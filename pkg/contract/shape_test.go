@@ -14,7 +14,7 @@ import (
 
 // These fixtures are the request bodies copied into flockadoo-server
 // tests/contract/testdata/client/<version>/ on each client release.
-// A mismatch means the node contract suite is now protecting the wrong payload.
+// A mismatch means the server contract suite is now protecting the wrong payload.
 func TestRequestShapes(t *testing.T) {
 	cases := []struct {
 		file string
@@ -30,7 +30,7 @@ func TestRequestShapes(t *testing.T) {
 			GPU: &gpu.GPUInfo{
 				ProductName: "Example GPU", DriverVersion: "550.0", CUDAVersion: "12.4",
 				GPUCount: 1, UUID: "GPU-example", MemoryTotal: 24576, MemoryUsed: 1024, MemoryFree: 23552,
-				// Fractional utilization and the sensor readings must bind on the node.
+				// Fractional utilization and the sensor readings must bind on the server.
 				Utilization: 37.5, TemperatureC: 64.5, PowerDrawW: 312.4, PowerLimitW: 450,
 			},
 			ProviderType:  "vllm",

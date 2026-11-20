@@ -17,7 +17,7 @@ features:
     code: [pkg/server/handler.go, pkg/server/models.go, internal/relay/envelope.go, internal/relay/outcome.go, pkg/llm/vllm.go, pkg/llm/client.go]
     tests: [pkg/server/handler_test.go, pkg/server/oneway_test.go, pkg/server/invariants_test.go, pkg/server/relay_test.go, internal/relay/envelope_test.go]
     invariants: [I3, I4, I5, I6]
-    notes: inference arrives only on the tunnel, and serving it makes no call to the node (decisions DC1, DC3)
+    notes: inference arrives only on the tunnel, and serving it makes no call to the server (decisions DC1, DC3)
 
   - name: Admission
     entry: admission.Gate (TryAcquire, Acquire for returning turns, ClaimIdle for probes, SetClosed for the benchmark); the relay holds a Slot per request
@@ -26,14 +26,14 @@ features:
     invariants: [I1, I2, I11]
 
   - name: Model verification
-    entry: Verifier.Verdict on the request path (reads state, no node call); Verifier.RunRefresher and ApplyToModels ask the node
+    entry: Verifier.Verdict on the request path (reads state, no node call); Verifier.RunRefresher and ApplyToModels ask the server
     code: [pkg/verify/verifier.go, pkg/verify/measure.go, pkg/verify/fingerprint.go, pkg/verify/server.go, pkg/verify/context_gate.go, pkg/verify/hfresolve.go, pkg/verify/llamacache.go]
     tests: [pkg/verify/verifier_test.go, pkg/verify/state_test.go, pkg/verify/measure_test.go, pkg/verify/filehash_test.go, pkg/verify/context_gate_test.go, pkg/verify/hfresolve_test.go, pkg/verify/llamacache_test.go, pkg/verify/engine_refusal_test.go, pkg/server/verdict_test.go]
     invariants: [I13, I14]
     notes: >-
       Verification identifies a model, it does not prove one (finding SEC-2). Safetensors are
       hashed by header only, which fixes the architecture and tensor layout, not the weights,
-      and a modified client can report anything. The node must never treat it as proof.
+      and a modified client can report anything. The server must never treat it as proof.
 
   - name: Approved catalog
     entry: Catalog.Refresh before each health report; compat.FetchCatalog in the wizard
@@ -92,9 +92,9 @@ features:
     invariants: [I10]
 
   - name: Cluster (vLLM, Linux)
-    entry: winglink.BringUp and setup.prepareCluster; the node-built engine command
-    code: [pkg/winglink/*.go, pkg/winglink/release.json, internal/download/*.go, .github/workflows/winglink-pin.yml, pkg/setup/cluster.go, pkg/engine/command.go, pkg/engine/alive.go]
-    tests: [pkg/winglink/*_test.go, internal/download/*_test.go, pkg/setup/cluster_test.go]
+    entry: winglink.BringUp and setup.prepareFlock; the server-built engine command
+    code: [pkg/winglink/*.go, pkg/winglink/release.json, internal/download/*.go, .github/workflows/winglink-pin.yml, pkg/setup/flock.go, pkg/engine/command.go, pkg/engine/alive.go]
+    tests: [pkg/winglink/*_test.go, internal/download/*_test.go, pkg/setup/flock_test.go]
     invariants: [I10, I12]
 
   - name: Self-update
@@ -157,7 +157,7 @@ invariants:
     statement: a refused request never reaches the engine
     tests: [TestRefusedRequestsNeverReachTheEngine]
   - id: I3-one-way-in
-    statement: inference arrives only on the tunnel; the local listener serves none, and serving a request makes no call to the node, so it is served while the node is unreachable
+    statement: inference arrives only on the tunnel; the local listener serves none, and serving a request makes no call to the server, so it is served while the server is unreachable
     tests: [TestTheLocalListenerServesNoInference, TestAnInferenceRequestMakesNoCallToTheNode, TestARequestIsServedWhileTheNodeIsUnreachable, TestTheDashboardAndItsAPIsStillAnswer]
     notes: findings NET-9 and SEC-4, decisions DC1 and DC3, item B2's first pull request
   - id: I3-verification
@@ -190,7 +190,7 @@ invariants:
     statement: a capability not verified on this deployment is never reported as supported
     tests: [TestReportRegistersThenRecords, TestBusyEngineIsRetriedNotMarkedUnsupported]
   - id: I8-table
-    statement: the capability report is built from one table that equals the node's golden, so no capability can take another's place
+    statement: the capability report is built from one table that equals the server's golden, so no capability can take another's place
     pending: E2
     notes: finding CAP-1
   - id: I9
@@ -217,12 +217,12 @@ invariants:
   - id: I12
     statement: the API key appears only in the Authorization header, never in logs, the status page or a body
     tests: [TestTheKeyAppearsOnlyInTheAuthorizationHeader]
-  - id: I12-cluster-secrets
+  - id: I12-flock-secrets
     statement: the node token and the tailnet key appear nowhere but where they are used either
     pending: K1
     notes: the cluster code cannot run in the harness until K1 isolates it
   - id: I14
-    statement: inference is served only on a verified verdict for this deployment, fresh or inside the 30-minute outage grace; a failure to reach the node is never recorded as a failed verification
+    statement: inference is served only on a verified verdict for this deployment, fresh or inside the 30-minute outage grace; a failure to reach the server is never recorded as a failed verification
     tests: [TestAShortOutageDoesNotInterruptAVerifiedModel, TestAContinuingOutageEndsInUnavailable, TestAnExplicitRejectionBlocksAtOnce, TestANewOrChangedModelInheritsNoVerdict, TestRecoveryRestoresTheVerdict, TestAnOutageIsNeverRecordedAsFailed, TestNeverVerifiedDuringAnOutageIsUnavailable, TestARefreshInProgressDoesNotDelayARequest, TestRequestsMakeNoVerifyCalls]
     notes: finding ADM-5, decision DC2, fixed by item B3
 

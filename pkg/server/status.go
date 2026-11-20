@@ -52,7 +52,7 @@ type StatusSnapshot struct {
 	ClientVersion    string        `json:"client_version"`
 	LatestVersion    string        `json:"latest_version,omitempty"`
 	UpdateStatus     string        `json:"update_status"`
-	TailnetIP        string        `json:"tailnet_ip,omitempty"`
+	WinglinkIP       string        `json:"winglink_ip,omitempty"`
 	Peers            string        `json:"peers,omitempty"`
 	Cluster          string        `json:"cluster,omitempty"`
 	Nodes            string        `json:"nodes,omitempty"`
@@ -119,7 +119,7 @@ func (s *Server) snapshot(ctx context.Context) StatusSnapshot {
 	}
 
 	upd := nodeapi.State()
-	tailnetIP, online := winglink.Tailnet(ctx)
+	tailnetIP, online := winglink.Status(ctx)
 	peers := ""
 	if online > 0 {
 		peers = fmt.Sprintf("%d online", online)
@@ -127,9 +127,9 @@ func (s *Server) snapshot(ctx context.Context) StatusSnapshot {
 	cluster := "single"
 	nodes := ""
 	if s.config != nil {
-		switch s.config.Provider.ClusterMode {
+		switch s.config.Provider.FlockRole {
 		case "master", "worker":
-			cluster = s.config.Provider.ClusterMode
+			cluster = s.config.Provider.FlockRole
 		}
 		if joined, need := engine.NodeSlots(tailnetIP != "", online, engine.NNodes(s.config.Provider.EngineArgs)); need > 0 {
 			nodes = fmt.Sprintf("%d/%d", joined, need)
@@ -154,7 +154,7 @@ func (s *Server) snapshot(ctx context.Context) StatusSnapshot {
 		ClientVersion:    version.Version,
 		LatestVersion:    upd.Latest,
 		UpdateStatus:     string(upd.Status),
-		TailnetIP:        tailnetIP,
+		WinglinkIP:       tailnetIP,
 		Peers:            peers,
 		Cluster:          cluster,
 		Nodes:            nodes,

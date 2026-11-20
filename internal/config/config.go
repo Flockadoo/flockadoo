@@ -48,7 +48,7 @@ type Config struct {
 		URL    string `yaml:"url"`
 		// Engine is the local inference binary: vllm, vllm-metal, llama_cpp.
 		// Empty means vllm. It is the one engine setting: the provider type
-		// the node is told is derived from it (PlatformType).
+		// the server is told is derived from it (PlatformType).
 		Engine string `yaml:"engine,omitempty"`
 		// EngineBin is an absolute path when the binary is not on PATH.
 		EngineBin string `yaml:"engine_bin,omitempty"`
@@ -79,8 +79,8 @@ type Config struct {
 		GGUFFile string `yaml:"gguf_file,omitempty"`
 		// Task is chat or embedding, from the catalog. Empty means chat.
 		Task string `yaml:"task,omitempty"`
-		// ClusterMode is single, master, or worker. Empty means single.
-		ClusterMode string `yaml:"cluster_mode,omitempty"`
+		// FlockRole is single, master, or worker. Empty means single.
+		FlockRole string `yaml:"flock_role,omitempty"`
 		// NodeToken is the worker (or master) credential for tailnet routes.
 		NodeToken string `yaml:"node_token,omitempty"`
 		// EngineArgs and EngineEnv are the last server-built serve command.
@@ -168,7 +168,7 @@ func (c *Config) normalize() {
 	}
 }
 
-// PlatformType is the provider type the node is told for this config's
+// PlatformType is the provider type the server is told for this config's
 // engine: llama_cpp, or vllm for vLLM and vLLM Metal.
 func (c *Config) PlatformType() string {
 	return PlatformType(c.Provider.Engine)
@@ -211,7 +211,7 @@ func (c *Config) EnrolledWorker() bool {
 	if c == nil {
 		return false
 	}
-	return c.Provider.ClusterMode == "worker" && strings.TrimSpace(c.Provider.NodeToken) != ""
+	return c.Provider.FlockRole == "worker" && strings.TrimSpace(c.Provider.NodeToken) != ""
 }
 
 // Save writes cfg to path, creating the parent directory.

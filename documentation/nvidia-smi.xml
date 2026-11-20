@@ -271,7 +271,7 @@
                         <state>N/A</state>
                         <status>N/A</status>
                         <cliqueId>N/A</cliqueId>
-                        <clusterUuid>N/A</clusterUuid>
+                        <flockUuid>N/A</flockUuid>
                         <health>
                                 <bandwidth>N/A</bandwidth>
                         </health>

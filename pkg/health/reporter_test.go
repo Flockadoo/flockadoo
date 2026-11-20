@@ -99,7 +99,7 @@ func newRefusalVerifier() *verify.Verifier {
 }
 
 // A vLLM below the minimum serves no model through Flockadoo: the health
-// report advertises none (the node deactivates what a push leaves out) and the
+// report advertises none (the server deactivates what a push leaves out) and the
 // verifier refuses every request with the reason. The version is still sent.
 func TestAnOldEngineIsNotAdvertised(t *testing.T) {
 	models := &llm.ListModelsResponse{Models: []llm.Model{{ID: "Qwen/Qwen2.5-7B-Instruct"}}}
@@ -168,7 +168,7 @@ func TestWorkerHealthReportShowsMasterModels(t *testing.T) {
 
 	cfg := &config.Config{}
 	cfg.Provider.URL = srv.URL
-	cfg.Provider.ClusterMode = "worker"
+	cfg.Provider.FlockRole = "worker"
 	cfg.Provider.NodeToken = "node-token"
 	cfg.Provider.Engine = "vllm"
 

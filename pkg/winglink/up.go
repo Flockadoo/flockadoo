@@ -32,7 +32,7 @@ func BringUp(ctx context.Context, loginServer, authKey string) (ip, nodeID strin
 	// Exchange already spent the join code. The key has to be on disk before
 	// download or sudo can fail and the next run passes "".
 	// A leftover from that failed up is still a pending join: resumeWorker
-	// and refreshCluster both call BringUp with "". Treating it as "already
+	// and refreshFlock both call BringUp with "". Treating it as "already
 	// joined" reuses the old tailnet and clearAuthKey deletes the unused key.
 	supplied := strings.TrimSpace(authKey)
 	if authKey, err = persistAuthKey(authKey); err != nil {
@@ -688,8 +688,8 @@ func ipv4(ctx context.Context, cli string) (string, error) {
 	return ip, nil
 }
 
-// Tailnet is this machine's tailnet IPv4 and how many other nodes are online.
-func Tailnet(ctx context.Context) (ip string, onlinePeers int) {
+// Tailnet is this machine's Winglink IPv4 and how many other nodes are online.
+func Status(ctx context.Context) (ip string, onlinePeers int) {
 	cli, err := trustedCLI()
 	if err != nil {
 		return "", 0

@@ -31,7 +31,7 @@ const (
 	UpdateRequired  UpdateStatus = "required"
 )
 
-// ErrUpgradeRequired is returned when the node answers 426.
+// ErrUpgradeRequired is returned when the server answers 426.
 type ErrUpgradeRequired struct {
 	Min         string `json:"min_version"`
 	Latest      string `json:"latest_version"`

@@ -387,7 +387,7 @@ func main() {
 		}
 	}
 
-	// Drain: take no new work, tell the node, and let what is running finish
+	// Drain: take no new work, tell the server, and let what is running finish
 	// for up to 60 s. A second interrupt stops at once (decision DC9).
 	logger.Info("Draining: no new requests; waiting up to 60s for those in progress (interrupt again to stop now)")
 	drainCtx, drainCancel := context.WithCancel(context.Background())
@@ -573,7 +573,7 @@ func runBenchmark(args []string) error {
 }
 
 func startCapacity(ctx context.Context, cfg *config.Config, configPath, llmURL string, llmClient llm.Client, gpuMonitor *gpu.Monitor, catalog *verify.Catalog, srv *server.Server, reporter *health.Reporter) {
-	if cfg.EnrolledWorker() || cfg.Provider.ClusterMode == "worker" {
+	if cfg.EnrolledWorker() || cfg.Provider.FlockRole == "worker" {
 		return
 	}
 	sender := capacity.NewSender(cfg.Provider.URL, cfg.Provider.APIKey, srv.SlotSnapshot, llmClient)
@@ -606,7 +606,7 @@ func startCapacity(ctx context.Context, cfg *config.Config, configPath, llmURL s
 		Claim: srv.ClaimIdleSlot,
 		Note:  srv.SetCapabilities,
 		// A reasoning model is checked for its thinking coming back apart
-		// from the answer; the node routes it only to providers that pass.
+		// from the answer; the server routes it only to providers that pass.
 		Reasons: cfg.Provider.ReasoningParser != "",
 		// The checks are chat requests; an embedding model answers none.
 		Embedding: engine.IsEmbedding(cfg.Provider.Task),
@@ -623,8 +623,8 @@ func startCapacity(ctx context.Context, cfg *config.Config, configPath, llmURL s
 		Ready: func() bool {
 			probe, cancel := context.WithTimeout(ctx, 2*time.Second)
 			defer cancel()
-			if cfg.Provider.ClusterMode == "master" {
-				_, online := winglink.Tailnet(probe)
+			if cfg.Provider.FlockRole == "master" {
+				_, online := winglink.Status(probe)
 				return engine.MasterState(probe, kind, llmURL, cfg.Provider.EngineArgs, online) == "ready"
 			}
 			return engine.Healthy(probe, kind, llmURL)

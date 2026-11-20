@@ -45,7 +45,7 @@ func (c *VLLMClient) EngineCapacity(ctx context.Context) (EngineCapacity, error)
 // sample of a name wins. A missing name stays nil, which is not the same as
 // zero; so does a sample that is not finite or is out of range for its gauge
 // (a KV cache usage outside 0 to 1, a negative count), which the capacity
-// report would otherwise carry to the node, or fail to encode at all (NaN).
+// report would otherwise carry to the server, or fail to encode at all (NaN).
 func ParsePrometheusMetrics(text string) EngineCapacity {
 	var out EngineCapacity
 	var kvFallback *float64

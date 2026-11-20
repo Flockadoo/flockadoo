@@ -41,9 +41,9 @@ func TestLoginServerFallsBackToSession(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		switch r.URL.Path {
 		case "/api/provider/network/engine":
-			http.Error(w, "master tailnet IP is not set", http.StatusConflict)
+			http.Error(w, "master Winglink IP is not set", http.StatusConflict)
 		case "/api/provider/network/session":
-			_, _ = w.Write([]byte(`{"cluster_mode":"multi","login_server":"http://127.0.0.1:8444"}`))
+			_, _ = w.Write([]byte(`{"flock_mode":"multi","login_server":"http://127.0.0.1:8444"}`))
 		default:
 			http.NotFound(w, r)
 		}
@@ -68,11 +68,11 @@ func TestEnrolledWorkerReadsPinFromEngine(t *testing.T) {
 	cfg := &config.Config{}
 	cfg.Provider.URL = srv.URL
 	cfg.Provider.APIKey = "join-spent"
-	cfg.Provider.ClusterMode = "worker"
+	cfg.Provider.FlockRole = "worker"
 	cfg.Provider.NodeToken = "node-abc"
 	cfg.Provider.Model = "Qwen/Qwen2.5-Coder-32B-Instruct"
 	cfg.Provider.Engine = "vllm"
-	plan, err := clusterPlanReal(cfg)
+	plan, err := flockPlanReal(cfg)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -84,28 +84,28 @@ func TestEnrolledWorkerReadsPinFromEngine(t *testing.T) {
 	}
 }
 
-func TestPrepareClusterSingleReplacesClusterCommand(t *testing.T) {
+func TestPrepareFlockSingleReplacesFlockCommand(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if r.URL.Path != "/api/provider/network/session" {
 			t.Fatalf("path %s", r.URL.Path)
 		}
-		_, _ = w.Write([]byte(`{"cluster_mode":"single"}`))
+		_, _ = w.Write([]byte(`{"flock_mode":"single"}`))
 	}))
 	t.Cleanup(srv.Close)
 
 	cfg := &config.Config{}
 	cfg.Provider.URL = srv.URL
 	cfg.Provider.APIKey = "sk-test"
-	cfg.Provider.ClusterMode = "master"
+	cfg.Provider.FlockRole = "master"
 	cfg.Provider.NodeToken = "node-old"
 	cfg.Provider.EngineArgs = []string{"serve", "mistralai/Mistral-7B-Instruct-v0.3", "--nnodes", "2"}
 	cfg.Provider.EngineEnv = []string{"NCCL_SOCKET_IFNAME=winglink0"}
 	spec := engine.ServeSpec(engine.KindVLLM, "vllm", "Qwen/Qwen2.5-7B-Instruct", "", engine.ServeOpts{})
-	if err := prepareClusterReal(cfg, &spec); err != nil {
+	if err := prepareFlockReal(cfg, &spec); err != nil {
 		t.Fatal(err)
 	}
-	if cfg.Provider.ClusterMode != "" || cfg.Provider.NodeToken != "" {
-		t.Fatalf("leftover mode=%q token=%q", cfg.Provider.ClusterMode, cfg.Provider.NodeToken)
+	if cfg.Provider.FlockRole != "" || cfg.Provider.NodeToken != "" {
+		t.Fatalf("leftover mode=%q token=%q", cfg.Provider.FlockRole, cfg.Provider.NodeToken)
 	}
 	if strings.Join(cfg.Provider.EngineArgs, " ") != strings.Join(spec.Args, " ") {
 		t.Fatalf("args = %v", cfg.Provider.EngineArgs)
@@ -115,19 +115,19 @@ func TestPrepareClusterSingleReplacesClusterCommand(t *testing.T) {
 	}
 }
 
-func TestPrepareClusterLookupFailureKeepsClusterCommand(t *testing.T) {
+func TestPrepareFlockLookupFailureKeepsFlockCommand(t *testing.T) {
 	cfg := &config.Config{}
 	cfg.Provider.URL = "http://127.0.0.1:1"
 	cfg.Provider.APIKey = "sk-test"
-	cfg.Provider.ClusterMode = "master"
+	cfg.Provider.FlockRole = "master"
 	cfg.Provider.NodeToken = "node-old"
 	cfg.Provider.EngineArgs = []string{"serve", "mistral", "--nnodes", "2"}
 	spec := engine.ServeSpec(engine.KindVLLM, "vllm", "Qwen/Qwen2.5-7B-Instruct", "", engine.ServeOpts{})
-	if err := prepareClusterReal(cfg, &spec); err != nil {
+	if err := prepareFlockReal(cfg, &spec); err != nil {
 		t.Fatal(err)
 	}
-	if cfg.Provider.ClusterMode != "master" || cfg.Provider.NodeToken != "node-old" {
-		t.Fatalf("wiped cluster identity mode=%q token=%q", cfg.Provider.ClusterMode, cfg.Provider.NodeToken)
+	if cfg.Provider.FlockRole != "master" || cfg.Provider.NodeToken != "node-old" {
+		t.Fatalf("wiped cluster identity mode=%q token=%q", cfg.Provider.FlockRole, cfg.Provider.NodeToken)
 	}
 	if strings.Join(cfg.Provider.EngineArgs, " ") != "serve mistral --nnodes 2" {
 		t.Fatalf("args = %v", cfg.Provider.EngineArgs)
@@ -136,7 +136,7 @@ func TestPrepareClusterLookupFailureKeepsClusterCommand(t *testing.T) {
 
 func TestDropIfRemovedClearsToken(t *testing.T) {
 	cfg := &config.Config{}
-	cfg.Provider.ClusterMode = "worker"
+	cfg.Provider.FlockRole = "worker"
 	cfg.Provider.NodeToken = "node-abc"
 	err := dropIfRemoved(cfg, fmt.Errorf("POST /api/provider/network/node/engine: {\"message\":\"invalid node token\"}"))
 	if err == nil || !strings.Contains(err.Error(), "owner removed") {

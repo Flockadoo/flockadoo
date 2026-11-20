@@ -45,7 +45,7 @@ func TestParsePrometheusMetricsLlama(t *testing.T) {
 
 // Found by FuzzParsePrometheusMetrics (plan item Q3): a gauge the engine
 // reports out of range, or as NaN or Inf, is left out, as if it were
-// missing. Kept, a KV cache usage above 1 reached the node, and a NaN made
+// missing. Kept, a KV cache usage above 1 reached the server, and a NaN made
 // the capacity report fail to encode, so it was dropped.
 func TestAGaugeOutOfRangeIsLeftOut(t *testing.T) {
 	cases := []string{

@@ -235,7 +235,7 @@ func TestResolvePlatformURL(t *testing.T) {
 }
 
 // Plan item Q2, decision DC11: provider_type is no longer a setting in the
-// config file. engine is the one setting; the value sent to the node is
+// config file. engine is the one setting; the value sent to the server is
 // derived from it.
 func TestASavedConfigHasNoProviderTypeLine(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "config.yaml")

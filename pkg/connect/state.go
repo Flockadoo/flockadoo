@@ -58,7 +58,7 @@ func (s State) Terminal() bool {
 }
 
 // CloseReplaced is the WebSocket close code the gateway sends when a newer
-// session with the same key replaces this one (decision DC8). The node does
+// session with the same key replaces this one (decision DC8). The server does
 // not send it yet; until it does, the client infers a replacement from
 // sessions that keep ending early.
 const CloseReplaced = 4001

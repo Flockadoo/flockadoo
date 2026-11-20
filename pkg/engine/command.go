@@ -274,7 +274,7 @@ func NNodes(args []string) int {
 }
 
 // NodeSlots counts this machine plus online peers, out of --nnodes.
-// self is true when this process has a tailnet address.
+// self is true when this process has a Winglink address.
 func NodeSlots(self bool, onlinePeers, nnodes int) (online, need int) {
 	if nnodes < 2 {
 		return 0, 0

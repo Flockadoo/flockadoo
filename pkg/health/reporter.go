@@ -58,7 +58,7 @@ type HealthReport struct {
 	EngineVersion string `json:"engine_version,omitempty"`
 }
 
-// BenchmarkSummary is the last concurrency measurement, stored by the node.
+// BenchmarkSummary is the last concurrency measurement, stored by the server.
 type BenchmarkSummary struct {
 	Concurrency int       `json:"concurrency"`
 	MeasuredAt  time.Time `json:"measured_at"`
@@ -113,7 +113,7 @@ func (r *Reporter) advertiseModels(models []llm.Model) []llm.Model {
 
 // SendHealthReport sends a health report to the central system
 func (r *Reporter) SendHealthReport(ctx context.Context) error {
-	if r.config.Provider.ClusterMode == "worker" {
+	if r.config.Provider.FlockRole == "worker" {
 		if models, err := r.llmClient.ListModels(ctx); err != nil || models == nil {
 			r.setDisplayedModels(nil)
 		} else {
@@ -265,7 +265,7 @@ func (r *Reporter) GetHealthReport(ctx context.Context) (*HealthReport, error) {
 	}
 	report.Engine, report.EngineVersion = r.runningEngine(ctx)
 	// An engine older than Flockadoo supports serves no model through it: the
-	// report advertises none, so the node stops routing to them, and the
+	// report advertises none, so the server stops routing to them, and the
 	// verifier refuses any request that still arrives.
 	if refusal := r.engineRefusal(report.Engine, report.EngineVersion); refusal != "" {
 		report.Data = []llm.Model{}

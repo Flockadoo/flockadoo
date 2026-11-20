@@ -8,7 +8,7 @@ import (
 
 // An engine below the supported minimum (vLLM 0.30.0) serves nothing through
 // Flockadoo: while the refusal is set, every request is refused with the
-// reason, even for a model the node verified, and no call to the node is made.
+// reason, even for a model the server verified, and no call to the server is made.
 func TestVerdictRefusesWhileTheEngineIsUnsupported(t *testing.T) {
 	w := newWorld(t, "m")
 	w.nodeSays("verified")
@@ -22,7 +22,7 @@ func TestVerdictRefusesWhileTheEngineIsUnsupported(t *testing.T) {
 		t.Fatalf("verdict = %v (%s), want a refusal with the reason", got, why)
 	}
 	if w.verifyCalls() != calls {
-		t.Fatal("the verdict called the node")
+		t.Fatal("the verdict called the server")
 	}
 }
 

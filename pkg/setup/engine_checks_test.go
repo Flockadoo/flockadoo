@@ -189,9 +189,9 @@ func TestSetupRefusesAClusterPinBelowTheMinimum(t *testing.T) {
 		t.Skip("clusters and their vLLM pin are Linux only") //nolint:forbidigo // platform test: macOS serves vLLM rows with vLLM Metal and Windows with llama.cpp, and neither joins a cluster
 	}
 	singlePlan(t)
-	clusterPlan = func(*config.Config) (clusterSettings, error) {
-		return clusterSettings{
-			Role: "worker", Name: "flockadoo-cluster1",
+	flockPlan = func(*config.Config) (flockSettings, error) {
+		return flockSettings{
+			Role: "worker", Name: "flockadoo-flock1",
 			Model: "Qwen/Qwen3-0.6B", ServiceType: "vllm", VLLMVersion: "0.29.2",
 		}, nil
 	}

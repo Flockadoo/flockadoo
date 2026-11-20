@@ -24,12 +24,12 @@ func credential(s string) string {
 }
 
 func onlinePeers(ctx context.Context) int {
-	_, n := winglink.Tailnet(ctx)
+	_, n := winglink.Status(ctx)
 	return n
 }
 
-// clusterSettings is what setup shows instead of the single-machine model list.
-type clusterSettings struct {
+// flockSettings is what setup shows instead of the single-machine model list.
+type flockSettings struct {
 	Role        string
 	Name        string
 	Model       string
@@ -39,17 +39,17 @@ type clusterSettings struct {
 	MasterGPU   string
 }
 
-// clusterPlan is replaced in tests. Production reads the cluster the key belongs to.
-var clusterPlan = clusterPlanReal
+// flockPlan is replaced in tests. Production reads the cluster the key belongs to.
+var flockPlan = flockPlanReal
 
-func clusterPlanReal(cfg *config.Config) (clusterSettings, error) {
+func flockPlanReal(cfg *config.Config) (flockSettings, error) {
 	ctx := context.Background() //nolint:forbidigo // the wizard has no caller context yet (CLU-4, item K1)
 	if cfg.EnrolledWorker() {
 		model := strings.TrimSpace(cfg.Provider.Model)
 		if model == "" {
-			return clusterSettings{}, fmt.Errorf("this machine is in a cluster but has no saved model. Re-run setup with a new join code")
+			return flockSettings{}, fmt.Errorf("this machine is in a cluster but has no saved model. Re-run setup with a new join code")
 		}
-		settings := clusterSettings{
+		settings := flockSettings{
 			Role: "worker", Model: model, ServiceType: firstNonEmpty(cfg.Provider.Engine, "vllm"),
 		}
 		remote, err := winglink.FetchEngine(ctx, cfg.Provider.URL, cfg.Provider.NodeToken, true)
@@ -63,12 +63,12 @@ func clusterPlanReal(cfg *config.Config) (clusterSettings, error) {
 	if strings.HasPrefix(key, "join-") {
 		info, err := winglink.PreviewJoin(ctx, cfg.Provider.URL, key)
 		if err != nil {
-			return clusterSettings{}, fmt.Errorf("join code: %w", err)
+			return flockSettings{}, fmt.Errorf("join code: %w", err)
 		}
 		if strings.TrimSpace(info.Model) == "" {
-			return clusterSettings{}, fmt.Errorf("cluster %s has no model set. Choose one in the dashboard, then re-run setup", firstNonEmpty(info.Name, "this cluster"))
+			return flockSettings{}, fmt.Errorf("cluster %s has no model set. Choose one in the dashboard, then re-run setup", firstNonEmpty(info.Name, "this cluster"))
 		}
-		return clusterSettings{
+		return flockSettings{
 			Role: "worker", Name: info.Name, Model: info.Model,
 			DisplayName: info.ModelDisplayName, ServiceType: info.ServiceType,
 			VLLMVersion: info.VLLMVersion, MasterGPU: info.MasterGPU,
@@ -76,23 +76,23 @@ func clusterPlanReal(cfg *config.Config) (clusterSettings, error) {
 	}
 	sess, err := winglink.FetchSession(ctx, cfg.Provider.URL, key)
 	if err != nil || sess.Mode != "multi" {
-		return clusterSettings{Role: "single"}, err
+		return flockSettings{Role: "single"}, err
 	}
 	if strings.TrimSpace(sess.Model) == "" {
-		return clusterSettings{}, fmt.Errorf("cluster %s has no model set. Choose one in the dashboard, then re-run setup", firstNonEmpty(sess.Name, "this cluster"))
+		return flockSettings{}, fmt.Errorf("cluster %s has no model set. Choose one in the dashboard, then re-run setup", firstNonEmpty(sess.Name, "this cluster"))
 	}
-	return clusterSettings{
+	return flockSettings{
 		Role: "master", Name: sess.Name, Model: sess.Model,
 		DisplayName: sess.ModelDisplayName, ServiceType: sess.ServiceType,
 		VLLMVersion: sess.VLLMVersion, MasterGPU: sess.MasterGPU,
 	}, nil
 }
 
-// prepareCluster is replaced in tests. Production joins the tailnet when the
+// prepareFlock is replaced in tests. Production joins the tailnet when the
 // key is a multi-node master key or a join- code, then rewrites the engine spec.
-var prepareCluster = prepareClusterReal
+var prepareFlock = prepareFlockReal
 
-func decideCluster(key, mode string, lookupErr error) string {
+func decideFlock(key, mode string, lookupErr error) string {
 	if strings.HasPrefix(credential(key), "join-") {
 		return "worker"
 	}
@@ -102,7 +102,7 @@ func decideCluster(key, mode string, lookupErr error) string {
 	return "master"
 }
 
-// NodeRemoved is the node API rejecting a token after the owner removed the machine.
+// NodeRemoved is the server API rejecting a token after the owner removed the machine.
 func NodeRemoved(err error) bool {
 	return err != nil && strings.Contains(strings.ToLower(err.Error()), "invalid node token")
 }
@@ -116,7 +116,7 @@ func dropIfRemoved(cfg *config.Config, err error) error {
 		return err
 	}
 	cfg.Provider.NodeToken = ""
-	cfg.Provider.ClusterMode = ""
+	cfg.Provider.FlockRole = ""
 	return removedErr(err)
 }
 
@@ -138,11 +138,11 @@ func resumeWorker(ctx context.Context, cfg *config.Config, spec *engine.Spec) er
 	cfg.Provider.EngineArgs = next.Args
 	cfg.Provider.EngineEnv = next.Env
 	cfg.Provider.LLMURL = next.URL
-	cfg.Provider.ClusterMode = "worker"
+	cfg.Provider.FlockRole = "worker"
 	return nil
 }
 
-func prepareClusterReal(cfg *config.Config, spec *engine.Spec) error {
+func prepareFlockReal(cfg *config.Config, spec *engine.Spec) error {
 	ctx := context.Background() //nolint:forbidigo // the wizard has no caller context yet (CLU-4, item K1)
 	key := credential(cfg.Provider.APIKey)
 	cfg.Provider.APIKey = key
@@ -160,14 +160,14 @@ func prepareClusterReal(cfg *config.Config, spec *engine.Spec) error {
 		role = "worker"
 	} else {
 		sess, err := winglink.FetchSession(ctx, cfg.Provider.URL, key)
-		role = decideCluster(key, sess.Mode, err)
+		role = decideFlock(key, sess.Mode, err)
 		if role == "single" {
 			if err != nil {
 				// A failed lookup must not wipe a saved cluster command.
 				fmt.Fprintf(os.Stderr, "could not read cluster mode (%v); continuing as a single node\n", err)
 				return nil
 			}
-			cfg.Provider.ClusterMode = ""
+			cfg.Provider.FlockRole = ""
 			cfg.Provider.NodeToken = ""
 			cfg.Provider.EngineArgs = append([]string(nil), spec.Args...)
 			cfg.Provider.EngineEnv = append([]string(nil), spec.Env...)
@@ -183,7 +183,7 @@ func prepareClusterReal(cfg *config.Config, spec *engine.Spec) error {
 		}
 		token = firstNonEmpty(token, cfg.Provider.NodeToken)
 	}
-	cfg.Provider.ClusterMode = role
+	cfg.Provider.FlockRole = role
 	if token != "" {
 		cfg.Provider.NodeToken = token
 	}
@@ -223,7 +223,7 @@ func prepareClusterReal(cfg *config.Config, spec *engine.Spec) error {
 }
 
 // loginServer is the URL the daemon dials. The engine route has it once a
-// tailnet address is stored; otherwise the master session does.
+// Winglink address is stored; otherwise the master session does.
 func loginServer(ctx context.Context, cfg *config.Config, worker bool) string {
 	bearer := cfg.Provider.APIKey
 	if worker {
@@ -242,16 +242,16 @@ func loginServer(ctx context.Context, cfg *config.Config, worker bool) string {
 	return sess.LoginServer
 }
 
-// refreshCluster is replaced in tests.
-var refreshCluster = refreshClusterEngine
+// refreshFlock is replaced in tests.
+var refreshFlock = refreshFlockEngine
 
-// refreshClusterEngine reloads the server command before a later start.
+// refreshFlockEngine reloads the server command before a later start.
 // It also reconnects winglink when the saved address is offline.
-func refreshClusterEngine(ctx context.Context, cfg *config.Config) error {
+func refreshFlockEngine(ctx context.Context, cfg *config.Config) error {
 	if cfg == nil {
 		return nil
 	}
-	mode := cfg.Provider.ClusterMode
+	mode := cfg.Provider.FlockRole
 	if mode != "multi" && mode != "worker" && mode != "master" {
 		return nil
 	}

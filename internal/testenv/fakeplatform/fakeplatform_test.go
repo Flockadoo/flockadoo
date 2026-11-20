@@ -29,7 +29,7 @@ func TestProviderRoutesNeedTheProviderKey(t *testing.T) {
 	p := fakeplatform.New(t, "key")
 	status, body := call(t, http.MethodPost, p.URL+"/api/provider/capacity", "wrong", `{}`)
 	if status != http.StatusUnauthorized || !strings.Contains(body, `"error"`) {
-		t.Fatalf("wrong key: %d %s, want 401 with the node's error body", status, body)
+		t.Fatalf("wrong key: %d %s, want 401 with the server's error body", status, body)
 	}
 	if status, _ := call(t, http.MethodPost, p.URL+"/api/provider/capacity", "key", `{}`); status != http.StatusNoContent {
 		t.Fatalf("right key: %d, want 204", status)
@@ -140,7 +140,7 @@ func TestHangHoldsUntilTheClientGivesUp(t *testing.T) {
 	}
 }
 
-// The deployment register keeps state the way the node does: registering a
+// The deployment register keeps state the way the server does: registering a
 // new fingerprint bumps the revision and resets the attempt.
 func TestTheDeploymentRegisterKeepsState(t *testing.T) {
 	p := fakeplatform.New(t, "key")
@@ -157,7 +157,7 @@ func TestTheDeploymentRegisterKeepsState(t *testing.T) {
 }
 
 // A body the client sends with a key the contract golden does not have is a
-// contract error: the client and the node have drifted.
+// contract error: the client and the server have drifted.
 func TestAReportOutsideItsGoldenIsAContractError(t *testing.T) {
 	p := fakeplatform.New(t, "key", fakeplatform.AllowContractErrors())
 	call(t, http.MethodPost, p.URL+"/api/provider/health", "key", `{"object":"list","data":[],"not_in_the_golden":1}`)

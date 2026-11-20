@@ -396,7 +396,7 @@ func (s *Server) gatewayConnected() bool {
 
 // TunnelActive is false once the tunnel has stopped for good (a rejected
 // key, a replacement, an upgrade required): the client then stops reporting
-// to the node and waits for the operator (decision DC8).
+// to the server and waits for the operator (decision DC8).
 func (s *Server) TunnelActive() bool {
 	c := s.tunnel()
 	return c == nil || !c.State().Terminal()
@@ -467,7 +467,7 @@ func (s *Server) redrawConsole() {
 	}
 	fmt.Fprintf(&buf, "\033[1;35mPlatform connection           \033[0m%s\n", state)
 
-	s.writeClusterStatus(s.ctx, &buf, snap)
+	s.writeFlockStatus(s.ctx, &buf, snap)
 
 	gpuInfo := snap.GPU
 	if gpuInfo == nil {
@@ -512,7 +512,7 @@ func (s *Server) engineStatus(ctx context.Context) string {
 		return ""
 	}
 	kind, _ := engine.ParseKind(s.config.Provider.Engine)
-	switch s.config.Provider.ClusterMode {
+	switch s.config.Provider.FlockRole {
 	case "worker":
 		if engine.WorkerAlive(kind, s.config.Provider.EngineArgs) {
 			return "running"
@@ -521,14 +521,14 @@ func (s *Server) engineStatus(ctx context.Context) string {
 	case "master":
 		ctx, cancel := context.WithTimeout(ctx, 2*time.Second)
 		defer cancel()
-		_, peers := winglink.Tailnet(ctx)
+		_, peers := winglink.Status(ctx)
 		return engine.MasterState(ctx, kind, s.config.Provider.LLMURL, s.config.Provider.EngineArgs, peers)
 	default:
 		return ""
 	}
 }
 
-func (s *Server) writeClusterStatus(ctx context.Context, buf *bytes.Buffer, snap StatusSnapshot) {
+func (s *Server) writeFlockStatus(ctx context.Context, buf *bytes.Buffer, snap StatusSnapshot) {
 	buf.WriteString("\033[1;36m╔════════════════════════════════════════════════════════════════╗\n")
 	buf.WriteString("║                          CLUSTER STATUS                          ║\n")
 	buf.WriteString("╚════════════════════════════════════════════════════════════════╝\033[0m\n")
@@ -544,8 +544,8 @@ func (s *Server) writeClusterStatus(ctx context.Context, buf *bytes.Buffer, snap
 	if snap.Nodes != "" {
 		fmt.Fprintf(buf, "\033[1;35m%-30s\033[0m%s\n", "Nodes", snap.Nodes)
 	}
-	if snap.TailnetIP != "" {
-		fmt.Fprintf(buf, "\033[1;35m%-30s\033[0m%s\n", "Tailnet IP", snap.TailnetIP)
+	if snap.WinglinkIP != "" {
+		fmt.Fprintf(buf, "\033[1;35m%-30s\033[0m%s\n", "Winglink IP", snap.WinglinkIP)
 	}
 
 	models := snap.Models
@@ -626,7 +626,7 @@ func (s *Server) logError(errMsg string) {
 }
 
 // verifyModel is the verdict for the model a request names, read from the
-// verifier's state with no call to the node (plan item B3). With no
+// verifier's state with no call to the server (plan item B3). With no
 // verifier, every model is served.
 func (s *Server) verifyModel(model string) (verify.Verdict, string) {
 	if s.verifier == nil {

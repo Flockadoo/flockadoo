@@ -23,9 +23,9 @@
 - [ ] `go run ./internal/tools/check`
 - Operating systems this was run on, and which it was not:
 
-## Calls to the node
+## Calls to the server
 
-<!-- For a change to a call to the node: the golden's diff and the matching node PR. Otherwise "none". -->
+<!-- For a change to a call to the server: the golden's diff and the matching node PR. Otherwise "none". -->
 
 ## Not verified, and open risks
 

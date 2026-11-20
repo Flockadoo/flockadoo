@@ -65,7 +65,7 @@ func (s *ServerClient) VerifyModel(ctx context.Context, req verifyModelRequest) 
 	return out, nil
 }
 
-// NodeStatusError is a verify-model call the node answered with an error
+// NodeStatusError is a verify-model call the server answered with an error
 // status.
 type NodeStatusError struct {
 	Code int
@@ -76,7 +76,7 @@ func (e *NodeStatusError) Error() string {
 	return fmt.Sprintf("verify model returned %d: %s", e.Code, e.Body)
 }
 
-// unavailable reports whether err means the node could not be asked: a
+// unavailable reports whether err means the server could not be asked: a
 // timeout, a failed connection, a 5xx, or an answer that cannot be read.
 // A 401 or 426 is not an outage: the key or the client version was refused,
 // and no grace applies (plan item B3, detail 4).

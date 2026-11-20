@@ -1,8 +1,8 @@
-// Package fakeplatform is the node's HTTP API for tests (plan section 17.3):
+// Package fakeplatform is the server's HTTP API for tests (plan section 17.3):
 // one handler per endpoint the client calls, each recording the request and
-// answering from a script, with defaults that answer the way the node does.
+// answering from a script, with defaults that answer the way the server does.
 //
-// Provider routes need the provider key, as on the node. A request body sent
+// Provider routes need the provider key, as on the server. A request body sent
 // to an endpoint that has a contract golden (pkg/contract/testdata) may only
 // use keys the golden has; anything else is a contract error, and a test with
 // a contract error fails when it ends.
@@ -109,13 +109,13 @@ func NoContent() Reply { return Reply{status: http.StatusNoContent} }
 // Hang accepts the request and never answers; the client's timeout decides.
 func Hang() Reply { return Reply{hang: true} }
 
-// NodeRemoved is the node's answer to a cluster machine whose node token was
+// NodeRemoved is the server's answer to a cluster machine whose node token was
 // revoked because the owner removed it.
 func NodeRemoved() Reply {
 	return JSON(http.StatusUnauthorized, map[string]string{"error": "invalid node token"})
 }
 
-// UpgradeRequired is the node's 426 for a client below the minimum version.
+// UpgradeRequired is the server's 426 for a client below the minimum version.
 func UpgradeRequired(minVersion, latest string) Reply {
 	return JSON(http.StatusUpgradeRequired, map[string]string{
 		"error": "client upgrade required", "min_version": minVersion, "latest_version": latest, "download_url": "",

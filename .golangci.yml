@@ -104,7 +104,7 @@ linters:
 
   exclusions:
     rules:
-      # As in the node: tests may use quick HTTP calls, unchecked assertions
+      # As in the server: tests may use quick HTTP calls, unchecked assertions
       # and fixed arguments.
       - path: _test\.go$
         linters: [forcetypeassert, noctx, gosec, unparam]

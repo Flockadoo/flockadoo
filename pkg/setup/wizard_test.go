@@ -16,22 +16,22 @@ import (
 )
 
 func TestMain(m *testing.M) {
-	prepareCluster = func(*config.Config, *engine.Spec) error { return nil }
-	clusterPlan = func(*config.Config) (clusterSettings, error) {
-		return clusterSettings{Role: "single"}, nil
+	prepareFlock = func(*config.Config, *engine.Spec) error { return nil }
+	flockPlan = func(*config.Config) (flockSettings, error) {
+		return flockSettings{Role: "single"}, nil
 	}
 	os.Exit(m.Run())
 }
 
-func TestExecuteMultiPreparesCluster(t *testing.T) {
+func TestExecuteMultiPreparesFlock(t *testing.T) {
 	called := false
-	prepareCluster = func(cfg *config.Config, spec *engine.Spec) error {
+	prepareFlock = func(cfg *config.Config, spec *engine.Spec) error {
 		called = true
-		cfg.Provider.ClusterMode = "master"
+		cfg.Provider.FlockRole = "master"
 		return nil
 	}
 	t.Cleanup(func() {
-		prepareCluster = func(*config.Config, *engine.Spec) error { return nil }
+		prepareFlock = func(*config.Config, *engine.Spec) error { return nil }
 	})
 
 	dir := t.TempDir()
@@ -50,33 +50,33 @@ func TestExecuteMultiPreparesCluster(t *testing.T) {
 		t.Fatalf("Execute: %v\n%s", err, errBuf.String())
 	}
 	if !called {
-		t.Fatal("prepareCluster was not called")
+		t.Fatal("prepareFlock was not called")
 	}
 	cfg, err := config.Load(cfgPath)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if cfg.Provider.ClusterMode != "master" {
-		t.Fatalf("cluster_mode = %q", cfg.Provider.ClusterMode)
+	if cfg.Provider.FlockRole != "master" {
+		t.Fatalf("flock_role = %q", cfg.Provider.FlockRole)
 	}
 }
 
 func singlePlan(t *testing.T) {
 	t.Helper()
 	t.Cleanup(func() {
-		clusterPlan = func(*config.Config) (clusterSettings, error) {
-			return clusterSettings{Role: "single"}, nil
+		flockPlan = func(*config.Config) (flockSettings, error) {
+			return flockSettings{Role: "single"}, nil
 		}
 		detectEngine = engine.Detect
 		installEngine = engine.Install
 	})
 }
 
-func TestExecuteMasterUsesClusterModel(t *testing.T) {
+func TestExecuteMasterUsesFlockModel(t *testing.T) {
 	singlePlan(t)
-	clusterPlan = func(*config.Config) (clusterSettings, error) {
-		return clusterSettings{
-			Role: "master", Name: "flockadoo-cluster1",
+	flockPlan = func(*config.Config) (flockSettings, error) {
+		return flockSettings{
+			Role: "master", Name: "flockadoo-flock1",
 			Model: "Qwen/Qwen3-0.6B", DisplayName: "Qwen3 0.6B", ServiceType: "vllm",
 		}, nil
 	}
@@ -85,7 +85,7 @@ func TestExecuteMasterUsesClusterModel(t *testing.T) {
 	var out, errBuf bytes.Buffer
 	err := Execute(Options{
 		ConfigPath:     cfgPath,
-		APIKey:         "sk-cluster",
+		APIKey:         "sk-flock",
 		OfflineCatalog: filepath.Join("testdata", "catalog.json"),
 		Yes:            true,
 		NoStart:        true,
@@ -96,7 +96,7 @@ func TestExecuteMasterUsesClusterModel(t *testing.T) {
 	if strings.Contains(out.String(), "Models that should fit") {
 		t.Fatalf("Team Flock setup showed the single-machine list:\n%s", out.String())
 	}
-	if !strings.Contains(out.String(), "Team Flock flockadoo-cluster1") || !strings.Contains(out.String(), "Qwen3 0.6B (Qwen/Qwen3-0.6B)") {
+	if !strings.Contains(out.String(), "Team Flock flockadoo-flock1") || !strings.Contains(out.String(), "Qwen3 0.6B (Qwen/Qwen3-0.6B)") {
 		t.Fatalf("stdout = %s", out.String())
 	}
 	serve := "vllm serve Qwen/Qwen3-0.6B"
@@ -117,9 +117,9 @@ func TestExecuteMasterUsesClusterModel(t *testing.T) {
 
 func TestExecuteWorkerInstallsAndConfirms(t *testing.T) {
 	singlePlan(t)
-	clusterPlan = func(*config.Config) (clusterSettings, error) {
-		return clusterSettings{
-			Role: "worker", Name: "flockadoo-cluster1",
+	flockPlan = func(*config.Config) (flockSettings, error) {
+		return flockSettings{
+			Role: "worker", Name: "flockadoo-flock1",
 			Model: "Qwen/Qwen3-0.6B", DisplayName: "Qwen3 0.6B", ServiceType: "vllm",
 			VLLMVersion: "0.31.0",
 		}, nil
@@ -158,10 +158,10 @@ func TestExecuteWorkerInstallsAndConfirms(t *testing.T) {
 	if strings.Contains(text, "Models that should fit") || strings.Contains(text, "Inference engine:") || strings.Contains(text, "Install it now?") {
 		t.Fatalf("worker was prompted:\n%s", text)
 	}
-	if !strings.Contains(text, "Joining Team Flock flockadoo-cluster1") || !strings.Contains(text, "Qwen3 0.6B (Qwen/Qwen3-0.6B)") {
+	if !strings.Contains(text, "Joining Team Flock flockadoo-flock1") || !strings.Contains(text, "Qwen3 0.6B (Qwen/Qwen3-0.6B)") {
 		t.Fatalf("stdout = %s", text)
 	}
-	if !strings.Contains(text, "Run this after the master is up") || !strings.Contains(text, docsClusterWorker) {
+	if !strings.Contains(text, "Run this after the master is up") || !strings.Contains(text, docsFlockWorker) {
 		t.Fatalf("did not print the worker command:\n%s", text)
 	}
 	cfg, err := config.Load(cfgPath)
@@ -524,12 +524,12 @@ func TestExecuteCatalogURLFlagBeatsEnv(t *testing.T) {
 func TestPastedJoinCodeSkipsEngineAndModel(t *testing.T) {
 	singlePlan(t)
 	t.Setenv("PROVIDER_API_KEY", "sk-already-set")
-	clusterPlan = func(cfg *config.Config) (clusterSettings, error) {
+	flockPlan = func(cfg *config.Config) (flockSettings, error) {
 		if cfg.Provider.APIKey != "join-abc" {
 			t.Fatalf("api key = %q", cfg.Provider.APIKey)
 		}
-		return clusterSettings{
-			Role: "worker", Name: "flockadoo-cluster1",
+		return flockSettings{
+			Role: "worker", Name: "flockadoo-flock1",
 			Model: "Qwen/Qwen3-0.6B", DisplayName: "Qwen3 0.6B", ServiceType: "vllm",
 			VLLMVersion: "0.31.0",
 		}, nil
@@ -552,7 +552,7 @@ func TestPastedJoinCodeSkipsEngineAndModel(t *testing.T) {
 	if strings.Contains(text, "Models that should fit") || strings.Contains(text, "Inference engine:") {
 		t.Fatalf("join code still asked for engine or model:\n%s", text)
 	}
-	if !strings.Contains(text, "Joining Team Flock flockadoo-cluster1") || !strings.Contains(text, "Provider API key or join code") {
+	if !strings.Contains(text, "Joining Team Flock flockadoo-flock1") || !strings.Contains(text, "Provider API key or join code") {
 		t.Fatalf("stdout = %s", text)
 	}
 }
@@ -562,7 +562,7 @@ func TestEnrolledWorkerSkipsKeyPrompt(t *testing.T) {
 	cfgPath := filepath.Join(dir, "config.yaml")
 	cfg := &config.Config{}
 	cfg.Provider.APIKey = "join-spent"
-	cfg.Provider.ClusterMode = "worker"
+	cfg.Provider.FlockRole = "worker"
 	cfg.Provider.NodeToken = "node-abc"
 	cfg.Provider.Model = "Qwen/Qwen3-0.6B"
 	cfg.Provider.Engine = "vllm"
@@ -570,13 +570,13 @@ func TestEnrolledWorkerSkipsKeyPrompt(t *testing.T) {
 	if err := config.Save(cfgPath, cfg); err != nil {
 		t.Fatal(err)
 	}
-	prev := clusterPlan
-	t.Cleanup(func() { clusterPlan = prev })
-	clusterPlan = func(cfg *config.Config) (clusterSettings, error) {
+	prev := flockPlan
+	t.Cleanup(func() { flockPlan = prev })
+	flockPlan = func(cfg *config.Config) (flockSettings, error) {
 		if cfg.Provider.NodeToken != "node-abc" || cfg.Provider.APIKey != "join-spent" {
 			t.Fatalf("key %q token %q", cfg.Provider.APIKey, cfg.Provider.NodeToken)
 		}
-		return clusterSettings{Role: "worker", Model: cfg.Provider.Model, ServiceType: "vllm"}, nil
+		return flockSettings{Role: "worker", Model: cfg.Provider.Model, ServiceType: "vllm"}, nil
 	}
 	detectEngine = func(kind engine.Kind) engine.Detected {
 		return engine.Detected{Kind: kind, Found: true, Bin: "vllm"}
@@ -602,24 +602,24 @@ func TestDifferentJoinCodeClearsSavedToken(t *testing.T) {
 	cfgPath := filepath.Join(dir, "config.yaml")
 	cfg := &config.Config{}
 	cfg.Provider.APIKey = "join-spent"
-	cfg.Provider.ClusterMode = "worker"
+	cfg.Provider.FlockRole = "worker"
 	cfg.Provider.NodeToken = "node-abc"
 	cfg.Provider.Model = "Qwen/Qwen3-0.6B"
 	cfg.Provider.Engine = "vllm"
 	if err := config.Save(cfgPath, cfg); err != nil {
 		t.Fatal(err)
 	}
-	prev := clusterPlan
+	prev := flockPlan
 	t.Cleanup(func() {
-		clusterPlan = prev
+		flockPlan = prev
 		detectEngine = engine.Detect
 		installEngine = engine.Install
 	})
-	clusterPlan = func(cfg *config.Config) (clusterSettings, error) {
+	flockPlan = func(cfg *config.Config) (flockSettings, error) {
 		if cfg.Provider.APIKey != "join-new" || cfg.Provider.NodeToken != "" {
 			t.Fatalf("key %q token %q", cfg.Provider.APIKey, cfg.Provider.NodeToken)
 		}
-		return clusterSettings{Role: "worker", Name: "flockadoo-cluster2", Model: "Qwen/Qwen3-0.6B", ServiceType: "vllm", VLLMVersion: "0.31.0"}, nil
+		return flockSettings{Role: "worker", Name: "flockadoo-flock2", Model: "Qwen/Qwen3-0.6B", ServiceType: "vllm", VLLMVersion: "0.31.0"}, nil
 	}
 	detectEngine = func(kind engine.Kind) engine.Detected {
 		return engine.Detected{Kind: kind, Found: true, Bin: "vllm"}
@@ -643,9 +643,9 @@ func TestWorkerWaitsForMasterVersion(t *testing.T) {
 		t.Skip("this OS remaps vLLM") //nolint:forbidigo // platform-specific: this OS serves vLLM with another engine
 	}
 	singlePlan(t)
-	clusterPlan = func(*config.Config) (clusterSettings, error) {
-		return clusterSettings{
-			Role: "worker", Name: "flockadoo-cluster1",
+	flockPlan = func(*config.Config) (flockSettings, error) {
+		return flockSettings{
+			Role: "worker", Name: "flockadoo-flock1",
 			Model: "Qwen/Qwen3-0.6B", ServiceType: "vllm",
 		}, nil
 	}
@@ -672,9 +672,9 @@ func TestWorkerWithInstalledVLLMStillWaitsForMasterVersion(t *testing.T) {
 		t.Skip("this OS remaps vLLM") //nolint:forbidigo // platform-specific: this OS serves vLLM with another engine
 	}
 	singlePlan(t)
-	clusterPlan = func(*config.Config) (clusterSettings, error) {
-		return clusterSettings{
-			Role: "worker", Name: "flockadoo-cluster1",
+	flockPlan = func(*config.Config) (flockSettings, error) {
+		return flockSettings{
+			Role: "worker", Name: "flockadoo-flock1",
 			Model: "Qwen/Qwen3-0.6B", ServiceType: "vllm",
 		}, nil
 	}
@@ -715,9 +715,9 @@ func TestWorkerInstallFailureDoesNotJoin(t *testing.T) {
 		t.Skip("this OS remaps vLLM") //nolint:forbidigo // platform-specific: this OS serves vLLM with another engine
 	}
 	singlePlan(t)
-	clusterPlan = func(*config.Config) (clusterSettings, error) {
-		return clusterSettings{
-			Role: "worker", Name: "flockadoo-cluster1",
+	flockPlan = func(*config.Config) (flockSettings, error) {
+		return flockSettings{
+			Role: "worker", Name: "flockadoo-flock1",
 			Model: "Qwen/Qwen3-0.6B", ServiceType: "vllm",
 			VLLMVersion: "0.31.0",
 		}, nil
@@ -730,12 +730,12 @@ func TestWorkerInstallFailureDoesNotJoin(t *testing.T) {
 		return fmt.Errorf("pip failed")
 	}
 	joined := false
-	prevPrepare := prepareCluster
-	prepareCluster = func(*config.Config, *engine.Spec) error {
+	prevPrepare := prepareFlock
+	prepareFlock = func(*config.Config, *engine.Spec) error {
 		joined = true
 		return nil
 	}
-	t.Cleanup(func() { prepareCluster = prevPrepare })
+	t.Cleanup(func() { prepareFlock = prevPrepare })
 	dir := t.TempDir()
 	err := Execute(Options{
 		ConfigPath:     filepath.Join(dir, "config.yaml"),
@@ -755,9 +755,9 @@ func TestWorkerMissingInstallFailureDoesNotJoin(t *testing.T) {
 		t.Skip("this OS remaps vLLM") //nolint:forbidigo // platform-specific: this OS serves vLLM with another engine
 	}
 	singlePlan(t)
-	clusterPlan = func(*config.Config) (clusterSettings, error) {
-		return clusterSettings{
-			Role: "worker", Name: "flockadoo-cluster1",
+	flockPlan = func(*config.Config) (flockSettings, error) {
+		return flockSettings{
+			Role: "worker", Name: "flockadoo-flock1",
 			Model: "Qwen/Qwen3-0.6B", ServiceType: "vllm",
 			VLLMVersion: "0.31.0",
 		}, nil
@@ -769,12 +769,12 @@ func TestWorkerMissingInstallFailureDoesNotJoin(t *testing.T) {
 		return fmt.Errorf("pip failed")
 	}
 	joined := false
-	prevPrepare := prepareCluster
-	prepareCluster = func(*config.Config, *engine.Spec) error {
+	prevPrepare := prepareFlock
+	prepareFlock = func(*config.Config, *engine.Spec) error {
 		joined = true
 		return nil
 	}
-	t.Cleanup(func() { prepareCluster = prevPrepare })
+	t.Cleanup(func() { prepareFlock = prevPrepare })
 	dir := t.TempDir()
 	err := Execute(Options{
 		ConfigPath:     filepath.Join(dir, "config.yaml"),
@@ -794,9 +794,9 @@ func TestEnrolledWorkerProceedsWithoutPin(t *testing.T) {
 		t.Skip("this OS remaps vLLM") //nolint:forbidigo // platform-specific: this OS serves vLLM with another engine
 	}
 	singlePlan(t)
-	clusterPlan = func(*config.Config) (clusterSettings, error) {
-		return clusterSettings{
-			Role: "worker", Name: "flockadoo-cluster1",
+	flockPlan = func(*config.Config) (flockSettings, error) {
+		return flockSettings{
+			Role: "worker", Name: "flockadoo-flock1",
 			Model: "Qwen/Qwen3-0.6B", ServiceType: "vllm",
 		}, nil
 	}
@@ -806,7 +806,7 @@ func TestEnrolledWorkerProceedsWithoutPin(t *testing.T) {
 	dir := t.TempDir()
 	cfgPath := filepath.Join(dir, "config.yaml")
 	saved := &config.Config{}
-	saved.Provider.ClusterMode = "worker"
+	saved.Provider.FlockRole = "worker"
 	saved.Provider.NodeToken = "node-token"
 	saved.Provider.Model = "Qwen/Qwen3-0.6B"
 	saved.Provider.APIKey = "join-abc"

@@ -23,14 +23,14 @@ import (
 
 const githubRepo = "flockadoo/flockadoo"
 
-// Release is the newest client the node is advertising.
+// Release is the newest client the server is advertising.
 type Release struct {
 	Latest      string
 	Min         string
 	DownloadURL string
 }
 
-// FetchRelease reads the client release from the node. The node mirrors GitHub.
+// FetchRelease reads the client release from the server. The server mirrors GitHub.
 func FetchRelease(ctx context.Context, platformURL string) (Release, error) {
 	if platformURL == "" {
 		return Release{}, fmt.Errorf("platform URL is not set")
@@ -45,7 +45,7 @@ func FetchRelease(ctx context.Context, platformURL string) (Release, error) {
 	return rel, nil
 }
 
-// Remember stores the node's release so the running console and tray can show it.
+// Remember stores the server's release so the running console and tray can show it.
 func Remember(rel Release) {
 	if nodeapi.Newer(rel.Min, version.Version) {
 		nodeapi.NoteRequired(rel.Min, rel.Latest, rel.DownloadURL)
@@ -54,7 +54,7 @@ func Remember(rel Release) {
 	nodeapi.NoteLatest(rel.Latest)
 }
 
-// Notice is the line printed at startup. required means the node will reject this build.
+// Notice is the line printed at startup. required means the server will reject this build.
 func Notice(rel Release) (message string, required bool) {
 	cur := version.Version
 	if nodeapi.Newer(rel.Min, cur) {

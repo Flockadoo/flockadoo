@@ -50,11 +50,11 @@ func (f *fakeLLM) ForwardRequest(ctx context.Context, path string, body []byte, 
 }
 
 // nodeStub is a node the relay must never call: serving a request makes no
-// call to the node (decision DC1).
+// call to the server (decision DC1).
 func nodeStub(t *testing.T) *httptest.Server {
 	t.Helper()
 	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		t.Errorf("the relay called the node: %s %s", r.Method, r.URL.Path)
+		t.Errorf("the relay called the server: %s %s", r.Method, r.URL.Path)
 		w.WriteHeader(http.StatusNotFound)
 	}))
 	t.Cleanup(ts.Close)

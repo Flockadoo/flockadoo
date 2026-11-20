@@ -4,7 +4,7 @@
 # Runs as root, downloads or executes.
 /pkg/winglink/            @ankh2054
 /internal/download/         @ankh2054
-/pkg/setup/cluster.go       @ankh2054
+/pkg/setup/flock.go       @ankh2054
 /pkg/engine/install.go      @ankh2054
 /pkg/engine/install_llama.go @ankh2054
 /pkg/engine/command.go      @ankh2054
@@ -12,7 +12,7 @@
 /Dockerfile                 @ankh2054
 /scripts/                   @ankh2054
 
-# Credentials and calls to the node.
+# Credentials and calls to the server.
 /internal/config/           @ankh2054
 /pkg/nodeapi/               @ankh2054
 /pkg/contract/              @ankh2054
