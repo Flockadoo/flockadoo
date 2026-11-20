@@ -315,3 +315,20 @@ func TestRejectsATestThatWritesIntoHome(t *testing.T) {
 		t.Fatalf("the output does not name the file the test left in HOME:\n%s", out)
 	}
 }
+
+// On Windows git checks files out with CRLF line endings: an allowed-names
+// entry must not end in a carriage return, or its expression matches nothing
+// (CI on windows-latest, 2026-11-20).
+func TestAllowedNamesReadCRLF(t *testing.T) {
+	f := filepath.Join(t.TempDir(), "names_allow.txt")
+	if err := os.WriteFile(f, []byte("# comment\r\nREADME.md\t^SET\r\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	allow, err := readAllowedNames(f)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(allow) != 1 || allow[0].glob != "README.md" || allow[0].line.String() != "^SET" {
+		t.Fatalf("read %d entries; the first is %q %q", len(allow), allow[0].glob, allow[0].line.String())
+	}
+}
