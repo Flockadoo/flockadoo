@@ -82,7 +82,14 @@ type modelState struct {
 	result     Result
 	lastErr    error
 	refreshing bool
+	// done is closed when the refresh in progress ends; nil when none is.
+	done chan struct{}
 }
+
+// firstAnswerWait bounds how long a health report waits for the first answer
+// of a refresh already in progress: the verify call's 30-second timeout plus
+// hashing. A report with an answer never waits.
+const firstAnswerWait = time.Minute
 
 // SetTiming sets how long an answer is fresh and, past that, how long a
 // verified answer may still be used while the server cannot be asked.
@@ -187,11 +194,15 @@ func (v *Verifier) Refresh(ctx context.Context, model string) {
 		return
 	}
 	st.refreshing = true
+	done := make(chan struct{})
+	st.done = done
 	v.mu.Unlock()
 	defer func() {
 		v.mu.Lock()
 		st.refreshing = false
+		st.done = nil
 		v.mu.Unlock()
+		close(done)
 	}()
 
 	entryID, root, stats, err := v.currentKey(model)
@@ -209,7 +220,7 @@ func (v *Verifier) Refresh(ctx context.Context, model string) {
 		v.mu.Lock()
 		if st.entryID != entryID || !fileStatsEqual(st.stats, stats) {
 			// A new key inherits nothing (decision DC2).
-			*st = modelState{entryID: entryID, stats: stats, refreshing: true}
+			*st = modelState{entryID: entryID, stats: stats, refreshing: true, done: done}
 		}
 		st.lastErr = err
 		v.mu.Unlock()
@@ -298,13 +309,15 @@ func (v *Verifier) measureWithCache(alias, root string) (files []FileMeasurement
 	}
 
 	v.mu.Lock()
-	defer v.mu.Unlock()
-
 	prev, hadCache := v.cache[alias]
+	v.mu.Unlock()
 	if hadCache && fileStatsEqual(prev.stats, currentStats) {
 		return prev.files, false, nil
 	}
 
+	// Hashing can take a while (a .bin is hashed in full), so it runs outside
+	// the lock Verdict and Status take. Only Refresh calls this, and never
+	// twice at once for one model, so nothing else writes this alias's entry.
 	if v.serviceType == "llama_cpp" {
 		entry, _ := v.catalog.Get(alias)
 		files, err = measureGGUF(root, hfRepoForCatalog(alias, entry), ggufName(entry))
@@ -315,7 +328,9 @@ func (v *Verifier) measureWithCache(alias, root string) (files []FileMeasurement
 		return nil, false, err
 	}
 
+	v.mu.Lock()
 	v.cache[alias] = &fingerprintCache{files: files, stats: currentStats}
+	v.mu.Unlock()
 	return files, hadCache, nil
 }
 
@@ -376,7 +391,8 @@ func applyServerResponse(res *Result, resp verifyModelResponse) {
 // ApplyToModels enriches discovered models with verification fields for the
 // health report. It reads the state, refreshing a model that is due first;
 // an outage leaves the last answer in place and is never reported as a
-// failure (invariant I14).
+// failure (invariant I14). A model with no answer yet waits for the refresh
+// already asking for one, so the first report after a start carries it.
 func (v *Verifier) ApplyToModels(ctx context.Context, llmClient llm.Client, models []llm.Model) []llm.Model {
 	out := make([]llm.Model, len(models))
 	for i, m := range models {
@@ -386,6 +402,7 @@ func (v *Verifier) ApplyToModels(ctx context.Context, llmClient llm.Client, mode
 			if v.due(m.ID) {
 				v.Refresh(ctx, m.ID)
 			}
+			v.awaitFirstAnswer(ctx, m.ID)
 			v.mu.Lock()
 			var res Result
 			if st := v.states[m.ID]; st != nil {
@@ -402,6 +419,28 @@ func (v *Verifier) ApplyToModels(ctx context.Context, llmClient llm.Client, mode
 		}
 	}
 	return out
+}
+
+// awaitFirstAnswer waits, while model has never had an answer and a refresh
+// is asking for one, until that refresh ends, ctx ends or firstAnswerWait
+// passes. A model with an answer returns at once: its last answer stands.
+func (v *Verifier) awaitFirstAnswer(ctx context.Context, model string) {
+	v.mu.Lock()
+	var done chan struct{}
+	if st := v.states[model]; st != nil && st.answered.IsZero() {
+		done = st.done
+	}
+	v.mu.Unlock()
+	if done == nil {
+		return
+	}
+	timer := time.NewTimer(firstAnswerWait)
+	defer timer.Stop()
+	select {
+	case <-done:
+	case <-ctx.Done():
+	case <-timer.C:
+	}
 }
 
 func applyResult(m *llm.Model, res Result) {
