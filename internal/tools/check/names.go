@@ -51,6 +51,7 @@ func readAllowedNames(file string) ([]*allowedName, error) {
 	}
 	var out []*allowedName
 	for n, l := range strings.Split(string(raw), "\n") {
+		l = strings.TrimSuffix(l, "\r") // checked out with CRLF on Windows
 		if strings.TrimSpace(l) == "" || strings.HasPrefix(l, "#") {
 			continue
 		}
