@@ -1,6 +1,6 @@
 module github.com/Flockadoo/flockadoo
 
-go 1.23
+go 1.27.0
 
 require (
 	fyne.io/systray v1.12.2

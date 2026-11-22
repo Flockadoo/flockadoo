@@ -1,5 +1,9 @@
 # Changelog
 
+## Unreleased
+
+- The client is now built with Go 1.27 (it was Go 1.23, which no longer gets security fixes). On a Mac it needs macOS 13 Ventura or later; Go 1.27 does not run on macOS 12 or older. Linux and Windows requirements do not change. Go 1.27's newer defaults also apply: TLS 1.2 no longer accepts SHA-1 signatures, TLS offers more post-quantum key exchanges, and in a container the client uses only as many threads as the container's CPU limit allows.
+
 ## [0.44.1] - 2026-11-20
 
 - After a restart, the first health report waits (up to a minute) for the model's verification answer that is already being fetched. It used to go out without one, so Flockadoo recorded the model as failed and the machine as unavailable until the next report, three minutes later. A report for a model that already has an answer never waits.
