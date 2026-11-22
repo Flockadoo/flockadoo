@@ -1,8 +1,28 @@
-# Flockadoo Provider Client
+<div align="center">
 
-The Flockadoo Provider Client is a lightweight Go service that runs next to vLLM, vLLM Metal, or llama.cpp. It handles health monitoring, reporting, and inference request handling.
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset=".github/assets/flockadoo-mark-dark.svg">
+  <img src=".github/assets/flockadoo-mark-light.svg" alt="Flockadoo" width="120">
+</picture>
 
-Team docs (how the client works, benchmarking, metrics) are in the **internal-docs** repo. Customer install guides stay in **flockadoo-docs**.
+<h1>Flockadoo</h1>
+
+**Serve open models from your own GPUs and get paid by the Flockadoo network.**
+
+The provider client is one Go binary that runs beside vLLM, vLLM Metal or llama.cpp. It relays inference between the Flockadoo gateway and your local engine, and reports the machine's health and capacity.
+
+[![release](https://img.shields.io/github/v/release/Flockadoo/flockadoo)](https://github.com/Flockadoo/flockadoo/releases/latest)
+[![ci](https://img.shields.io/github/actions/workflow/status/Flockadoo/flockadoo/ci.yml?branch=main&label=ci&logo=github)](https://github.com/Flockadoo/flockadoo/actions/workflows/ci.yml)
+[![license](https://img.shields.io/badge/license-BUSL--1.1-blue)](LICENSE)
+[![Go](https://img.shields.io/github/go-mod/go-version/Flockadoo/flockadoo?logo=go)](go.mod)
+[![security](https://img.shields.io/badge/security-policy-brightgreen)](SECURITY.md)
+[![docker pulls](https://img.shields.io/docker/pulls/flockadoo/flockadoo?logo=docker)](https://hub.docker.com/r/flockadoo/flockadoo)
+
+[Quick start](#quick-start-with-installation-script) · [Docker](#-docker-installation) · [Configuration](#-configuration) · [REST API](#-rest-api) · [Docs](https://docs.flockadoo.ai) · [Security](SECURITY.md)
+
+</div>
+
+---
 
 
 ## Supported platforms
