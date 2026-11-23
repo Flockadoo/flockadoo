@@ -688,10 +688,10 @@ func startCapacity(ctx context.Context, cfg *config.Config, configPath, llmURL s
 // default instead of measuring.
 func benchmarkSkipNote(cfg *config.Config) string {
 	if n, ok := cfg.ExplicitConcurrency(); ok {
-		return fmt.Sprintf("not run: limit of %d set in config", n)
+		return fmt.Sprintf("limit of %d set in config", n)
 	}
 	if cfg.Provider.Engine == string(engine.KindLlamaCpp) {
-		return fmt.Sprintf("not run: llama.cpp uses a fixed limit of %d", engine.DefaultConcurrency(engine.KindLlamaCpp))
+		return fmt.Sprintf("fixed limit of %d", engine.DefaultConcurrency(engine.KindLlamaCpp))
 	}
 	return ""
 }

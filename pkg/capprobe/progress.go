@@ -24,9 +24,9 @@ const (
 	NotApplicable Outcome = "n/a"
 )
 
-// NotRunEmbedding is the status line for an embedding model: every check is a
+// EmbeddingLine is the status line for an embedding model: every check is a
 // chat request, so none runs.
-const NotRunEmbedding = "not run: embedding model"
+const EmbeddingLine = "verified for embedding"
 
 // Label is the status line. Checked counts supported, unsupported, and
 // unverified, out of the checks that apply.
