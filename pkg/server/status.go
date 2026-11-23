@@ -65,6 +65,10 @@ type StatusSnapshot struct {
 	// item C1, decision DC8).
 	Connection       string `json:"connection,omitempty"`
 	ConnectionReason string `json:"connection_reason,omitempty"`
+	// PlatformConnection is the Platform connection row both views show;
+	// PlatformConnectionFailed marks a tunnel stopped for good (DC8).
+	PlatformConnection       string `json:"platform_connection"`
+	PlatformConnectionFailed bool   `json:"platform_connection_failed,omitempty"`
 }
 
 func (s *Server) snapshot(ctx context.Context) StatusSnapshot {
@@ -138,29 +142,32 @@ func (s *Server) snapshot(ctx context.Context) StatusSnapshot {
 			}
 		}
 	}
+	conn, connFailed := s.platformConnection()
 	return StatusSnapshot{
-		LastHealthUpdate: lastUpdateStr,
-		SessionStatus:    s.sessionLabel(),
-		ProviderType:     providerType,
-		ProviderAPIKey:   apiKey,
-		ProviderURL:      providerURL,
-		LLMURL:           llmURL,
-		Connected:        s.gatewayConnected(),
-		Connection:       s.connectionState(),
-		ConnectionReason: s.connectionReason(),
-		Models:           models,
-		GPU:              gpuInfo,
-		RecentRequests:   reqs,
-		ClientVersion:    version.Version,
-		LatestVersion:    upd.Latest,
-		UpdateStatus:     string(upd.Status),
-		WinglinkIP:       winglinkIP,
-		Peers:            peers,
-		Flock:            flock,
-		Nodes:            nodes,
-		NotServing:       notServing,
-		EngineNote:       s.engineNoteText(),
-		CapabilityLine:   s.capabilitiesText(),
+		LastHealthUpdate:         lastUpdateStr,
+		SessionStatus:            s.sessionLabel(),
+		ProviderType:             providerType,
+		ProviderAPIKey:           apiKey,
+		ProviderURL:              providerURL,
+		LLMURL:                   llmURL,
+		Connected:                s.gatewayConnected(),
+		Connection:               s.connectionState(),
+		ConnectionReason:         s.connectionReason(),
+		PlatformConnection:       conn,
+		PlatformConnectionFailed: connFailed,
+		Models:                   models,
+		GPU:                      gpuInfo,
+		RecentRequests:           reqs,
+		ClientVersion:            version.Version,
+		LatestVersion:            upd.Latest,
+		UpdateStatus:             string(upd.Status),
+		WinglinkIP:               winglinkIP,
+		Peers:                    peers,
+		Flock:                    flock,
+		Nodes:                    nodes,
+		NotServing:               notServing,
+		EngineNote:               s.engineNoteText(),
+		CapabilityLine:           s.capabilitiesText(),
 	}
 }
 
@@ -211,6 +218,23 @@ func (s *Server) connectionState() string {
 		return c.State().String()
 	}
 	return ""
+}
+
+// platformConnection is the Platform connection row: a worker has no tunnel of
+// its own; a tunnel stopped for good shows its state and reason as failed.
+func (s *Server) platformConnection() (string, bool) {
+	state, reason := s.connectionState(), s.connectionReason()
+	switch {
+	case s.config.EnrolledWorker():
+		return "worker", false
+	case reason != "" && !s.TunnelActive():
+		return state + ": " + reason, true
+	case s.gatewayConnected():
+		return "connected", false
+	case reason != "":
+		return "connecting (" + reason + ")", false
+	}
+	return "connecting", false
 }
 
 func (s *Server) connectionReason() string {

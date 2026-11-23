@@ -586,10 +586,12 @@ func startCapacity(ctx context.Context, cfg *config.Config, configPath, llmURL s
 
 	// vLLM without a configured limit measures its concurrency. Close the gate
 	// before the probes start, so their first round cannot delay that.
-	_, explicit := cfg.ExplicitConcurrency()
-	benchmarks := !explicit && cfg.Provider.Engine != "llama_cpp"
+	skipped := benchmarkSkipNote(cfg)
+	benchmarks := skipped == ""
 	if benchmarks {
 		srv.SetBenchmarking(true)
+	} else {
+		srv.SetEngineNote(skipped)
 	}
 	go (&capprobe.Watcher{
 		EngineURL:   llmURL,
@@ -680,6 +682,20 @@ func startCapacity(ctx context.Context, cfg *config.Config, configPath, llmURL s
 // version, weights, GPUs, and the engine's launch arguments. It is empty while
 // the engine does not answer, so a half-started engine is not mistaken for a
 // different deployment.
+// benchmarkSkipNote is the Benchmark line when the concurrency benchmark does
+// not run, and "" when it does. A limit written into config is used as
+// written; llama.cpp splits its context across slots, so it keeps its fixed
+// default instead of measuring.
+func benchmarkSkipNote(cfg *config.Config) string {
+	if n, ok := cfg.ExplicitConcurrency(); ok {
+		return fmt.Sprintf("not run: limit of %d set in config", n)
+	}
+	if cfg.Provider.Engine == string(engine.KindLlamaCpp) {
+		return fmt.Sprintf("not run: llama.cpp uses a fixed limit of %d", engine.DefaultConcurrency(engine.KindLlamaCpp))
+	}
+	return ""
+}
+
 func deploymentFingerprint(ctx context.Context, cfg *config.Config, llmClient llm.Client, gpuMonitor *gpu.Monitor) string {
 	probe, cancel := context.WithTimeout(ctx, 2*time.Second)
 	defer cancel()

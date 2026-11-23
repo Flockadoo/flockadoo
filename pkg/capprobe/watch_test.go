@@ -619,6 +619,46 @@ func TestAnEmbeddingModelIsNotProbed(t *testing.T) {
 	}
 }
 
+// The console and dashboard hide an empty Capabilities line, which left a
+// provider unsure whether the checks ran. An embedding model's line says the
+// checks did not run and why.
+func TestAnEmbeddingModelSaysWhyItIsNotChecked(t *testing.T) {
+	engine, _ := noChatEngine(t)
+	platform := &fakePlatform{}
+	lines := &notes{}
+	runWatcher(t, &Watcher{
+		EngineURL:   engine.URL,
+		PlatformURL: platform.server(t).URL,
+		Fingerprint: func() string { return "baai/bge-m3|llama_cpp|b4500" },
+		Note:        lines.note,
+		Embedding:   true,
+	})
+	waitFor(t, "a note", func() bool { return len(lines.all()) > 0 })
+	all := lines.all()
+	if got := all[len(all)-1]; got != "not run: embedding model" {
+		t.Fatalf("the Capabilities line is %q, want %q", got, "not run: embedding model")
+	}
+}
+
+// A chat model's line is the checks' progress, never the embedding line.
+func TestAChatModelIsNotCalledAnEmbeddingModel(t *testing.T) {
+	engine, _ := fakeEngine(t, nil)
+	platform := &fakePlatform{}
+	lines := &notes{}
+	runWatcher(t, &Watcher{
+		EngineURL:   engine.URL,
+		PlatformURL: platform.server(t).URL,
+		Fingerprint: func() string { return "Qwen/Qwen2.5-3B-Instruct|vllm-metal|0.33.0" },
+		Note:        lines.note,
+	})
+	waitFor(t, "a full report", func() bool { return fullReport(platform) })
+	for _, line := range lines.all() {
+		if strings.Contains(line, "embedding") || strings.HasPrefix(line, "not run") {
+			t.Fatalf("a chat model's line is %q", line)
+		}
+	}
+}
+
 // A chat model is still checked: all five results, which only the engine's
 // answers can give, are reported. This holds before the change too.
 func TestAChatModelIsStillProbed(t *testing.T) {

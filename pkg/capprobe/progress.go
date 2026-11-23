@@ -24,6 +24,10 @@ const (
 	NotApplicable Outcome = "n/a"
 )
 
+// NotRunEmbedding is the status line for an embedding model: every check is a
+// chat request, so none runs.
+const NotRunEmbedding = "not run: embedding model"
+
 // Label is the status line. Checked counts supported, unsupported, and
 // unverified, out of the checks that apply.
 func Label(outcomes []Outcome) string {

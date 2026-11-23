@@ -110,7 +110,11 @@ func (w *Watcher) Loop(ctx context.Context) {
 			if !needsRetry(outcomes) {
 				dirty = true
 				if w.Note != nil {
-					w.Note(Label(outcomes))
+					line := Label(outcomes)
+					if w.Embedding {
+						line = NotRunEmbedding
+					}
+					w.Note(line)
 				}
 			}
 		}

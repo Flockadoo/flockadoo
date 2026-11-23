@@ -454,16 +454,9 @@ func (s *Server) redrawConsole() {
 	fmt.Fprintf(&buf, "\033[1;35mProvider API Key              \033[0m%s\n", snap.ProviderAPIKey)
 	fmt.Fprintf(&buf, "\033[1;35mPlatform URL                  \033[0m%s\n", snap.ProviderURL)
 	fmt.Fprintf(&buf, "\033[1;35mLLM URL                       \033[0m%s\n", snap.LLMURL)
-	state := "connecting"
-	switch {
-	case s.config.EnrolledWorker():
-		state = "worker"
-	case snap.ConnectionReason != "" && !s.TunnelActive():
-		state = "\033[1;31m" + snap.Connection + ": " + snap.ConnectionReason + "\033[0m"
-	case snap.Connected:
-		state = "connected"
-	case snap.ConnectionReason != "":
-		state = "connecting (" + snap.ConnectionReason + ")"
+	state := snap.PlatformConnection
+	if snap.PlatformConnectionFailed {
+		state = "\033[1;31m" + state + "\033[0m"
 	}
 	fmt.Fprintf(&buf, "\033[1;35mPlatform connection           \033[0m%s\n", state)
 

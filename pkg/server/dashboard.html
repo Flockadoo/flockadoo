@@ -113,23 +113,24 @@ function render(s) {
     const color = s.update_status === "required" ? "#f66" : "#fc6";
     updateHtml = `<div style="color:${color};margin:8px 0">Update ${esc(s.update_status)}: ${esc(s.client_version)} -&gt; ${esc(s.latest_version)}. Run flockadoo update, then restart.</div>`;
   }
+  // The rows follow the terminal console's order.
   document.getElementById("app").innerHTML = `
-    ${updateHtml}
     ${row("Last Health Update", esc(s.last_health_update))}
     ${row("Session Status", esc(s.session_status || "online"), s.session_status === "benchmarking" ? "warn" : "ok")}
     ${s.not_serving ? row("Not serving", esc(s.not_serving), "bad") : ""}
+    ${s.engine_note ? row("Benchmark", esc(s.engine_note)) : ""}
+    ${s.capability_line ? row("Capabilities", esc(s.capability_line)) : ""}
+    ${updateHtml}
     ${row("Engine", esc(s.provider_type))}
     ${row("Provider API Key", esc(s.provider_api_key))}
     ${row("Platform URL", esc(s.provider_url))}
     ${row("LLM URL", esc(s.llm_url))}
-    ${s.winglink_ip ? row("Winglink IP", esc(s.winglink_ip)) : ""}
-    ${s.peers ? row("Peers", esc(s.peers)) : ""}
+    ${row("Platform connection", esc(s.platform_connection || "connecting"), s.platform_connection_failed ? "bad" : "")}
     <h2>FLOCK STATUS</h2>
     ${row("Flock", esc(flockLabel(s.flock)))}
-    ${s.engine_note ? row("Benchmark", esc(s.engine_note)) : ""}
-    ${s.connection_reason ? row("Connection", esc(s.connection_reason), "warn") : ""}
-    ${s.capability_line ? row("Capabilities", esc(s.capability_line)) : ""}
     ${s.nodes ? row("Nodes", esc(s.nodes)) : ""}
+    ${s.winglink_ip ? row("Winglink IP", esc(s.winglink_ip)) : ""}
+    ${s.peers ? row("Peers", esc(s.peers)) : ""}
     ${modelHtml}
     <h2>GPU INFORMATION</h2>
     ${row("GPU", esc(gpu.product_name || "Unknown"))}
