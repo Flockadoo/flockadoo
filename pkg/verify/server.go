@@ -78,11 +78,18 @@ func (e *NodeStatusError) Error() string {
 
 // unavailable reports whether err means the server could not be asked: a
 // timeout, a failed connection, a 5xx, or an answer that cannot be read.
-// A 401 or 426 is not an outage: the key or the client version was refused,
-// and no grace applies (plan item B3, detail 4).
+// A 404, 408 or 429 is an outage too: the verify-model handler never sends
+// one, so it came from the gateway in front of it (Traefik answers 404 while
+// the service restarts) or from a limiter. A 400, 401 or 426 is not an
+// outage: the handler refused the body, the key or the client version, and
+// no grace applies (plan item B3, detail 4).
 func unavailable(err error) bool {
 	var se *NodeStatusError
 	if errors.As(err, &se) {
+		switch se.Code {
+		case http.StatusNotFound, http.StatusRequestTimeout, http.StatusTooManyRequests:
+			return true
+		}
 		return se.Code >= 500
 	}
 	return err != nil
