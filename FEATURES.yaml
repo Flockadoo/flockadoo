@@ -105,7 +105,7 @@ features:
   - name: Dashboard, console and tray
     entry: Server.snapshot and redrawConsole; /api/status, /api/health, /api/busy; the Windows tray
     code: [pkg/server/status.go, pkg/server/server.go, pkg/server/dashboard.html, pkg/tray/tray.go, cmd/dashboard.go, pkg/usermsg/*.go]
-    tests: [pkg/server/status_test.go, cmd/dashboard_test.go, pkg/usermsg/*_test.go]
+    tests: [pkg/server/status_test.go, pkg/server/dashboard_parity_test.go, cmd/dashboard_test.go, cmd/benchmark_note_test.go, pkg/usermsg/*_test.go]
     invariants: [I12]
 
   - name: Configuration
