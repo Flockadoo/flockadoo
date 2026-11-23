@@ -112,7 +112,7 @@ func (w *Watcher) Loop(ctx context.Context) {
 				if w.Note != nil {
 					line := Label(outcomes)
 					if w.Embedding {
-						line = NotRunEmbedding
+						line = EmbeddingLine
 					}
 					w.Note(line)
 				}
