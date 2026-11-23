@@ -39,7 +39,7 @@ The provider client is one Go binary that runs beside vLLM, vLLM Metal or llama.
 
 - **Linux:** At least **32 GB** of system memory and an NVIDIA GPU with **24 GB** of VRAM (for example RTX 3090 or RTX 4090)
 - **Windows:** **32 GB** of RAM and an NVIDIA GPU with **24 GB** of VRAM. See the [Windows install documentation](https://docs.flockadoo.ai/introduction/setup-windows).
-- **macOS:** Apple Silicon with at least **48 GB** of unified memory
+- **macOS:** Apple Silicon with at least **48 GB** of unified memory, on macOS 13 Ventura or later
 
 
 ## Software Requirements
