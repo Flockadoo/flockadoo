@@ -620,9 +620,9 @@ func TestAnEmbeddingModelIsNotProbed(t *testing.T) {
 }
 
 // The console and dashboard hide an empty Capabilities line, which left a
-// provider unsure whether the checks ran. An embedding model's line says the
-// checks did not run and why.
-func TestAnEmbeddingModelSaysWhyItIsNotChecked(t *testing.T) {
+// provider unsure whether the checks ran. An embedding model's line says it
+// is done for an embedding model.
+func TestAnEmbeddingModelSaysVerifiedForEmbedding(t *testing.T) {
 	engine, _ := noChatEngine(t)
 	platform := &fakePlatform{}
 	lines := &notes{}
@@ -635,8 +635,8 @@ func TestAnEmbeddingModelSaysWhyItIsNotChecked(t *testing.T) {
 	})
 	waitFor(t, "a note", func() bool { return len(lines.all()) > 0 })
 	all := lines.all()
-	if got := all[len(all)-1]; got != "not run: embedding model" {
-		t.Fatalf("the Capabilities line is %q, want %q", got, "not run: embedding model")
+	if got := all[len(all)-1]; got != "verified for embedding" {
+		t.Fatalf("the Capabilities line is %q, want %q", got, "verified for embedding")
 	}
 }
 
@@ -653,7 +653,7 @@ func TestAChatModelIsNotCalledAnEmbeddingModel(t *testing.T) {
 	})
 	waitFor(t, "a full report", func() bool { return fullReport(platform) })
 	for _, line := range lines.all() {
-		if strings.Contains(line, "embedding") || strings.HasPrefix(line, "not run") {
+		if strings.Contains(line, "embedding") {
 			t.Fatalf("a chat model's line is %q", line)
 		}
 	}
