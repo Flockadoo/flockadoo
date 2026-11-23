@@ -1,5 +1,10 @@
 # Changelog
 
+## [0.45.1] - 2026-11-23
+
+- A machine stays available while Flockadoo restarts. During a restart Flockadoo answers the model verification call with "404 page not found", and the client took that as "not verified", so Flockadoo recorded the model as failed and the machine as unavailable until the next check, up to ten minutes later. A 404, 408 or 429 now counts as Flockadoo being unreachable, like any outage: the last "verified" answer is kept for up to 30 minutes and the client asks again. A model not yet verified waits for its first answer instead of being reported as failed. A rejected API key or client version still refuses at once.
+- The browser dashboard now shows the same rows as the console, in the same order, including Platform connection (it used to show a Connection row only when there was an error). The Benchmark and Capabilities rows always appear: when the benchmark is skipped, the line gives the limit in use ("fixed limit of 1" on llama.cpp, or "limit of N set in config"), and an embedding model's Capabilities line reads "verified for embedding". `/api/status` gains `platform_connection` and `platform_connection_failed`.
+
 ## [0.45.0] - 2026-11-23
 
 - The client is now built with Go 1.27 (it was Go 1.23, which no longer gets security fixes). On a Mac it needs macOS 13 Ventura or later; Go 1.27 does not run on macOS 12 or older. Linux and Windows requirements do not change. Go 1.27's newer defaults also apply: TLS 1.2 no longer accepts SHA-1 signatures, TLS offers more post-quantum key exchanges, and in a container the client uses only as many threads as the container's CPU limit allows.
