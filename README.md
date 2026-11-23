@@ -132,9 +132,11 @@ flockadoo compatibility --offline-catalog ./approved-models.json
 
 | Status | Meaning |
 |---|---|
-| `runs_well` · `fits` · `tight` | The model fits, from comfortably to only just |
-| `too_large` | The model does not fit |
-| `unknown` | The model's size is not known |
+| `runs_well` | The model needs under 50% of usable memory |
+| `fits` | Under 75% |
+| `tight` | Under 95% |
+| `too_large` | 95% or more |
+| `unknown` | The catalog has no size for the model, or usable memory could not be read |
 
 Scoring uses the catalog's `min_size_bytes` plus a conservative runtime overhead (higher for vLLM). Apple Silicon uses a fraction of unified memory; Linux scores against the largest single GPU's VRAM. The catalog's `engines` field filters the list further: on Windows, `compatibility` lists `llama_cpp` (GGUF) models; untagged vLLM models stay on Linux and macOS.
 
