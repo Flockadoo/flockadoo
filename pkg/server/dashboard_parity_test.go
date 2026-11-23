@@ -1,10 +1,12 @@
 package server
 
 import (
+	"bytes"
 	"context"
 	"net/http"
 	"net/http/httptest"
 	"strings"
+	"sync"
 	"testing"
 	"time"
 
@@ -17,6 +19,33 @@ import (
 // dashboard used to leave out the Platform connection row and put Benchmark
 // and Capabilities under FLOCK STATUS.
 
+// lockedBuffer is a console a running server can redraw while the test reads it.
+type lockedBuffer struct {
+	mu  sync.Mutex
+	buf bytes.Buffer
+}
+
+func (b *lockedBuffer) Write(p []byte) (int, error) {
+	b.mu.Lock()
+	defer b.mu.Unlock()
+	return b.buf.Write(p)
+}
+
+// lastFrame is the most recent full redraw.
+func (b *lockedBuffer) lastFrame() string {
+	b.mu.Lock()
+	defer b.mu.Unlock()
+	frames := strings.Split(b.buf.String(), "\033[H\033[2J")
+	return frames[len(frames)-1]
+}
+
+// runningConsole redraws a started server's console and returns that frame.
+// The console writer is set before Start, so no test write races the server.
+func runningConsole(s *Server) string {
+	s.redrawConsole()
+	return s.console.(*lockedBuffer).lastFrame()
+}
+
 // gatewayServer starts s against a fake gateway that accepts serverKey, with
 // the client sending clientKey.
 func gatewayServer(t *testing.T, serverKey, clientKey string) (*Server, *fakegateway.Gateway) {
@@ -27,7 +56,7 @@ func gatewayServer(t *testing.T, serverKey, clientKey string) (*Server, *fakegat
 	cfg.Provider.APIKey = clientKey
 	cfg.Provider.Engine = "vllm"
 	cfg.Server.Host = "127.0.0.1"
-	s := &Server{config: cfg, ctx: context.Background()}
+	s := &Server{config: cfg, ctx: context.Background(), console: &lockedBuffer{}}
 	errc := make(chan error, 1)
 	go func() { errc <- s.Start() }()
 	t.Cleanup(func() { _ = s.Stop(context.Background()) })
@@ -112,7 +141,13 @@ func TestThePlatformConnectionIsTheSameInBothViews(t *testing.T) {
 			if failed != tc.wantFailed {
 				t.Errorf("/api/status platform_connection_failed = %v, want %v", failed, tc.wantFailed)
 			}
-			if console := row(consoleOutput(t, s), "Platform connection"); console != api {
+			var console string
+			if _, running := s.console.(*lockedBuffer); running {
+				console = runningConsole(s)
+			} else {
+				console = consoleOutput(t, s)
+			}
+			if console := row(console, "Platform connection"); console != api {
 				t.Errorf("console Platform connection = %q, status API = %q", console, api)
 			}
 		})
