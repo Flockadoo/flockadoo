@@ -1,22 +1,18 @@
 <div align="center">
 
 <picture>
-  <source media="(prefers-color-scheme: dark)" srcset=".github/assets/flockadoo-mark-dark.svg">
-  <img src=".github/assets/flockadoo-mark-light.svg" alt="Flockadoo" width="120">
+  <source media="(prefers-color-scheme: dark)" srcset=".github/assets/banner-dark.svg">
+  <img src=".github/assets/banner-light.svg" alt="Flockadoo: serve open models from your own GPUs and get paid by the Flockadoo network." width="100%">
 </picture>
 
-<h1>Flockadoo</h1>
+<br>
 
-**Serve open models from your own GPUs and get paid by the Flockadoo network.**
-
-The provider client is one Go binary that runs beside vLLM, vLLM Metal or llama.cpp. It relays inference between the Flockadoo gateway and your local engine, and reports the machine's health and capacity.
-
-[![release](https://img.shields.io/github/v/release/Flockadoo/flockadoo)](https://github.com/Flockadoo/flockadoo/releases/latest)
-[![ci](https://img.shields.io/github/actions/workflow/status/Flockadoo/flockadoo/ci.yml?branch=main&label=ci&logo=github)](https://github.com/Flockadoo/flockadoo/actions/workflows/ci.yml)
-[![license](https://img.shields.io/badge/license-BUSL--1.1-blue)](LICENSE)
-[![Go](https://img.shields.io/github/go-mod/go-version/Flockadoo/flockadoo?logo=go)](go.mod)
-[![security](https://img.shields.io/badge/security-policy-brightgreen)](SECURITY.md)
-[![docker pulls](https://img.shields.io/docker/pulls/flockadoo/flockadoo?logo=docker)](https://hub.docker.com/r/flockadoo/flockadoo)
+[![release](https://img.shields.io/github/v/release/Flockadoo/flockadoo?style=for-the-badge&labelColor=2b2f2a&color=d7fd52)](https://github.com/Flockadoo/flockadoo/releases/latest)
+[![ci](https://img.shields.io/github/actions/workflow/status/Flockadoo/flockadoo/ci.yml?branch=main&label=ci&style=for-the-badge&labelColor=2b2f2a)](https://github.com/Flockadoo/flockadoo/actions/workflows/ci.yml)
+[![license](https://img.shields.io/badge/license-BUSL--1.1-d7fd52?style=for-the-badge&labelColor=2b2f2a)](LICENSE)
+[![go](https://img.shields.io/github/go-mod/go-version/Flockadoo/flockadoo?label=go&style=for-the-badge&labelColor=2b2f2a&color=d7fd52)](go.mod)
+[![security](https://img.shields.io/badge/security-policy-d7fd52?style=for-the-badge&labelColor=2b2f2a)](SECURITY.md)
+[![docker pulls](https://img.shields.io/docker/pulls/flockadoo/flockadoo?style=for-the-badge&labelColor=2b2f2a&color=d7fd52)](https://hub.docker.com/r/flockadoo/flockadoo)
 
 [Quick start](#quick-start-with-installation-script) · [Docker](#-docker-installation) · [Configuration](#-configuration) · [REST API](#-rest-api) · [Docs](https://docs.flockadoo.ai) · [Security](SECURITY.md)
 
