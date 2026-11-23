@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## [0.45.0] - 2026-11-23
 
 - The client is now built with Go 1.27 (it was Go 1.23, which no longer gets security fixes). On a Mac it needs macOS 13 Ventura or later; Go 1.27 does not run on macOS 12 or older. Linux and Windows requirements do not change. Go 1.27's newer defaults also apply: TLS 1.2 no longer accepts SHA-1 signatures, TLS offers more post-quantum key exchanges, and in a container the client uses only as many threads as the container's CPU limit allows.
 
