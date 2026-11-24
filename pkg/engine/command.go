@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"net"
+	"path/filepath"
 	"strconv"
 	"strings"
 
@@ -34,6 +35,12 @@ type ServeOpts struct {
 	GGUFFile           string
 	// Task is chat or embedding. llama.cpp needs --embeddings to serve /v1/embeddings.
 	Task string
+	// Revision is the commit the engine serves (model revisions C3). Empty:
+	// the engine resolves the repo as before.
+	Revision string
+	// HubCache is the Hugging Face hub cache the commit was downloaded into
+	// (verify.DefaultHFHubCache). llama.cpp serves the file from there.
+	HubCache string
 }
 
 // ErrIncompleteRope marks RoPE settings vLLM cannot be given: a rope_type
@@ -143,6 +150,12 @@ func ServeSpec(kind Kind, bin, modelAlias, hfRepo string, opts ServeOpts) Spec {
 			spec.Args = append(spec.Args, "--served-model-name", modelAlias)
 		}
 		spec.Args = append(spec.Args, vllmServeFlags(opts)...)
+		// The commit the client downloaded (model revisions C3). Offline, a
+		// missing snapshot is an error at start, never a download of main.
+		if rev := strings.TrimSpace(opts.Revision); rev != "" {
+			spec.Args = append(spec.Args, "--revision", rev, "--tokenizer-revision", rev)
+			spec.Env = append(spec.Env, "HF_HUB_OFFLINE=1")
+		}
 		// vLLM does not count YaRN when it checks --max-model-len against the
 		// model's own context, so a YaRN row needs this. Without a complete
 		// override it is left out, and vLLM refuses the long context itself.
@@ -152,15 +165,19 @@ func ServeSpec(kind Kind, bin, modelAlias, hfRepo string, opts ServeOpts) Spec {
 	case KindLlamaCpp:
 		repo := firstNonEmpty(hfRepo, modelAlias)
 		name := firstNonEmpty(modelAlias, repo)
-		spec.Args = []string{
-			"--hf-repo", repo,
-			"--hf-file", opts.GGUFFile,
+		// The cached file of the commit the client downloaded (model revisions
+		// C3); without one, llama-server fetches the repo itself, as before.
+		source := []string{"--hf-repo", repo, "--hf-file", opts.GGUFFile}
+		if rev := strings.TrimSpace(opts.Revision); rev != "" && opts.HubCache != "" {
+			source = []string{"-m", filepath.Join(opts.HubCache, verify.HFRepoToCacheDir(repo), "snapshots", rev, filepath.FromSlash(opts.GGUFFile))}
+		}
+		spec.Args = append(source,
 			"--alias", name,
 			"--host", "127.0.0.1",
 			"--port", "8081",
 			"-ngl", "99",
 			"--metrics",
-		}
+		)
 		if opts.MaxModelLen > 0 {
 			spec.Args = append(spec.Args, "-c", strconv.FormatInt(opts.MaxModelLen, 10))
 		}
