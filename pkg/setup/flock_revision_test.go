@@ -154,7 +154,9 @@ func TestTheFlockWizardDownloadsTheFlocksCommit(t *testing.T) {
 	}
 	oldDetect := detectEngine
 	t.Cleanup(func() { detectEngine = oldDetect })
-	detectEngine = func(kind engine.Kind) engine.Detected { return engine.Detected{Kind: kind, Found: true, Bin: "/opt/vllm/bin/vllm"} }
+	detectEngine = func(kind engine.Kind) engine.Detected {
+		return engine.Detected{Kind: kind, Found: true, Bin: "/opt/vllm/bin/vllm"}
+	}
 	t.Setenv("HF_HUB_CACHE", t.TempDir())
 	var got [][]string
 	fakeFetch(t, 1000*sizedGB, &got)
