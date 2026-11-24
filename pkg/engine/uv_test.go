@@ -15,6 +15,7 @@ import (
 	"os"
 	"path/filepath"
 	"regexp"
+	"runtime"
 	"strings"
 	"sync/atomic"
 	"testing"
@@ -162,6 +163,9 @@ func TestAnExistingUVIsUsedAsItIs(t *testing.T) {
 		t.Errorf("uv %q, %v; want the one on the PATH", uv, err)
 	}
 	local := filepath.Join(home, ".local", "bin", "uv")
+	if runtime.GOOS == "windows" {
+		local += ".exe" // findUV looks for uv.exe there on Windows
+	}
 	if err := os.MkdirAll(filepath.Dir(local), 0o755); err != nil {
 		t.Fatal(err)
 	}
