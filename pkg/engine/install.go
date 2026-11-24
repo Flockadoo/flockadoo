@@ -115,7 +115,11 @@ func EnsureUV(ctx context.Context, w io.Writer) (string, error) {
 }
 
 func ensureUV(ctx context.Context, w io.Writer, home string) (string, error) {
-	if uv := findUV(home, lookPath("uv")); uv != "" {
+	return ensureUVWith(ctx, w, home, lookPath("uv"), uvSource{})
+}
+
+func ensureUVWith(ctx context.Context, w io.Writer, home, pathHit string, _ uvSource) (string, error) {
+	if uv := findUV(home, pathHit); uv != "" {
 		return uv, nil
 	}
 	_, _ = fmt.Fprintln(w, "Installing uv...")
@@ -228,7 +232,10 @@ func run(ctx context.Context, w io.Writer, name string, args ...string) error {
 	return cmd.Run()
 }
 
-func runScript(ctx context.Context, w io.Writer, url string) error {
+// runScript runs a remote install script; tests replace it.
+var runScript = runScriptExec
+
+func runScriptExec(ctx context.Context, w io.Writer, url string) error {
 	cmd := exec.CommandContext(ctx, "bash", "-c", "curl -fsSL "+url+" | bash") //nolint:gosec // G204: url is one of this package's fixed installer URLs (uvInstallURL, vllmMetalInstallURL)
 	cmd.Stdout = w
 	cmd.Stderr = w
