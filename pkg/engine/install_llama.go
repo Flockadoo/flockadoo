@@ -13,54 +13,12 @@ import (
 	"strings"
 )
 
-// llamaCppRelease is the ggml-org/llama.cpp tag we install.
-// shortcut: pin moves only when serve flags or the cache filename change.
-const llamaCppRelease = "b11770"
-
-const llamaReleaseBase = "https://github.com/ggml-org/llama.cpp/releases/download/" + llamaCppRelease
-
 func installLlamaCpp(ctx context.Context, w io.Writer) error {
-	switch runtime.GOOS { //nolint:forbidigo // platform branch in shared code (PLAT-2, item H1)
-	case "windows":
-		return installLlamaWindows(ctx, w)
-	case "darwin":
-		if runtime.GOARCH != "arm64" { //nolint:forbidigo // platform branch in shared code (PLAT-2, item H1)
-			return fmt.Errorf("llama.cpp auto-install on macOS requires Apple Silicon")
-		}
-		return installLlamaDarwin(ctx, w)
-	default:
-		return fmt.Errorf("llama.cpp auto-install is only supported on Windows and macOS")
-	}
-}
-
-func installLlamaWindows(ctx context.Context, w io.Writer) error {
 	dir, err := llamaInstallDir()
 	if err != nil {
 		return err
 	}
-	if err := os.MkdirAll(dir, 0o755); err != nil {
-		return err
-	}
-	_, _ = fmt.Fprintf(w, "Installing llama.cpp %s into %s...\n", llamaCppRelease, dir)
-	binURL := llamaReleaseBase + "/llama-" + llamaCppRelease + "-bin-win-cuda-12.4-x64.zip"
-	cudaURL := llamaReleaseBase + "/cudart-llama-bin-win-cuda-12.4-x64.zip"
-	if err := downloadAndExtract(ctx, w, binURL, dir); err != nil {
-		return err
-	}
-	return downloadAndExtract(ctx, w, cudaURL, dir)
-}
-
-func installLlamaDarwin(ctx context.Context, w io.Writer) error {
-	dir, err := llamaInstallDir()
-	if err != nil {
-		return err
-	}
-	if err := os.MkdirAll(dir, 0o755); err != nil {
-		return err
-	}
-	_, _ = fmt.Fprintf(w, "Installing llama.cpp %s into %s...\n", llamaCppRelease, dir)
-	url := llamaReleaseBase + "/llama-" + llamaCppRelease + "-bin-macos-arm64.tar.gz"
-	return downloadAndExtract(ctx, w, url, dir)
+	return installLlamaWith(ctx, w, dir, llamaSource{})
 }
 
 func llamaInstallDir() (string, error) {
@@ -76,26 +34,6 @@ func llamaInstallDir() (string, error) {
 		return "", err
 	}
 	return filepath.Join(home, ".local", "share", "flockadoo", "llama.cpp"), nil
-}
-
-func downloadAndExtract(ctx context.Context, w io.Writer, url, dest string) error {
-	tmp, err := os.CreateTemp("", "llama-cpp-*")
-	if err != nil {
-		return err
-	}
-	tmpName := tmp.Name()
-	defer func() { _ = os.Remove(tmpName) }()
-	if err := tmp.Close(); err != nil {
-		return err
-	}
-	_, _ = fmt.Fprintf(w, "Downloading %s\n", url)
-	if err := download(ctx, url, tmpName); err != nil {
-		return err
-	}
-	if strings.HasSuffix(url, ".tar.gz") {
-		return extractTarGz(tmpName, dest)
-	}
-	return extractZip(tmpName, dest)
 }
 
 func extractZip(src, dest string) error {
@@ -140,6 +78,12 @@ func extractTarGz(src, dest string) error {
 		if hdr.FileInfo().IsDir() {
 			continue
 		}
+		if hdr.Typeflag == tar.TypeSymlink {
+			if err := writeArchiveLink(dest, filepath.Base(hdr.Name), hdr.Linkname); err != nil {
+				return err
+			}
+			continue
+		}
 		name := filepath.Base(hdr.Name)
 		mode := hdr.FileInfo().Mode()
 		if err := writeArchiveFile(dest, name, mode, func() (io.ReadCloser, error) {
@@ -148,6 +92,23 @@ func extractTarGz(src, dest string) error {
 			return err
 		}
 	}
+}
+
+// writeArchiveLink makes name in dest a symlink to target, as the archive has
+// it: the macOS release links libllama.0.dylib to libllama.0.7.0.dylib, and
+// llama-server loads the link. Only a link to a file beside it is made.
+func writeArchiveLink(dest, name, target string) error {
+	if name == "" || name == "." || strings.Contains(name, "..") {
+		return nil
+	}
+	if target == "" || target == "." || target == ".." || filepath.IsAbs(target) || strings.ContainsAny(target, `/\`) {
+		return fmt.Errorf("the archive links %s to %q, outside the install folder", name, target)
+	}
+	link := filepath.Join(dest, name)
+	if err := os.Remove(link); err != nil && !os.IsNotExist(err) {
+		return err
+	}
+	return os.Symlink(target, link)
 }
 
 func writeArchiveFile(dest, name string, mode os.FileMode, open func() (io.ReadCloser, error)) (err error) {
