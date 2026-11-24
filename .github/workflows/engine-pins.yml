@@ -1,0 +1,84 @@
+name: Engine pins
+
+# A pull request that moves a download pin (made with
+# `go run ./internal/tools/pins -update`) is checked against what was
+# published, the way winglink-pin.yml checks the Winglink pin:
+#   - every pinned uv and llama.cpp archive is downloaded from its release and
+#     its SHA-256 compared with the pin. For llama.cpp this is the second
+#     source: the pins tool took GitHub's digest, and ggml-org publishes no
+#     checksum files of its own;
+#   - on Linux, macOS and Windows, the pinned uv builds ~/.venv-hf from the
+#     hash-pinned requirements exactly as the client does (internal/hfget),
+#     and hf runs.
+# It runs only when a pin file changes, so it costs nothing otherwise.
+# Passing is not an approval: a maintainer reviews and merges the pull request.
+
+on:
+  pull_request:
+    paths:
+      - pkg/engine/uv.json
+      - pkg/engine/llamacpp.json
+      - internal/hfget/requirements-hf.txt
+      - .github/workflows/engine-pins.yml
+
+permissions:
+  contents: read
+
+jobs:
+  archives:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Every pinned uv and llama.cpp archive matches its release
+        run: |
+          set -eu
+          mkdir assets
+          check() { # pin file, download base for the version or tag
+            jq -e '.sha256 | length > 0 and all(.[]; test("^[0-9a-f]{64}$"))' "$1" >/dev/null \
+              || { echo "$1 has a missing or malformed SHA-256"; exit 1; }
+            jq -r '.sha256 | to_entries[] | "\(.value)  \(.key)"' "$1" > "assets/$(basename "$1").sums"
+            while read -r sum name; do
+              curl -fsSL -o "assets/$name" "$2/$name"
+            done < "assets/$(basename "$1").sums"
+            (cd assets && sha256sum -c "$(basename "$1").sums")
+          }
+          check pkg/engine/uv.json "https://github.com/astral-sh/uv/releases/download/$(jq -r .version pkg/engine/uv.json)"
+          check pkg/engine/llamacpp.json "https://github.com/ggml-org/llama.cpp/releases/download/$(jq -r .tag pkg/engine/llamacpp.json)"
+
+  hf-venv:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: ubuntu-latest
+            archive: uv-x86_64-unknown-linux-gnu.tar.gz
+          - os: macos-latest
+            archive: uv-aarch64-apple-darwin.tar.gz
+          - os: windows-latest
+            archive: uv-x86_64-pc-windows-msvc.zip
+    runs-on: ${{ matrix.os }}
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - uses: actions/checkout@v4
+      - name: The pinned uv builds the hf venv from the pinned requirements
+        env:
+          ARCHIVE: ${{ matrix.archive }}
+        run: |
+          set -eu
+          version=$(jq -r .version pkg/engine/uv.json)
+          sum=$(jq -r --arg n "$ARCHIVE" '.sha256[$n]' pkg/engine/uv.json)
+          curl -fsSL -o "$ARCHIVE" "https://github.com/astral-sh/uv/releases/download/$version/$ARCHIVE"
+          echo "$sum  $ARCHIVE" | sha256sum -c
+          mkdir uvbin
+          case "$ARCHIVE" in
+            *.zip) 7z e -y -ouvbin "$ARCHIVE" uv.exe >/dev/null; uv=uvbin/uv.exe; py=Scripts/python.exe; hf=Scripts/hf.exe ;;
+            *)     tar -xzf "$ARCHIVE" -C uvbin --strip-components=1; uv=uvbin/uv; py=bin/python; hf=bin/hf ;;
+          esac
+          "$uv" --version
+          venv="$RUNNER_TEMP/venv-hf"
+          # The same two commands as internal/hfget Venv.Ensure.
+          "$uv" venv --python 3.12 --managed-python --clear "$venv"
+          "$uv" pip install --python "$venv/$py" --require-hashes -r internal/hfget/requirements-hf.txt
+          "$venv/$hf" version
