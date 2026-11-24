@@ -1,0 +1,70 @@
+{
+  "object": "list",
+  "data": [
+    {
+      "id": "8a1f0c6e-1f4b-4a7e-9d2b-6f0c1e2d3b4a",
+      "alias": "Qwen/Qwen2.5-3B-Instruct",
+      "service_type": "vllm",
+      "display_name": "Qwen 2.5 3B Instruct",
+      "card_image": "default",
+      "hf_repo": "Qwen/Qwen2.5-3B-Instruct",
+      "hf_ref": "main",
+      "min_size_bytes": 6170000000,
+      "is_active": true,
+      "transaction_count": 0,
+      "total_provider_earnings": 0,
+      "provider_count": 0,
+      "serving_provider_count": 0,
+      "tool_call_parser": "hermes",
+      "max_model_len": 16384,
+      "task": "chat",
+      "revisions": [
+        {
+          "service_type": "vllm",
+          "hf_repo": "Qwen/Qwen2.5-3B-Instruct",
+          "hf_revision": "aa8e72537993ba99e69dfaafa59ed015b17504d1",
+          "status": "current",
+          "gated": false,
+          "size_bytes": 6170000000
+        },
+        {
+          "service_type": "vllm",
+          "hf_repo": "Qwen/Qwen2.5-3B-Instruct",
+          "hf_revision": "0123456789abcdef0123456789abcdef01234567",
+          "status": "accepted",
+          "gated": false,
+          "size_bytes": 6170000000
+        }
+      ]
+    },
+    {
+      "id": "b2c3d4e5-f6a7-4b8c-9d0e-1f2a3b4c5d6e",
+      "alias": "openai/gpt-oss-20b",
+      "service_type": "llama_cpp",
+      "display_name": "gpt-oss 20B",
+      "card_image": "default",
+      "hf_repo": "ggml-org/gpt-oss-20b-GGUF",
+      "hf_ref": "main",
+      "min_size_bytes": 12109566624,
+      "is_active": true,
+      "transaction_count": 0,
+      "total_provider_earnings": 0,
+      "provider_count": 0,
+      "serving_provider_count": 0,
+      "max_model_len": 131072,
+      "gguf_file": "gpt-oss-20b-MXFP4.gguf",
+      "task": "chat",
+      "revisions": [
+        {
+          "service_type": "llama_cpp",
+          "hf_repo": "ggml-org/gpt-oss-20b-GGUF",
+          "hf_revision": "15dcfc7e7c608c6161507211ed43c5b590801b4b",
+          "gguf_file": "gpt-oss-20b-MXFP4.gguf",
+          "status": "current",
+          "gated": false,
+          "size_bytes": 12109566624
+        }
+      ]
+    }
+  ]
+}

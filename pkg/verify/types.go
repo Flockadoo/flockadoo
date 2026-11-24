@@ -42,6 +42,21 @@ type CatalogEntry struct {
 	GGUFFile               *string  `json:"gguf_file,omitempty"`
 	// Task is chat or embedding. Empty means chat.
 	Task string `json:"task,omitempty"`
+	// Revisions are the build's live revisions, the current one first
+	// (model revisions S3): the commit the client downloads and serves, and
+	// the one before it, still accepted. A merged card holds each engine's.
+	Revisions []CatalogRevision `json:"revisions,omitempty"`
+}
+
+// CatalogRevision is one live revision of a build, as the catalog lists it.
+type CatalogRevision struct {
+	ServiceType string  `json:"service_type"`
+	HFRepo      string  `json:"hf_repo"`
+	HFRevision  string  `json:"hf_revision"`
+	GGUFFile    *string `json:"gguf_file,omitempty"`
+	Status      string  `json:"status"` // current or accepted
+	Gated       bool    `json:"gated"`
+	SizeBytes   int64   `json:"size_bytes"`
 }
 
 // catalogResponse is the public list from GET /api/models/approved-builds.
