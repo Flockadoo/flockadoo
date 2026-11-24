@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"path/filepath"
 	"slices"
 	"strings"
 	"testing"
@@ -38,6 +39,10 @@ type modelWorld struct {
 	free    uint64
 	logins  int
 	asRoot  bool
+	// C2b: the verdict log, and what the fake server answers per commit.
+	verdicts *verify.VerdictLog
+	answers  map[string]verify.Status
+	verified []string // alias@sha asked
 }
 
 func newModelWorld(t *testing.T) *modelWorld {
@@ -55,6 +60,8 @@ func newModelWorld(t *testing.T) *modelWorld {
 		cfg:  vllmConfig(""),
 		free: 1000 * sizedGB,
 	}
+	w.verdicts = verify.NewVerdictLog(filepath.Join(t.TempDir(), "model-verdicts.json"))
+	w.answers = map[string]verify.Status{}
 	return w
 }
 
@@ -73,6 +80,18 @@ func (w *modelWorld) deps() modelDeps {
 		Save:     r.Save,
 		AsRoot:   w.asRoot,
 		Out:      &w.out,
+		Entries: func(context.Context) ([]verify.CatalogEntry, error) {
+			out := make([]verify.CatalogEntry, 0, len(w.entries))
+			for _, e := range w.entries {
+				out = append(out, e)
+			}
+			return out, nil
+		},
+		Verdicts: w.verdicts,
+		Verify: func(_ context.Context, alias, sha string) (verify.Status, error) {
+			w.verified = append(w.verified, alias+"@"+sha)
+			return w.answers[sha], nil
+		},
 	}
 }
 
