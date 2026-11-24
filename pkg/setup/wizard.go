@@ -25,6 +25,7 @@ var hostGOOS = runtime.GOOS //nolint:forbidigo // setup's one read of the platfo
 var (
 	detectEngine  = engine.Detect
 	installEngine = engine.Install
+	startDetached = engine.StartDetached
 )
 
 // Execute runs the setup wizard.
@@ -255,7 +256,7 @@ func Execute(opts Options, io Streams) error {
 
 	if plan.Role == "master" || plan.Role == "worker" {
 		printFlockStart(io.Out, plan.Role, spec)
-	} else if err := maybeStart(kind, spec, cfg, opts, detected.Found && !unsupported, io); err != nil {
+	} else if err := maybeStart(kind, spec, cfg, opts, detected.Found && !unsupported, io, nil); err != nil {
 		if saveErr := config.Save(path, cfg); saveErr != nil {
 			return saveErr
 		}
@@ -591,7 +592,9 @@ func printFlockStart(out io.Writer, role string, spec engine.Spec) {
 	_, _ = fmt.Fprintln(out, docsFlockMaster)
 }
 
-func maybeStart(kind engine.Kind, spec engine.Spec, cfg *config.Config, opts Options, haveBin bool, io Streams) error {
+// download, when set, fetches the pinned commit; it runs once the operator
+// agrees to start, before the engine starts (model revisions C6).
+func maybeStart(kind engine.Kind, spec engine.Spec, cfg *config.Config, opts Options, haveBin bool, io Streams, download func(context.Context) error) error {
 	if opts.NoStart || !haveBin {
 		_, _ = fmt.Fprintf(io.Out, "\nTo serve this model later:\n  %s\n", formatSpec(spec))
 		return nil
@@ -639,7 +642,7 @@ func maybeStart(kind engine.Kind, spec engine.Spec, cfg *config.Config, opts Opt
 
 	_, _ = fmt.Fprintf(io.Out, "Starting %s...\n", kind)
 	logPath := engine.LogPath(cfg.Logging.LogDir)
-	exited, err := engine.StartDetached(spec, logPath)
+	exited, err := startDetached(spec, logPath)
 	if err != nil {
 		return err
 	}
