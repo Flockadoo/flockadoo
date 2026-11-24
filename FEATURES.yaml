@@ -38,7 +38,7 @@ features:
   - name: Approved catalog
     entry: Catalog.Refresh before each health report; compat.FetchCatalog in the wizard
     code: [pkg/verify/catalog.go, pkg/verify/engines.go, pkg/verify/types.go, pkg/compat/catalog.go]
-    tests: [pkg/health/advertise_test.go, pkg/verify/engines_test.go, pkg/verify/contract_shape_test.go]
+    tests: [pkg/health/advertise_test.go, pkg/verify/engines_test.go, pkg/verify/contract_shape_test.go, pkg/contract/response_test.go]
 
   - name: Health report
     entry: Reporter.SendHealthReport, every 3 minutes and after each connect; node health for a Team Flock worker
