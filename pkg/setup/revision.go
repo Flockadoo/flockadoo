@@ -24,6 +24,8 @@ type revisionDeps struct {
 	Download func(ctx context.Context, repo, sha string, include []string) error
 	Save     func(cfg *config.Config) error
 	Out      io.Writer
+	// Space checks the disk before a download of size bytes; nil, no check.
+	Space func(size int64) error
 }
 
 var ggufShard = regexp.MustCompile(`-\d{5}-of-\d{5}\.gguf$`)
