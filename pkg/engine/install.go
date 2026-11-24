@@ -18,7 +18,6 @@ import (
 const (
 	vllmMetalInstallURL = "https://raw.githubusercontent.com/vllm-project/vllm-metal/main/install.sh"
 	vllmDocsURL         = "https://docs.vllm.ai/en/stable/getting_started/installation/gpu/index.html"
-	uvInstallURL        = "https://astral.sh/uv/install.sh"
 	// vllmPython is the interpreter every node uses. vLLM's install path, CI,
 	// and ROCm wheels are 3.12 (supports 3.11–3.14).
 	vllmPython = "3.12"
@@ -118,19 +117,12 @@ func ensureUV(ctx context.Context, w io.Writer, home string) (string, error) {
 	return ensureUVWith(ctx, w, home, lookPath("uv"), uvSource{})
 }
 
-func ensureUVWith(ctx context.Context, w io.Writer, home, pathHit string, _ uvSource) (string, error) {
+// ensureUVWith is ensureUV with the PATH lookup and the release source given.
+func ensureUVWith(ctx context.Context, w io.Writer, home, pathHit string, src uvSource) (string, error) {
 	if uv := findUV(home, pathHit); uv != "" {
 		return uv, nil
 	}
-	_, _ = fmt.Fprintln(w, "Installing uv...")
-	if err := runScript(ctx, w, uvInstallURL); err != nil {
-		return "", fmt.Errorf("install uv: %w", err)
-	}
-	uv := findUV(home, "")
-	if uv == "" {
-		return "", fmt.Errorf("uv install did not create %s", filepath.Join(home, ".local", "bin", "uv"))
-	}
-	return uv, nil
+	return installPinnedUV(ctx, w, home, src)
 }
 
 // checkTorchCUDA fails setup when the host driver cannot load the CUDA
@@ -236,7 +228,7 @@ func run(ctx context.Context, w io.Writer, name string, args ...string) error {
 var runScript = runScriptExec
 
 func runScriptExec(ctx context.Context, w io.Writer, url string) error {
-	cmd := exec.CommandContext(ctx, "bash", "-c", "curl -fsSL "+url+" | bash") //nolint:gosec // G204: url is one of this package's fixed installer URLs (uvInstallURL, vllmMetalInstallURL)
+	cmd := exec.CommandContext(ctx, "bash", "-c", "curl -fsSL "+url+" | bash") //nolint:gosec // G204: url is this package's fixed vLLM Metal installer URL (vllmMetalInstallURL)
 	cmd.Stdout = w
 	cmd.Stderr = w
 	return cmd.Run()
