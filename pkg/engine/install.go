@@ -234,35 +234,8 @@ func runScriptExec(ctx context.Context, w io.Writer, url string) error {
 	return cmd.Run()
 }
 
-// downloadClient bounds an engine download, such as a llama.cpp release archive.
+// downloadClient bounds an engine download: a pinned uv or llama.cpp release archive.
 var downloadClient = &http.Client{Timeout: 30 * time.Minute}
-
-func download(ctx context.Context, url, dest string) (err error) {
-	req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
-	if err != nil {
-		return err
-	}
-	resp, err := downloadClient.Do(req)
-	if err != nil {
-		return fmt.Errorf("download %s: %w", url, err)
-	}
-	defer func() { _ = resp.Body.Close() }()
-	if resp.StatusCode != http.StatusOK {
-		return fmt.Errorf("download %s: HTTP %d", url, resp.StatusCode)
-	}
-	f, err := os.Create(dest)
-	if err != nil {
-		return err
-	}
-	// A failed Close can lose written data, so it is an error too.
-	defer func() {
-		if cerr := f.Close(); err == nil {
-			err = cerr
-		}
-	}()
-	_, err = io.Copy(f, resp.Body)
-	return err
-}
 
 // versionTimeout bounds `<bin> --version`: a Python engine takes seconds to
 // import, and one that hangs must not hang the caller.
