@@ -17,6 +17,8 @@ func TestVerifyRequestShape(t *testing.T) {
 		// measurement. The golden lacked it until the fake platform's check
 		// caught it (plan item B3).
 		Stale: true,
+		// The commit measured (model revisions C5), a hint the server tries first.
+		HFRevision: "aa8e72537993ba99e69dfaafa59ed015b17504d1",
 	})
 	if err != nil {
 		t.Fatal(err)

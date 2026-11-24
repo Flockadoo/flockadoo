@@ -80,6 +80,9 @@ type verifyModelRequest struct {
 	SizeBytes   int64             `json:"size_bytes,omitempty"`
 	Files       []FileMeasurement `json:"files,omitempty"`
 	Stale       bool              `json:"stale,omitempty"`
+	// HFRevision is the commit measured (model revisions C5). The server tries
+	// that revision first; the verdict is still the files'.
+	HFRevision string `json:"hf_revision,omitempty"`
 }
 
 // verifyModelResponse is the server-as-judge verification result.

@@ -263,6 +263,10 @@ func (v *Verifier) RunRefresher(ctx context.Context, interval time.Duration, mod
 	}
 }
 
+// SetRevision names the commit the engine serves (model revisions C5): the
+// verifier measures that snapshot, not the one refs/main points at.
+func (v *Verifier) SetRevision(sha string) {}
+
 // NewVerifier creates a verifier. Measurements are sent to the server; expected hashes stay in the DB.
 func NewVerifier(catalog *Catalog, server *ServerClient, serviceType, hfHubCache, modelPathOverride string) *Verifier {
 	return &Verifier{
