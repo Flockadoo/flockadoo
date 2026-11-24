@@ -5,6 +5,7 @@ import (
 	"io/fs"
 	"os"
 	"path/filepath"
+	"slices"
 	"strings"
 )
 
@@ -19,6 +20,18 @@ var skipManifestDirs = map[string]struct{}{
 	"original": {},
 	"metal":    {},
 	"mlx":      {},
+}
+
+// SkipManifestDirs lists the folders the verifier never measures, sorted. The
+// downloader leaves them out (model revisions C1), so the download and the
+// measurement cannot drift apart.
+func SkipManifestDirs() []string {
+	out := make([]string, 0, len(skipManifestDirs))
+	for d := range skipManifestDirs {
+		out = append(out, d)
+	}
+	slices.Sort(out)
+	return out
 }
 
 type manifestFile struct {
