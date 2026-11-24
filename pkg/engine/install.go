@@ -105,6 +105,15 @@ func findUV(home, pathHit string) string {
 	return ""
 }
 
+// EnsureUV returns the uv program, installing it first when it is missing.
+func EnsureUV(ctx context.Context, w io.Writer) (string, error) {
+	home, err := os.UserHomeDir()
+	if err != nil {
+		return "", err
+	}
+	return ensureUV(ctx, w, home)
+}
+
 func ensureUV(ctx context.Context, w io.Writer, home string) (string, error) {
 	if uv := findUV(home, lookPath("uv")); uv != "" {
 		return uv, nil
