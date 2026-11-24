@@ -49,6 +49,7 @@ Usage:
   flockadoo compatibility [flags]
   flockadoo update [--check]
   flockadoo benchmark
+  flockadoo model download|login
 
 Commands:
   setup           Interactive engine, model, and API key wizard (safe to re-run)
@@ -57,6 +58,9 @@ Commands:
   update          Download the newest client, verify it, and replace this binary.
                   Stop the running client first. --check only prints the result.
   benchmark       Ask the running client to measure concurrency again.
+  model           download: fetch a model at a commit the catalog lists into the
+                  Hugging Face cache (default: the configured model, current
+                  commit). login: log in to Hugging Face for gated models.
 
 Flags:
   --config string   Path to configuration file (default: ~/.config/flockadoo/config.yaml)
@@ -93,6 +97,13 @@ func main() {
 	if len(os.Args) > 1 && os.Args[1] == "setup" {
 		if err := setup.Run(os.Args[2:]); err != nil {
 			fmt.Fprintf(os.Stderr, "setup: %v\n", err)
+			os.Exit(1)
+		}
+		return
+	}
+	if len(os.Args) > 1 && os.Args[1] == "model" {
+		if err := setup.RunModel(context.Background(), os.Args[2:], setup.Streams{In: os.Stdin, Out: os.Stdout, Err: os.Stderr}); err != nil {
+			fmt.Fprintf(os.Stderr, "model: %v\n", err)
 			os.Exit(1)
 		}
 		return

@@ -24,9 +24,14 @@ type revisionDeps struct {
 	Download func(ctx context.Context, repo, sha string, include []string) error
 	Save     func(cfg *config.Config) error
 	Out      io.Writer
+	// Space checks the disk before a download of size bytes; nil, no check.
+	Space func(size int64) error
 }
 
-var ggufShard = regexp.MustCompile(`-\d{5}-of-\d{5}\.gguf$`)
+var (
+	ggufShard = regexp.MustCompile(`-\d{5}-of-\d{5}\.gguf$`)
+	fullSHA   = regexp.MustCompile(`^[0-9a-f]{40}$`)
+)
 
 // ensureRevision picks the commit to serve before an engine starts, downloads
 // it when it is not cached, remembers it in the config, and reports a retired
@@ -53,12 +58,7 @@ func ensureRevision(ctx context.Context, cfg *config.Config, d revisionDeps) err
 		if r, ok := byRev[sha]; ok {
 			repo, file = r.HFRepo, ggufOf(r)
 		}
-		p := filepath.Join(d.HubCache, verify.HFRepoToCacheDir(repo), "snapshots", sha)
-		if file != "" {
-			p = filepath.Join(p, filepath.FromSlash(file))
-		}
-		_, err := os.Stat(p)
-		return err == nil
+		return revisionCached(d.HubCache, repo, sha, file)
 	}
 	choice := engine.ChooseRevision(entry.Revisions, service, cfg.Provider.HFRevision, cached)
 	if choice.Revision == "" {
@@ -66,6 +66,11 @@ func ensureRevision(ctx context.Context, cfg *config.Config, d revisionDeps) err
 	}
 	rev, known := byRev[choice.Revision]
 	if choice.Download && known {
+		if d.Space != nil {
+			if err := d.Space(rev.SizeBytes); err != nil {
+				return fmt.Errorf("not downloading %s at %s: %w", rev.HFRepo, choice.Revision, err)
+			}
+		}
 		if err := d.Download(ctx, rev.HFRepo, choice.Revision, ggufInclude(rev)); err != nil {
 			return fmt.Errorf("downloading %s at %s: %w", rev.HFRepo, choice.Revision, err)
 		}
@@ -89,6 +94,17 @@ func ensureRevision(ctx context.Context, cfg *config.Config, d revisionDeps) err
 			cfg.Provider.Model, choice.Current, choice.Revision)
 	}
 	return nil
+}
+
+// revisionCached reports whether repo's snapshot at sha is in hub, with its
+// GGUF file when it has one.
+func revisionCached(hub, repo, sha, file string) bool {
+	p := filepath.Join(hub, verify.HFRepoToCacheDir(repo), "snapshots", sha)
+	if file != "" {
+		p = filepath.Join(p, filepath.FromSlash(file))
+	}
+	_, err := os.Stat(p)
+	return err == nil
 }
 
 func ggufOf(r verify.CatalogRevision) string {
@@ -129,20 +145,9 @@ func startRevision(configPath string, out io.Writer) func(ctx context.Context, c
 				return e, ok, nil
 			},
 			HubCache: hub,
-			Download: func(ctx context.Context, repo, sha string, include []string) error {
-				uv, err := engine.EnsureUV(ctx, out)
-				if err != nil {
-					return err
-				}
-				home, err := os.UserHomeDir()
-				if err != nil {
-					return err
-				}
-				hf, err := hfget.Venv{Dir: filepath.Join(home, ".venv-hf"), UV: uv, Run: hfget.ExecRunner, Out: out}.Ensure(ctx)
-				if err != nil {
-					return err
-				}
-				return hfget.Downloader{HF: hf, Run: hfget.ExecRunner, Out: out}.Download(ctx, repo, sha, include)
+			Download: hfDownload(out),
+			Space: func(size int64) error {
+				return hfget.CheckSpace(hub, size, hfget.FreeBytes)
 			},
 			Save: func(cfg *config.Config) error {
 				if configPath == "" {
@@ -152,5 +157,29 @@ func startRevision(configPath string, out io.Writer) func(ctx context.Context, c
 			},
 			Out: out,
 		})
+	}
+}
+
+// hfProgram ensures uv and the client's own hf venv, and returns its hf.
+func hfProgram(ctx context.Context, out io.Writer) (string, error) {
+	uv, err := engine.EnsureUV(ctx, out)
+	if err != nil {
+		return "", err
+	}
+	home, err := os.UserHomeDir()
+	if err != nil {
+		return "", err
+	}
+	return hfget.Venv{Dir: filepath.Join(home, ".venv-hf"), UV: uv, Run: hfget.ExecRunner, Out: out}.Ensure(ctx)
+}
+
+// hfDownload downloads with the client's own hf, its progress going to out.
+func hfDownload(out io.Writer) func(ctx context.Context, repo, sha string, include []string) error {
+	return func(ctx context.Context, repo, sha string, include []string) error {
+		hf, err := hfProgram(ctx, out)
+		if err != nil {
+			return err
+		}
+		return hfget.Downloader{HF: hf, Run: hfget.ExecRunner, Out: out}.Download(ctx, repo, sha, include)
 	}
 }
