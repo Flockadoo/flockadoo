@@ -29,6 +29,12 @@ type modelDeps struct {
 	// a download would land in root's home, where the client never looks.
 	AsRoot bool
 	Out    io.Writer
+	// Entries is the whole catalog for the configured engine (model list).
+	Entries func(ctx context.Context) ([]verify.CatalogEntry, error)
+	// Verdicts is the server's last verdict per snapshot.
+	Verdicts *verify.VerdictLog
+	// Verify measures alias's snapshot at sha and asks the server.
+	Verify func(ctx context.Context, alias, sha string) (verify.Status, error)
 }
 
 const modelUsage = `Usage: flockadoo model <command>
