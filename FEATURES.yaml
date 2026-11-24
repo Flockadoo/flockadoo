@@ -76,9 +76,9 @@ features:
     invariants: [I10]
 
   - name: Model download
-    entry: hfget.Venv.Ensure, hfget.Downloader.Download (model revisions plan, C1)
-    code: [internal/hfget/hfget.go, internal/hfget/exe_unix.go, internal/hfget/exe_windows.go, internal/hfget/requirements-hf.in, internal/hfget/requirements-hf.txt]
-    tests: [internal/hfget/hfget_test.go]
+    entry: flockadoo model download|login (setup.RunModel); hfget.Venv.Ensure, hfget.Downloader.Download, hfget.CheckSpace (model revisions plan, C1 and C2)
+    code: [internal/hfget/hfget.go, internal/hfget/exe_unix.go, internal/hfget/exe_windows.go, internal/hfget/space.go, internal/hfget/free_unix.go, internal/hfget/free_windows.go, internal/hfget/requirements-hf.in, internal/hfget/requirements-hf.txt, pkg/setup/model.go]
+    tests: [internal/hfget/hfget_test.go, internal/hfget/space_test.go, pkg/setup/model_test.go]
 
   - name: Setup wizard
     entry: setup.Execute (flockadoo setup)
