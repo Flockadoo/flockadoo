@@ -32,6 +32,7 @@ type Verifier struct {
 	hfHubCache        string
 	modelPathOverride string
 	revision          string // the commit the engine serves (C5); empty: refs/main
+	verdicts          *VerdictLog
 
 	mu        sync.Mutex
 	cache     map[string]*fingerprintCache // alias -> weight fingerprint cache (vLLM)
@@ -184,6 +185,11 @@ func (v *Verifier) due(model string) bool {
 // An answer replaces the state; a failure to ask records why and changes
 // nothing else.
 func (v *Verifier) Refresh(ctx context.Context, model string) {
+	_ = v.refresh(ctx, model)
+}
+
+// refresh is Refresh, returning why there is no answer from the server.
+func (v *Verifier) refresh(ctx context.Context, model string) error {
 	v.mu.Lock()
 	st := v.states[model]
 	if st == nil {
@@ -192,7 +198,7 @@ func (v *Verifier) Refresh(ctx context.Context, model string) {
 	}
 	if st.refreshing {
 		v.mu.Unlock()
-		return
+		return fmt.Errorf("a verification of %s is already running", model)
 	}
 	st.refreshing = true
 	done := make(chan struct{})
@@ -209,12 +215,12 @@ func (v *Verifier) Refresh(ctx context.Context, model string) {
 	entryID, root, stats, err := v.currentKey(model)
 	if err != nil {
 		v.answer(st, entryID, stats, Result{Alias: model, Status: StatusUnverified})
-		return
+		return err
 	}
 	files, stale, err := v.measureWithCache(model, root)
 	if err != nil {
 		v.answer(st, entryID, stats, Result{Alias: model, Status: StatusFailed})
-		return
+		return fmt.Errorf("measuring %s: %w", model, err)
 	}
 	resp, err := v.server.VerifyModel(ctx, verifyModelRequest{Alias: model, ServiceType: v.serviceType, Files: files, Stale: stale, HFRevision: v.servedRevision()})
 	if err != nil {
@@ -227,14 +233,16 @@ func (v *Verifier) Refresh(ctx context.Context, model string) {
 		v.mu.Unlock()
 		if unavailable(err) {
 			logger.Warn("model verification unavailable; serving on the last answer while the grace lasts", zap.String("model", model), zap.Error(err))
-			return
+			return err
 		}
 		v.answer(st, entryID, stats, Result{Alias: model, Status: StatusUnverified})
-		return
+		return err
 	}
 	res := Result{Alias: model}
 	applyServerResponse(&res, resp)
 	v.answer(st, entryID, stats, res)
+	v.record(model, root, res.Status)
+	return nil
 }
 
 func (v *Verifier) answer(st *modelState, entryID string, stats map[string]fileStat, res Result) {

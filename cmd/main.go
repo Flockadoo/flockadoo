@@ -49,7 +49,7 @@ Usage:
   flockadoo compatibility [flags]
   flockadoo update [--check]
   flockadoo benchmark
-  flockadoo model download|login
+  flockadoo model download|list|verify|login
 
 Commands:
   setup           Interactive engine, model, and API key wizard (safe to re-run)
@@ -60,7 +60,9 @@ Commands:
   benchmark       Ask the running client to measure concurrency again.
   model           download: fetch a model at a commit the catalog lists into the
                   Hugging Face cache (default: the configured model, current
-                  commit). login: log in to Hugging Face for gated models.
+                  commit). list: the cached models, their status and last
+                  verdict. verify: measure one now and ask the server.
+                  login: log in to Hugging Face for gated models.
 
 Flags:
   --config string   Path to configuration file (default: ~/.config/flockadoo/config.yaml)
@@ -259,6 +261,8 @@ func main() {
 		modelVerifier = verify.NewVerifier(catalog, serverClient, cfg.PlatformType(), cfg.Provider.HFHubCache, cfg.Provider.ModelPath)
 		// The commit the engine serves (model revisions C5), chosen at start.
 		modelVerifier.SetRevision(cfg.Provider.HFRevision)
+		// Its answers, for `flockadoo model list` (model revisions C2).
+		modelVerifier.SetVerdictLog(setup.VerdictLog(*configPath))
 	}
 
 	healthReporter := health.NewReporter(cfg, gpuMonitor, llmClient)

@@ -6,8 +6,14 @@ import (
 	"flag"
 	"fmt"
 	"io"
+	"io/fs"
 	"os"
+	"path/filepath"
+	"slices"
+	"sort"
 	"strings"
+	"text/tabwriter"
+	"time"
 
 	"github.com/Flockadoo/flockadoo/internal/config"
 	"github.com/Flockadoo/flockadoo/internal/hfget"
@@ -42,6 +48,13 @@ const modelUsage = `Usage: flockadoo model <command>
   download [alias] [--revision <sha>] [--skip-space-check]
         Download a model into the Hugging Face cache at a commit the catalog
         lists: by default the configured model at its current commit.
+  list
+        Show the models in the Hugging Face cache that the catalog lists: each
+        commit, its size, its status (current, accepted or not live) and the
+        server's last verdict on it. Nothing is hashed.
+  verify [alias] [--revision <sha>]
+        Measure a downloaded model now and ask the server whether it matches
+        (by default the configured model at the commit it serves).
   login
         Log in to Hugging Face (needed only for gated models). Hugging Face
         keeps the token; Flockadoo never reads or stores it.
@@ -72,19 +85,57 @@ func RunModel(ctx context.Context, args []string, s Streams) error {
 	if err != nil {
 		return err
 	}
+	config.ApplyEnvOverrides(cfg)
 	hub, err := verify.DefaultHFHubCache()
 	if err != nil {
 		return fmt.Errorf("finding the Hugging Face cache: %w", err)
 	}
+	catalog := verify.NewCatalog(cfg.Provider.URL, cfg.PlatformType())
+	loaded := false
+	load := func(ctx context.Context) error {
+		if loaded {
+			return nil
+		}
+		if err := catalog.Refresh(ctx); err != nil {
+			return err
+		}
+		loaded = true
+		return nil
+	}
+	verdicts := VerdictLog(path)
 	return runModel(ctx, fs.Args(), modelDeps{
 		Config: cfg,
 		Entry: func(ctx context.Context, alias string) (verify.CatalogEntry, bool, error) {
-			c := verify.NewCatalog(cfg.Provider.URL, cfg.PlatformType())
-			if err := c.Refresh(ctx); err != nil {
+			if err := load(ctx); err != nil {
 				return verify.CatalogEntry{}, false, err
 			}
-			e, ok := c.Get(alias)
+			e, ok := catalog.Get(alias)
 			return e, ok, nil
+		},
+		Entries: func(ctx context.Context) ([]verify.CatalogEntry, error) {
+			if err := load(ctx); err != nil {
+				return nil, err
+			}
+			var out []verify.CatalogEntry
+			for _, a := range catalog.Aliases() {
+				if e, ok := catalog.Get(a); ok {
+					out = append(out, e)
+				}
+			}
+			return out, nil
+		},
+		Verdicts: verdicts,
+		Verify: func(ctx context.Context, alias, sha string) (verify.Status, error) {
+			if !cfg.HasAPIKey() {
+				return "", errors.New("no provider API key in the config; run `flockadoo setup`")
+			}
+			if err := load(ctx); err != nil {
+				return "", err
+			}
+			v := verify.NewVerifier(catalog, verify.NewServerClient(cfg.Provider.URL, cfg.Provider.APIKey), cfg.PlatformType(), hub, "")
+			v.SetRevision(sha)
+			v.SetVerdictLog(verdicts)
+			return v.Check(ctx, alias)
 		},
 		HubCache: hub,
 		Free:     hfget.FreeBytes,
@@ -102,20 +153,33 @@ func RunModel(ctx context.Context, args []string, s Streams) error {
 	})
 }
 
+// VerdictLog is the file, next to the config, where the client keeps the
+// server's last verdict on each snapshot (model revisions C2).
+func VerdictLog(configPath string) *verify.VerdictLog {
+	return verify.NewVerdictLog(filepath.Join(filepath.Dir(configPath), "model-verdicts.json"))
+}
+
 func runModel(ctx context.Context, args []string, d modelDeps) error {
 	if len(args) == 0 {
-		return errors.New("name a command: download or login (flockadoo model --help)")
+		return errors.New("name a command: download, list, verify or login (flockadoo model --help)")
 	}
 	switch args[0] {
 	case "download":
 		return modelDownload(ctx, args[1:], d)
+	case "list":
+		if len(args) > 1 {
+			return fmt.Errorf("list takes no arguments: %s", strings.Join(args[1:], " "))
+		}
+		return modelList(ctx, d)
+	case "verify":
+		return modelVerify(ctx, args[1:], d)
 	case "login":
 		if len(args) > 1 {
 			return fmt.Errorf("login takes no arguments: %s", strings.Join(args[1:], " "))
 		}
 		return d.Login(ctx)
 	default:
-		return fmt.Errorf("unknown command %q: download or login (flockadoo model --help)", args[0])
+		return fmt.Errorf("unknown command %q: download, list, verify or login (flockadoo model --help)", args[0])
 	}
 }
 
@@ -251,5 +315,220 @@ func parseInterleaved(fs *flag.FlagSet, args []string) ([]string, error) {
 		}
 		positional = append(positional, fs.Arg(0))
 		args = fs.Args()[1:]
+	}
+}
+
+// modelList shows each catalog alias's cached snapshots without hashing
+// anything: a GGUF is hashed in full, so measuring them all could take
+// minutes. A snapshot's status is read from its folder name, so it is a
+// claim, not a check; the verdict is the server's last answer on it.
+func modelList(ctx context.Context, d modelDeps) error {
+	entries, err := d.Entries(ctx)
+	if err != nil {
+		return fmt.Errorf("reading the model catalog: %w", err)
+	}
+	sort.Slice(entries, func(i, j int) bool { return entries[i].Alias < entries[j].Alias })
+	service := config.PlatformType(d.Config.Provider.Engine)
+	tw := tabwriter.NewWriter(d.Out, 0, 0, 2, ' ', 0)
+	rows := 0
+	for _, e := range entries {
+		for _, repo := range revisionRepos(e, service) {
+			for _, sha := range cachedCommits(d.HubCache, repo) {
+				if rows == 0 {
+					_, _ = fmt.Fprintln(tw, "MODEL\tCOMMIT\tSTATUS\tSIZE\tLAST VERDICT")
+				}
+				rows++
+				status := "not live (retired, or never approved)"
+				if r, ok := liveRevision(e, service, sha); ok {
+					status = r.Status
+				}
+				size := snapshotSize(filepath.Join(d.HubCache, verify.HFRepoToCacheDir(repo), "snapshots", sha))
+				_, _ = fmt.Fprintf(tw, "%s\t%s\t%s\t%s\t%s\n", e.Alias, sha, status, humanBytes(size), lastVerdict(d.Verdicts, e.Alias, service, sha))
+			}
+		}
+	}
+	if rows == 0 {
+		_, _ = fmt.Fprintf(d.Out, "No model the catalog lists for %s is in %s. Download one with `flockadoo model download`.\n", service, d.HubCache)
+		return nil
+	}
+	return tw.Flush()
+}
+
+// modelVerify measures one cached snapshot now and shows the server's verdict.
+// The client has no hashes to compare with: the verdict is the server's.
+func modelVerify(ctx context.Context, args []string, d modelDeps) error {
+	fs := flag.NewFlagSet("model verify", flag.ContinueOnError)
+	fs.SetOutput(io.Discard)
+	revision := fs.String("revision", "", "the commit to measure (default: the one served)")
+	positional, err := parseInterleaved(fs, args)
+	if errors.Is(err, flag.ErrHelp) {
+		_, _ = fmt.Fprint(d.Out, modelUsage)
+		return nil
+	}
+	if err != nil {
+		return err
+	}
+	if len(positional) > 1 {
+		return fmt.Errorf("name one model, not %d: %s", len(positional), strings.Join(positional, " "))
+	}
+	cfg := d.Config
+	alias := cfg.Provider.Model
+	if len(positional) == 1 {
+		alias = positional[0]
+	}
+	if alias == "" {
+		return errors.New("name a model: flockadoo model verify <alias>")
+	}
+	entry, ok, err := d.Entry(ctx, alias)
+	if err != nil {
+		return fmt.Errorf("reading the model catalog: %w", err)
+	}
+	service := config.PlatformType(cfg.Provider.Engine)
+	if !ok {
+		return fmt.Errorf("%s is not in the catalog for %s", alias, service)
+	}
+
+	sha := strings.ToLower(strings.TrimSpace(*revision))
+	if sha == "" && alias == cfg.Provider.Model {
+		sha = cfg.Provider.HFRevision
+	}
+	repo := firstNonEmpty(cfg.Provider.HFRepo, alias)
+	if alias != cfg.Provider.Model {
+		repo = alias
+	}
+	if r, ok := liveRevision(entry, service, sha); ok {
+		repo = r.HFRepo
+	}
+	if sha == "" {
+		// The served commit is not known: the cached live one, current first.
+		for _, r := range entry.Revisions {
+			if r.ServiceType == service && revisionCached(d.HubCache, r.HFRepo, r.HFRevision, ggufOf(r)) && (sha == "" || r.Status == "current") {
+				sha, repo = r.HFRevision, r.HFRepo
+			}
+		}
+	}
+	if sha == "" || !snapshotExists(d.HubCache, repo, sha) {
+		what := alias
+		if sha != "" {
+			what += " at " + sha
+		}
+		return fmt.Errorf("%s is not in %s; download it with `flockadoo model download`", what, d.HubCache)
+	}
+
+	_, _ = fmt.Fprintf(d.Out, "Measuring %s at %s and asking the server...\n", alias, sha)
+	status, err := d.Verify(ctx, alias, sha)
+	if err != nil {
+		return err
+	}
+	live, isLive := liveRevision(entry, service, sha)
+	switch {
+	case status == verify.StatusVerified && isLive && live.Status == "current":
+		_, _ = fmt.Fprintln(d.Out, "verified (current)")
+	case status == verify.StatusVerified && isLive && live.Status == "accepted":
+		_, _ = fmt.Fprintln(d.Out, "verified (accepted: the next approved revision retires it)")
+	case status == verify.StatusVerified:
+		_, _ = fmt.Fprintln(d.Out, "verified")
+	case status == verify.StatusFailed:
+		_, _ = fmt.Fprintln(d.Out, "does not match: these files are not the approved ones")
+		return fmt.Errorf("%s at %s does not match the approved files", alias, sha)
+	default:
+		_, _ = fmt.Fprintf(d.Out, "not verified: the server says %q\n", status)
+		return fmt.Errorf("%s at %s is not verified (%s)", alias, sha, status)
+	}
+	return nil
+}
+
+// revisionRepos are the repos entry's revisions for service come from.
+func revisionRepos(e verify.CatalogEntry, service string) []string {
+	var repos []string
+	for _, r := range e.Revisions {
+		if r.ServiceType == service && !slices.Contains(repos, r.HFRepo) {
+			repos = append(repos, r.HFRepo)
+		}
+	}
+	if len(repos) == 0 && e.HFRepo != nil && *e.HFRepo != "" {
+		repos = append(repos, *e.HFRepo)
+	}
+	return repos
+}
+
+// liveRevision is entry's live revision sha for service.
+func liveRevision(e verify.CatalogEntry, service, sha string) (verify.CatalogRevision, bool) {
+	if sha == "" {
+		return verify.CatalogRevision{}, false
+	}
+	for _, r := range e.Revisions {
+		if r.ServiceType == service && r.HFRevision == sha {
+			return r, true
+		}
+	}
+	return verify.CatalogRevision{}, false
+}
+
+// cachedCommits are the snapshot folders of repo in hub, sorted.
+func cachedCommits(hub, repo string) []string {
+	dirs, err := os.ReadDir(filepath.Join(hub, verify.HFRepoToCacheDir(repo), "snapshots"))
+	if err != nil {
+		return nil
+	}
+	var out []string
+	for _, e := range dirs {
+		if e.IsDir() {
+			out = append(out, e.Name())
+		}
+	}
+	sort.Strings(out)
+	return out
+}
+
+func snapshotExists(hub, repo, sha string) bool {
+	st, err := os.Stat(filepath.Join(hub, verify.HFRepoToCacheDir(repo), "snapshots", sha))
+	return err == nil && st.IsDir()
+}
+
+// snapshotSize adds up the files of a snapshot. In the hub cache they are
+// links to blobs, so each is stat'ed through its link. Nothing is opened.
+func snapshotSize(dir string) int64 {
+	var total int64
+	_ = filepath.WalkDir(dir, func(p string, e fs.DirEntry, err error) error {
+		if err != nil || e.IsDir() {
+			return nil //nolint:nilerr // an unreadable entry is left out of the size, not a reason to stop listing
+		}
+		if st, err := os.Stat(p); err == nil && st.Mode().IsRegular() {
+			total += st.Size()
+		}
+		return nil
+	})
+	return total
+}
+
+func humanBytes(n int64) string {
+	switch {
+	case n >= 1e9:
+		return fmt.Sprintf("%.1f GB", float64(n)/1e9)
+	case n >= 1e6:
+		return fmt.Sprintf("%.1f MB", float64(n)/1e6)
+	default:
+		return fmt.Sprintf("%.1f kB", float64(n)/1e3)
+	}
+}
+
+// lastVerdict is the server's last answer on a snapshot, for model list.
+func lastVerdict(l *verify.VerdictLog, alias, service, sha string) string {
+	if l == nil {
+		return "never verified"
+	}
+	r, ok := l.Last(alias, service, sha)
+	if !ok {
+		return "never verified"
+	}
+	at := r.At.Local().Format(time.DateOnly + " 15:04")
+	switch r.Status {
+	case verify.StatusVerified:
+		return "verified " + at
+	case verify.StatusFailed:
+		return "does not match " + at
+	default:
+		return string(r.Status) + " " + at
 	}
 }
