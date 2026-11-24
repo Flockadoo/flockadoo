@@ -357,3 +357,18 @@ func firstNonEmpty(vals ...string) string {
 	}
 	return ""
 }
+
+// Choice is the commit the client serves and what to do about it (model
+// revisions C4).
+type Choice struct {
+	Revision string // the commit to serve; empty: start as before revisions
+	Status   string // current, accepted or retired; empty without catalog revisions
+	Current  string // the build's current commit, to report next to a retired one
+	Download bool   // the commit is not in the cache yet
+}
+
+// ChooseRevision picks the commit to serve from the catalog's live revisions
+// for serviceType, the configured commit, and what the cache holds.
+func ChooseRevision(revs []verify.CatalogRevision, serviceType, configured string, cached func(sha string) bool) Choice {
+	return Choice{}
+}
