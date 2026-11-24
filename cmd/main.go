@@ -246,6 +246,8 @@ func main() {
 		}
 		serverClient := verify.NewServerClient(cfg.Provider.URL, cfg.Provider.APIKey)
 		modelVerifier = verify.NewVerifier(catalog, serverClient, cfg.PlatformType(), cfg.Provider.HFHubCache, cfg.Provider.ModelPath)
+		// The commit the engine serves (model revisions C5), chosen at start.
+		modelVerifier.SetRevision(cfg.Provider.HFRevision)
 	}
 
 	healthReporter := health.NewReporter(cfg, gpuMonitor, llmClient)
