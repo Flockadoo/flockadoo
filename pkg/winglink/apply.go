@@ -18,6 +18,10 @@ type Remote struct {
 	LoginServer string   `json:"login_server"`
 	VLLMVersion string   `json:"vllm_version"`
 	MasterGPU   string   `json:"master_gpu"`
+	// HFRevision is the commit every machine in the flock serves (model
+	// revisions F1); empty from a server before F1 or for a build without
+	// revisions.
+	HFRevision string `json:"hf_revision,omitempty"`
 }
 
 // Apply merges the server command onto the local serve flags.

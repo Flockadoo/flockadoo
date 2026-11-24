@@ -7,6 +7,7 @@ import (
 	"testing"
 
 	"github.com/Flockadoo/flockadoo/pkg/verify"
+	"github.com/Flockadoo/flockadoo/pkg/winglink"
 )
 
 // GET /api/models/approved-builds as the server sends it since model
@@ -60,4 +61,27 @@ func mustJSON(t *testing.T, v any) []byte {
 		t.Fatal(err)
 	}
 	return b
+}
+
+// GET /api/provider/network/engine and /network/node/engine as the server
+// sends them since model revisions F1 (flockadoo-server pkg/api/provider
+// EngineResponse, golden flock-engine.response.schema.json). hf_revision is
+// the commit every machine in the flock serves. Decoding into the client's
+// type and encoding again keeps every field the server sends.
+func TestTheFlockCommandIsReadWhole(t *testing.T) {
+	raw, err := os.ReadFile(filepath.Join("testdata", "flock-engine.response.json"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	var remote winglink.Remote
+	if err := json.Unmarshal(raw, &remote); err != nil {
+		t.Fatal(err)
+	}
+	again, err := json.Marshal(remote)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !jsonEqual(again, raw) {
+		t.Errorf("the flock command after the client read it:\n%s\nwant:\n%s", again, raw)
+	}
 }
