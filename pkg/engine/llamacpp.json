@@ -1,0 +1,8 @@
+{
+  "tag": "b11770",
+  "sha256": {
+    "llama-b11770-bin-win-cuda-12.4-x64.zip": "3f0fd24195719e4e09fe90cd71c91ed48196533cce4dc5e73dd8bbeada3a137b",
+    "cudart-llama-bin-win-cuda-12.4-x64.zip": "8c79a9b226de4b3cacfd1f83d24f962d0773be79f1e7b75c6af4ded7e32ae1d6",
+    "llama-b11770-bin-macos-arm64.tar.gz": "83790ddc9e771111077fe224f65e973bce21d80c0e0ae87b5e2e5247c04843e7"
+  }
+}
