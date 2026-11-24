@@ -170,7 +170,7 @@ func main() {
 	}
 
 	if !isTrayChild() {
-		if err := setup.EnsureOnStart(context.Background(), cfg, setup.Streams{In: os.Stdin, Out: os.Stdout, Err: os.Stderr}); err != nil {
+		if err := setup.EnsureOnStartAt(context.Background(), cfg, *configPath, setup.Streams{In: os.Stdin, Out: os.Stdout, Err: os.Stderr}); err != nil {
 			fmt.Fprintf(os.Stderr, "warning: inference engine not ready: %v\n", err)
 		}
 	}

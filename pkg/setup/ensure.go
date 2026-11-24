@@ -15,9 +15,20 @@ import (
 // Interactive TTYs prompt to start it when it is down; otherwise auto_start
 // decides. A spinner stays on stdout until the engine is serving.
 func EnsureOnStart(ctx context.Context, cfg *config.Config, io Streams) error {
+	return EnsureOnStartAt(ctx, cfg, "", io)
+}
+
+// EnsureOnStartAt is EnsureOnStart that also picks, downloads and remembers
+// the commit to serve before it starts an engine (model revisions C4),
+// saving the choice to the config file at configPath.
+func EnsureOnStartAt(ctx context.Context, cfg *config.Config, configPath string, io Streams) error {
 	ctx, cancel := context.WithTimeout(ctx, engine.DefaultDownloadTimeout)
 	defer cancel()
-	return ensureOnStart(ctx, cfg, io, interactiveReader(io.In))
+	out := io.Out
+	if out == nil {
+		out = os.Stdout
+	}
+	return ensureOnStartWith(ctx, cfg, io, interactiveReader(io.In), startRevision(configPath, out))
 }
 
 func interactiveReader(in io.Reader) bool {
@@ -26,6 +37,11 @@ func interactiveReader(in io.Reader) bool {
 }
 
 func ensureOnStart(ctx context.Context, cfg *config.Config, io Streams, interactive bool) error {
+	return ensureOnStartWith(ctx, cfg, io, interactive, nil)
+}
+
+// ensureOnStartWith runs revision, when set, just before it starts an engine.
+func ensureOnStartWith(ctx context.Context, cfg *config.Config, io Streams, interactive bool, revision func(context.Context, *config.Config) error) error {
 	if cfg == nil {
 		return nil
 	}
@@ -115,6 +131,11 @@ func ensureOnStart(ctx context.Context, cfg *config.Config, io Streams, interact
 	}
 
 	err := SpinWhile(io.Out, waitMsg, func() error {
+		if revision != nil {
+			if err := revision(ctx, cfg); err != nil {
+				return err
+			}
+		}
 		return engine.StartAndWait(ctx, cfg, cfg.Logging.LogDir)
 	})
 	if err != nil {
