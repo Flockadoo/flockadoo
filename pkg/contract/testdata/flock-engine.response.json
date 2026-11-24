@@ -1,0 +1,12 @@
+{
+  "host": "198.18.0.2",
+  "port": 8000,
+  "extra_args": ["--distributed-executor-backend", "mp", "--nnodes", "2", "--node-rank", "1", "--master-addr", "198.18.0.1", "--headless"],
+  "env": ["VLLM_HOST_IP=198.18.0.2", "NCCL_SOCKET_IFNAME=winglink0"],
+  "command": "VLLM_HOST_IP=198.18.0.2 NCCL_SOCKET_IFNAME=winglink0 HF_HUB_OFFLINE=1 vllm serve org/m --host 198.18.0.2 --port 8000 --distributed-executor-backend mp --nnodes 2 --node-rank 1 --master-addr 198.18.0.1 --headless --revision aa8e72537993ba99e69dfaafa59ed015b17504d1 --tokenizer-revision aa8e72537993ba99e69dfaafa59ed015b17504d1",
+  "role": "worker",
+  "login_server": "https://wl.example",
+  "vllm_version": "0.34.0",
+  "master_gpu": "NVIDIA GB10",
+  "hf_revision": "aa8e72537993ba99e69dfaafa59ed015b17504d1"
+}

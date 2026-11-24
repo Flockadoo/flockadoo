@@ -133,7 +133,10 @@ func resumeWorker(ctx context.Context, cfg *config.Config, spec *engine.Spec) er
 	if err := winglink.ReportIP(ctx, cfg.Provider.URL, token, true, ip, nodeID, localGPU(ctx), engine.InstalledVersion(ctx, spec.Bin)); err != nil {
 		return dropIfRemoved(cfg, err)
 	}
-	next := winglink.Apply(*spec, remote)
+	next, err := applyFlock(cfg, *spec, remote)
+	if err != nil {
+		return err
+	}
 	*spec = next
 	cfg.Provider.EngineArgs = next.Args
 	cfg.Provider.EngineEnv = next.Env
@@ -214,7 +217,10 @@ func prepareFlockReal(cfg *config.Config, spec *engine.Spec) error {
 	if err != nil {
 		return err
 	}
-	next := winglink.Apply(*spec, remote)
+	next, err := applyFlock(cfg, *spec, remote)
+	if err != nil {
+		return err
+	}
 	*spec = next
 	cfg.Provider.EngineArgs = next.Args
 	cfg.Provider.EngineEnv = next.Env
@@ -291,7 +297,10 @@ func refreshFlockEngine(ctx context.Context, cfg *config.Config) error {
 		}
 	}
 	spec := engine.ServeSpec(kind, engine.BinPath(kind, cfg.Provider.EngineBin), cfg.Provider.Model, firstNonEmpty(cfg.Provider.HFRepo, cfg.Provider.Model), serveOpts)
-	next := winglink.Apply(spec, remote)
+	next, err := applyFlock(cfg, spec, remote)
+	if err != nil {
+		return err
+	}
 	cfg.Provider.EngineArgs = next.Args
 	cfg.Provider.EngineEnv = next.Env
 	cfg.Provider.LLMURL = next.URL

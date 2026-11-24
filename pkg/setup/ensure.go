@@ -69,6 +69,13 @@ func ensureOnStartWith(ctx context.Context, cfg *config.Config, io Streams, inte
 		url = engine.DefaultURL(kind)
 	}
 
+	// A flock member downloads the flock's commit (model revisions F1)
+	// before it shows the command the operator starts the engine with.
+	if role := cfg.Provider.FlockRole; (role == "worker" || role == "master") && revision != nil && cfg.Provider.HFRevision != "" {
+		if err := revision(ctx, cfg); err != nil {
+			return err
+		}
+	}
 	switch cfg.Provider.FlockRole {
 	case "worker":
 		return observeWorker(io, kind, cfg)

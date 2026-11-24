@@ -276,6 +276,12 @@ func Execute(opts Options, io Streams) error {
 	}
 
 	if plan.Role == "master" || plan.Role == "worker" {
+		// The operator starts the flock's engine from the command below, so
+		// the flock's commit (model revisions F1) is downloaded first.
+		if err := downloadFlockRevision(cfg, entry, opts, io); err != nil {
+			_, _ = fmt.Fprintf(io.Out, "\nWrote %s\n", path)
+			return err
+		}
 		printFlockStart(io.Out, plan.Role, spec)
 	} else if err := maybeStart(kind, spec, cfg, opts, detected.Found && !unsupported, io, download); err != nil {
 		if saveErr := config.Save(path, cfg); saveErr != nil {
