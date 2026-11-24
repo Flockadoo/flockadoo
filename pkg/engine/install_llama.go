@@ -78,6 +78,12 @@ func extractTarGz(src, dest string) error {
 		if hdr.FileInfo().IsDir() {
 			continue
 		}
+		if hdr.Typeflag == tar.TypeSymlink {
+			if err := writeArchiveLink(dest, filepath.Base(hdr.Name), hdr.Linkname); err != nil {
+				return err
+			}
+			continue
+		}
 		name := filepath.Base(hdr.Name)
 		mode := hdr.FileInfo().Mode()
 		if err := writeArchiveFile(dest, name, mode, func() (io.ReadCloser, error) {
@@ -86,6 +92,23 @@ func extractTarGz(src, dest string) error {
 			return err
 		}
 	}
+}
+
+// writeArchiveLink makes name in dest a symlink to target, as the archive has
+// it: the macOS release links libllama.0.dylib to libllama.0.7.0.dylib, and
+// llama-server loads the link. Only a link to a file beside it is made.
+func writeArchiveLink(dest, name, target string) error {
+	if name == "" || name == "." || strings.Contains(name, "..") {
+		return nil
+	}
+	if target == "" || target == "." || target == ".." || filepath.IsAbs(target) || strings.ContainsAny(target, `/\`) {
+		return fmt.Errorf("the archive links %s to %q, outside the install folder", name, target)
+	}
+	link := filepath.Join(dest, name)
+	if err := os.Remove(link); err != nil && !os.IsNotExist(err) {
+		return err
+	}
+	return os.Symlink(target, link)
 }
 
 func writeArchiveFile(dest, name string, mode os.FileMode, open func() (io.ReadCloser, error)) (err error) {
