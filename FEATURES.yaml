@@ -75,6 +75,11 @@ features:
     tests: [pkg/engine/*_test.go, pkg/setup/ensure_test.go, cmd/engine_version_test.go]
     invariants: [I10]
 
+  - name: Model download
+    entry: hfget.Venv.Ensure, hfget.Downloader.Download (model revisions plan, C1)
+    code: [internal/hfget/hfget.go, internal/hfget/exe_unix.go, internal/hfget/exe_windows.go, internal/hfget/requirements-hf.in, internal/hfget/requirements-hf.txt]
+    tests: [internal/hfget/hfget_test.go]
+
   - name: Setup wizard
     entry: setup.Execute (flockadoo setup)
     code: [pkg/setup/command.go, pkg/setup/wizard.go, pkg/setup/prompt.go, pkg/setup/spinner.go]
