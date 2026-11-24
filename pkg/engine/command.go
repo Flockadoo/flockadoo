@@ -74,6 +74,7 @@ func ServeOptsFromConfig(cfg *config.Config) ServeOpts {
 		RopeTheta:          cfg.Provider.RopeTheta,
 		GGUFFile:           cfg.Provider.GGUFFile,
 		Task:               cfg.Provider.Task,
+		Revision:           cfg.Provider.HFRevision,
 	}
 }
 
@@ -356,4 +357,61 @@ func firstNonEmpty(vals ...string) string {
 		}
 	}
 	return ""
+}
+
+// Choice is the commit the client serves and what to do about it (model
+// revisions C4).
+type Choice struct {
+	Revision string // the commit to serve; empty: start as before revisions
+	Status   string // current, accepted or retired; empty without catalog revisions
+	Current  string // the build's current commit, to report next to a retired one
+	Download bool   // the commit is not in the cache yet
+}
+
+// ChooseRevision picks the commit to serve from the catalog's live revisions
+// for serviceType, the configured commit, and what the cache holds.
+func ChooseRevision(revs []verify.CatalogRevision, serviceType, configured string, cached func(sha string) bool) Choice {
+	configured = strings.TrimSpace(configured)
+	var current, accepted string
+	for _, r := range revs {
+		if r.ServiceType != serviceType {
+			continue
+		}
+		switch r.Status {
+		case "current":
+			current = r.HFRevision
+		case "accepted":
+			accepted = r.HFRevision
+		}
+	}
+	if current == "" && accepted == "" {
+		// A server before revisions: serve what is configured, as before.
+		return Choice{Revision: configured}
+	}
+	live := func(sha string) string {
+		switch sha {
+		case current:
+			return "current"
+		case accepted:
+			return "accepted"
+		}
+		return ""
+	}
+	if configured != "" {
+		status := live(configured)
+		if status == "" {
+			// Retired: the server stops routing to it. Never replaced here.
+			return Choice{Revision: configured, Status: "retired", Current: current}
+		}
+		return Choice{Revision: configured, Status: status, Current: current, Download: !cached(configured)}
+	}
+	for _, sha := range []string{current, accepted} {
+		if sha != "" && cached(sha) {
+			return Choice{Revision: sha, Status: live(sha), Current: current}
+		}
+	}
+	if current == "" {
+		return Choice{Revision: accepted, Status: "accepted", Download: true}
+	}
+	return Choice{Revision: current, Status: "current", Current: current, Download: true}
 }

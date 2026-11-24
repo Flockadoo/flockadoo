@@ -77,6 +77,9 @@ type Config struct {
 		HFRepo string `yaml:"hf_repo,omitempty"`
 		// GGUFFile is the HuggingFace filename llama.cpp serves.
 		GGUFFile string `yaml:"gguf_file,omitempty"`
+		// HFRevision is the commit the engine serves (model revisions C4):
+		// written when the client downloads or chooses a cached one.
+		HFRevision string `yaml:"hf_revision,omitempty"`
 		// Task is chat or embedding, from the catalog. Empty means chat.
 		Task string `yaml:"task,omitempty"`
 		// FlockRole is single, master, or worker. Empty means single.

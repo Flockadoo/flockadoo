@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/Flockadoo/flockadoo/internal/config"
+	"github.com/Flockadoo/flockadoo/pkg/verify"
 )
 
 // StartAndWait starts the configured engine if llm_url is down and waits until it is serving.
@@ -84,6 +85,14 @@ func SpecFromConfig(cfg *config.Config) (Spec, error) {
 	bin := BinPath(kind, firstNonEmpty(ResolveBin(kind, cfg.Provider.EngineBin), cfg.Provider.EngineBin))
 	hfRepo := firstNonEmpty(cfg.Provider.HFRepo, cfg.Provider.Model)
 	opts := ServeOptsFromConfig(cfg)
+	if opts.Revision != "" {
+		// llama.cpp serves the commit's file from the hub cache (C3).
+		hub, err := verify.DefaultHFHubCache()
+		if err != nil {
+			return Spec{}, fmt.Errorf("finding the Hugging Face cache: %w", err)
+		}
+		opts.HubCache = hub
+	}
 	if kind != KindLlamaCpp {
 		if err := opts.Validate(); err != nil {
 			return Spec{}, fmt.Errorf("%w. Run flockadoo setup again to save the model's current settings", err)
