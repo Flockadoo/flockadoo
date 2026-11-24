@@ -7,19 +7,46 @@ import (
 	"strings"
 )
 
-// DefaultHFHubCache returns the standard HuggingFace hub cache directory.
+// DefaultHFHubCache returns the Hugging Face hub cache directory, found the
+// way huggingface_hub finds it, so the client, hf and vLLM use one folder
+// (the model revisions plan, "Where models go"): HF_HUB_CACHE, then
+// HUGGINGFACE_HUB_CACHE, then $HF_HOME/hub, where HF_HOME defaults to
+// $XDG_CACHE_HOME/huggingface and XDG_CACHE_HOME to ~/.cache.
 func DefaultHFHubCache() (string, error) {
-	if v := strings.TrimSpace(os.Getenv("HF_HUB_CACHE")); v != "" { //nolint:forbidigo // mirrors the HuggingFace hub's own cache lookup, which reads this variable
-		return filepath.Abs(v)
+	return hubCacheDir(os.Getenv, os.UserHomeDir) //nolint:forbidigo // mirrors the HuggingFace hub's own cache lookup, which reads these variables
+}
+
+// hubCacheDir is DefaultHFHubCache with the environment and home folder given.
+// An empty variable counts as unset; ~ is the home folder; the result is absolute.
+func hubCacheDir(getenv func(string) string, userHome func() (string, error)) (string, error) {
+	expand := func(p string) (string, error) {
+		if p == "~" || strings.HasPrefix(p, "~/") || strings.HasPrefix(p, `~\`) {
+			home, err := userHome()
+			if err != nil {
+				return "", err
+			}
+			p = filepath.Join(home, p[1:])
+		}
+		return filepath.Abs(p)
 	}
-	if v := strings.TrimSpace(os.Getenv("HUGGINGFACE_HUB_CACHE")); v != "" { //nolint:forbidigo // mirrors the HuggingFace hub's own cache lookup, which reads this variable
-		return filepath.Abs(v)
+	for _, key := range []string{"HF_HUB_CACHE", "HUGGINGFACE_HUB_CACHE"} {
+		if v := strings.TrimSpace(getenv(key)); v != "" {
+			return expand(v)
+		}
 	}
-	home, err := os.UserHomeDir()
+	hfHome := strings.TrimSpace(getenv("HF_HOME"))
+	if hfHome == "" {
+		cache := strings.TrimSpace(getenv("XDG_CACHE_HOME"))
+		if cache == "" {
+			cache = "~/.cache"
+		}
+		hfHome = filepath.Join(cache, "huggingface")
+	}
+	home, err := expand(hfHome)
 	if err != nil {
 		return "", err
 	}
-	return filepath.Join(home, ".cache", "huggingface", "hub"), nil
+	return filepath.Join(home, "hub"), nil
 }
 
 // HFRepoToCacheDir converts Qwen/Qwen3-0.6B to models--Qwen--Qwen3-0.6B.
