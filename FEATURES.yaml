@@ -77,8 +77,8 @@ features:
 
   - name: Model download
     entry: flockadoo model download|list|verify|login (setup.RunModel); hfget.Venv.Ensure, hfget.Downloader.Download, hfget.CheckSpace; verify.VerdictLog (model revisions plan, C1 and C2)
-    code: [internal/hfget/hfget.go, internal/hfget/exe_unix.go, internal/hfget/exe_windows.go, internal/hfget/space.go, internal/hfget/free_unix.go, internal/hfget/free_windows.go, internal/hfget/requirements-hf.in, internal/hfget/requirements-hf.txt, pkg/setup/model.go, pkg/setup/wizard_revision.go, pkg/setup/flock_revision.go, pkg/verify/verdicts.go]
-    tests: [internal/hfget/hfget_test.go, internal/hfget/space_test.go, pkg/setup/model_test.go, pkg/setup/model_list_test.go, pkg/setup/model_list_unix_test.go, pkg/setup/wizard_revision_test.go, pkg/setup/flock_revision_test.go, pkg/verify/verdicts_test.go]
+    code: [internal/hfget/hfget.go, internal/hfget/exe_unix.go, internal/hfget/exe_windows.go, internal/hfget/space.go, internal/hfget/free_unix.go, internal/hfget/free_windows.go, internal/hfget/requirements-hf.in, internal/hfget/requirements-hf.txt, pkg/setup/model.go, pkg/setup/wizard_revision.go, pkg/setup/flock_revision.go, pkg/setup/hubcache.go, pkg/verify/verdicts.go]
+    tests: [internal/hfget/hfget_test.go, internal/hfget/space_test.go, pkg/setup/model_test.go, pkg/setup/model_list_test.go, pkg/setup/model_list_unix_test.go, pkg/setup/wizard_revision_test.go, pkg/setup/flock_revision_test.go, pkg/setup/hubcache_test.go, pkg/verify/verdicts_test.go]
 
   - name: Setup wizard
     entry: setup.Execute (flockadoo setup)

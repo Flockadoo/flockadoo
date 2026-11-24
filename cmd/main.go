@@ -248,6 +248,14 @@ func main() {
 		}
 	}
 
+	// Where models are downloaded to and served from (model revisions plan).
+	if hub, warning, err := setup.HubCacheNotice(cfg); err == nil {
+		logger.Info("Hugging Face cache", zap.String("dir", hub))
+		if warning != "" {
+			logger.Warn(warning)
+			fmt.Fprintln(os.Stderr, "Warning: "+warning)
+		}
+	}
 	catalog := verify.NewCatalog(cfg.Provider.URL, cfg.PlatformType())
 	var modelVerifier *verify.Verifier
 	if !cfg.EnrolledWorker() {
