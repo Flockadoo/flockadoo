@@ -25,6 +25,7 @@ var hostGOOS = runtime.GOOS //nolint:forbidigo // setup's one read of the platfo
 var (
 	detectEngine  = engine.Detect
 	installEngine = engine.Install
+	startDetached = engine.StartDetached
 )
 
 // Execute runs the setup wizard.
@@ -49,6 +50,7 @@ func Execute(opts Options, io Streams) error {
 	if err != nil {
 		return err
 	}
+	prevModel, prevEngine := cfg.Provider.Model, cfg.Provider.Engine
 
 	platformURL := config.ResolvePlatformURL(opts.CatalogURL, cfg.Provider.URL)
 	cfg.Provider.URL = platformURL
@@ -240,6 +242,26 @@ func Execute(opts Options, io Streams) error {
 		}
 	}
 	applyServeOpts(cfg, entry, hfRepo)
+	// Model revisions C6: a wizard that will start the engine pins the
+	// commit first and starts on it; the download runs once the operator
+	// agrees to start. Without a start there is nothing to pin yet: the
+	// client pins and downloads at its own start (C4).
+	var download func(context.Context) error
+	willStart := plan.Role != "master" && plan.Role != "worker" && !opts.NoStart && detected.Found && !unsupported
+	if willStart {
+		hub, err := verify.DefaultHFHubCache()
+		if err != nil {
+			return fmt.Errorf("finding the Hugging Face cache: %w", err)
+		}
+		download, err = planRevision(context.Background(), cfg, prevModel, prevEngine, entry, hub, io) //nolint:forbidigo // the wizard has no caller context yet (CLU-4, item K1)
+		if err != nil {
+			return err
+		}
+		serveOpts.Revision, serveOpts.HubCache = cfg.Provider.HFRevision, hub
+		hfRepo = firstNonEmpty(cfg.Provider.HFRepo, hfRepo)
+	} else if prevModel != cfg.Provider.Model || config.PlatformType(prevEngine) != config.PlatformType(cfg.Provider.Engine) {
+		cfg.Provider.HFRevision = ""
+	}
 	spec := engine.ServeSpec(kind, bin, entry.Alias, hfRepo, serveOpts)
 	if err := prepareFlock(cfg, &spec); err != nil {
 		if saveErr := config.Save(path, cfg); saveErr != nil {
@@ -255,7 +277,7 @@ func Execute(opts Options, io Streams) error {
 
 	if plan.Role == "master" || plan.Role == "worker" {
 		printFlockStart(io.Out, plan.Role, spec)
-	} else if err := maybeStart(kind, spec, cfg, opts, detected.Found && !unsupported, io); err != nil {
+	} else if err := maybeStart(kind, spec, cfg, opts, detected.Found && !unsupported, io, download); err != nil {
 		if saveErr := config.Save(path, cfg); saveErr != nil {
 			return saveErr
 		}
@@ -591,7 +613,9 @@ func printFlockStart(out io.Writer, role string, spec engine.Spec) {
 	_, _ = fmt.Fprintln(out, docsFlockMaster)
 }
 
-func maybeStart(kind engine.Kind, spec engine.Spec, cfg *config.Config, opts Options, haveBin bool, io Streams) error {
+// download, when set, fetches the pinned commit; it runs once the operator
+// agrees to start, before the engine starts (model revisions C6).
+func maybeStart(kind engine.Kind, spec engine.Spec, cfg *config.Config, opts Options, haveBin bool, io Streams, download func(context.Context) error) error {
 	if opts.NoStart || !haveBin {
 		_, _ = fmt.Fprintf(io.Out, "\nTo serve this model later:\n  %s\n", formatSpec(spec))
 		return nil
@@ -602,6 +626,9 @@ func maybeStart(kind engine.Kind, spec engine.Spec, cfg *config.Config, opts Opt
 	if engine.Healthy(ctx, kind, cfg.Provider.LLMURL) {
 		_, _ = fmt.Fprintf(io.Out, "\n%s is already running at %s.\n", kind, cfg.Provider.LLMURL)
 		_, _ = fmt.Fprintf(io.Out, "To serve the chosen model, run:\n  %s\n", formatSpec(spec))
+		if download != nil {
+			_, _ = fmt.Fprintln(io.Out, "The model is not downloaded yet. Download it first with: flockadoo model download")
+		}
 		return nil
 	}
 	model := strings.TrimSpace(cfg.Provider.Model)
@@ -634,12 +661,20 @@ func maybeStart(kind engine.Kind, spec engine.Spec, cfg *config.Config, opts Opt
 		startNow = ok
 	}
 	if !startNow {
+		if download != nil {
+			_, _ = fmt.Fprintln(io.Out, "The model is not downloaded yet. Download it first with: flockadoo model download")
+		}
 		return nil
+	}
+	if download != nil {
+		if err := download(context.Background()); err != nil { //nolint:forbidigo // the wizard has no caller context yet (CLU-4, item K1)
+			return err
+		}
 	}
 
 	_, _ = fmt.Fprintf(io.Out, "Starting %s...\n", kind)
 	logPath := engine.LogPath(cfg.Logging.LogDir)
-	exited, err := engine.StartDetached(spec, logPath)
+	exited, err := startDetached(spec, logPath)
 	if err != nil {
 		return err
 	}
