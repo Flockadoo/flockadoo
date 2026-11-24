@@ -34,6 +34,12 @@ type ServeOpts struct {
 	GGUFFile           string
 	// Task is chat or embedding. llama.cpp needs --embeddings to serve /v1/embeddings.
 	Task string
+	// Revision is the commit the engine serves (model revisions C3). Empty:
+	// the engine resolves the repo as before.
+	Revision string
+	// HubCache is the Hugging Face hub cache the commit was downloaded into
+	// (verify.DefaultHFHubCache). llama.cpp serves the file from there.
+	HubCache string
 }
 
 // ErrIncompleteRope marks RoPE settings vLLM cannot be given: a rope_type
