@@ -28,7 +28,7 @@ features:
   - name: Model verification
     entry: Verifier.Verdict on the request path (reads state, no node call); Verifier.RunRefresher and ApplyToModels ask the server
     code: [pkg/verify/verifier.go, pkg/verify/measure.go, pkg/verify/fingerprint.go, pkg/verify/server.go, pkg/verify/context_gate.go, pkg/verify/hfresolve.go, pkg/verify/llamacache.go]
-    tests: [pkg/verify/verifier_test.go, pkg/verify/state_test.go, pkg/verify/gateway_test.go, pkg/verify/state_hashing_unix_test.go, pkg/verify/measure_test.go, pkg/verify/filehash_test.go, pkg/verify/context_gate_test.go, pkg/verify/hfresolve_test.go, pkg/verify/hfcache_test.go, pkg/verify/llamacache_test.go, pkg/verify/engine_refusal_test.go, pkg/server/verdict_test.go]
+    tests: [pkg/verify/verifier_test.go, pkg/verify/state_test.go, pkg/verify/gateway_test.go, pkg/verify/state_hashing_unix_test.go, pkg/verify/measure_test.go, pkg/verify/filehash_test.go, pkg/verify/context_gate_test.go, pkg/verify/hfresolve_test.go, pkg/verify/hfcache_test.go, pkg/verify/served_commit_test.go, pkg/verify/llamacache_test.go, pkg/verify/engine_refusal_test.go, pkg/server/verdict_test.go]
     invariants: [I13, I14]
     notes: >-
       Verification identifies a model, it does not prove one (finding SEC-2). Safetensors are

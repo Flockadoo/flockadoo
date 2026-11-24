@@ -31,6 +31,7 @@ type Verifier struct {
 	serviceType       string
 	hfHubCache        string
 	modelPathOverride string
+	revision          string // the commit the engine serves (C5); empty: refs/main
 
 	mu        sync.Mutex
 	cache     map[string]*fingerprintCache // alias -> weight fingerprint cache (vLLM)
@@ -215,7 +216,7 @@ func (v *Verifier) Refresh(ctx context.Context, model string) {
 		v.answer(st, entryID, stats, Result{Alias: model, Status: StatusFailed})
 		return
 	}
-	resp, err := v.server.VerifyModel(ctx, verifyModelRequest{Alias: model, ServiceType: v.serviceType, Files: files, Stale: stale})
+	resp, err := v.server.VerifyModel(ctx, verifyModelRequest{Alias: model, ServiceType: v.serviceType, Files: files, Stale: stale, HFRevision: v.servedRevision()})
 	if err != nil {
 		v.mu.Lock()
 		if st.entryID != entryID || !fileStatsEqual(st.stats, stats) {
@@ -263,6 +264,29 @@ func (v *Verifier) RunRefresher(ctx context.Context, interval time.Duration, mod
 	}
 }
 
+// SetRevision names the commit the engine serves (model revisions C5): the
+// verifier measures that snapshot, not the one refs/main points at.
+func (v *Verifier) SetRevision(sha string) {
+	v.mu.Lock()
+	defer v.mu.Unlock()
+	v.revision = strings.ToLower(strings.TrimSpace(sha))
+}
+
+// servedRevision is the commit SetRevision named, or "".
+func (v *Verifier) servedRevision() string {
+	v.mu.Lock()
+	defer v.mu.Unlock()
+	return v.revision
+}
+
+// refFor is the commit to measure for entry: the served one, else the catalog's ref.
+func (v *Verifier) refFor(entry CatalogEntry) string {
+	if served := v.servedRevision(); served != "" {
+		return served
+	}
+	return hfRefForCatalog(entry)
+}
+
 // NewVerifier creates a verifier. Measurements are sent to the server; expected hashes stay in the DB.
 func NewVerifier(catalog *Catalog, server *ServerClient, serviceType, hfHubCache, modelPathOverride string) *Verifier {
 	return &Verifier{
@@ -290,7 +314,7 @@ func (v *Verifier) resolveVLLMRoot(entry CatalogEntry, alias string) (string, er
 	}
 
 	repo := hfRepoForCatalog(alias, entry)
-	ref := hfRefForCatalog(entry)
+	ref := v.refFor(entry)
 	hub := v.hfHubCache
 	if hub == "" {
 		var err error
@@ -340,7 +364,7 @@ func (v *Verifier) resolveLlamaRoot(entry CatalogEntry) (string, error) {
 	}
 	repo := hfRepoForCatalog("", entry)
 	if repo != "" {
-		if snap, err := resolveGGUFSnapshot(repo, hfRefForCatalog(entry)); err == nil {
+		if snap, err := resolveGGUFSnapshot(repo, v.refFor(entry)); err == nil {
 			return snap, nil
 		}
 	}
