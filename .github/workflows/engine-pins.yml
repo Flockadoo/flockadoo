@@ -70,7 +70,10 @@ jobs:
           version=$(jq -r .version pkg/engine/uv.json)
           sum=$(jq -r --arg n "$ARCHIVE" '.sha256[$n]' pkg/engine/uv.json)
           curl -fsSL -o "$ARCHIVE" "https://github.com/astral-sh/uv/releases/download/$version/$ARCHIVE"
-          echo "$sum  $ARCHIVE" | sha256sum -c
+          # macOS's sha256sum takes no check list on stdin, so compare the hash directly.
+          got=$( (sha256sum "$ARCHIVE" 2>/dev/null || shasum -a 256 "$ARCHIVE") | cut -d' ' -f1)
+          [ "$got" = "$sum" ] || { echo "$ARCHIVE is $got, the pin is $sum"; exit 1; }
+          echo "$ARCHIVE: OK"
           mkdir uvbin
           case "$ARCHIVE" in
             *.zip) 7z e -y -ouvbin "$ARCHIVE" uv.exe >/dev/null; uv=uvbin/uv.exe; py=Scripts/python.exe; hf=Scripts/hf.exe ;;
