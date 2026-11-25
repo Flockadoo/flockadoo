@@ -23,6 +23,7 @@ func TestTheVerifierMeasuresTheCommitTheEngineServes(t *testing.T) {
 		servedSHA = "aa8e72537993ba99e69dfaafa59ed015b17504d1"
 	)
 	hub := t.TempDir()
+	t.Setenv("HF_HUB_CACHE", hub)
 	repo := filepath.Join(hub, HFRepoToCacheDir("org/m"))
 	served := []byte(`{"model_type":"served"}`)
 	for sha, config := range map[string][]byte{oldSHA: []byte(`{"model_type":"old"}`), servedSHA: served} {
@@ -53,7 +54,7 @@ func TestTheVerifierMeasuresTheCommitTheEngineServes(t *testing.T) {
 	if err := cat.Refresh(context.Background()); err != nil {
 		t.Fatal(err)
 	}
-	v := NewVerifier(cat, NewServerClient(plat.URL, "k"), "vllm", hub, "")
+	v := NewVerifier(cat, NewServerClient(plat.URL, "k"), "vllm", "")
 	v.SetRevision(servedSHA)
 	v.Refresh(context.Background(), "org/m")
 

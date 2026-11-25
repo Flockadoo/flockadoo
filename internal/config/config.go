@@ -42,6 +42,13 @@ type Config struct {
 		RequestTimeoutSeconds int `yaml:"request_timeout_seconds"`
 	} `yaml:"server"`
 
+	// IgnoredHFHubCache is a provider.hf_hub_cache line left in an old file
+	// (model revisions H1). The option is gone: it only ever reached the
+	// verifier, never hf or the engine. It is read only so the client can say
+	// it is ignored, and Save does not write it back. HF_HUB_CACHE moves the
+	// Hugging Face cache.
+	IgnoredHFHubCache string `yaml:"-"`
+
 	// Provider configuration
 	Provider struct {
 		APIKey string `yaml:"api_key"`
@@ -56,9 +63,8 @@ type Config struct {
 		// Model is the catalog alias (or HF repo) used to start the engine.
 		Model string `yaml:"model,omitempty"`
 		// AutoStart, when true, starts the engine if llm_url is down.
-		AutoStart  bool   `yaml:"auto_start"`
-		HFHubCache string `yaml:"hf_hub_cache,omitempty"` // deprecated: reaches only the verifier; set HF_HUB_CACHE instead. Warned about (setup.HubCacheNotice), removed in the next release
-		ModelPath  string `yaml:"model_path,omitempty"`   // optional flat dir override (hf download --local-dir)
+		AutoStart bool   `yaml:"auto_start"`
+		ModelPath string `yaml:"model_path,omitempty"` // optional flat dir override (hf download --local-dir)
 		// LLMTimeoutSeconds is the timeout for non-streaming requests
 		// forwarded to the local vLLM, vLLM Metal, or llama.cpp instance.
 		// Default and minimum 330; a lower value is raised to it.
@@ -136,6 +142,14 @@ func Load(path string) (*Config, error) {
 
 	if err := yaml.Unmarshal(data, cfg); err != nil {
 		return nil, fmt.Errorf("failed to parse configuration file: %w", err)
+	}
+	var leftover struct {
+		Provider struct {
+			HFHubCache string `yaml:"hf_hub_cache"`
+		} `yaml:"provider"`
+	}
+	if err := yaml.Unmarshal(data, &leftover); err == nil {
+		cfg.IgnoredHFHubCache = strings.TrimSpace(leftover.Provider.HFHubCache)
 	}
 	if err := cfg.validate(); err != nil {
 		return nil, fmt.Errorf("%s: %w", path, err)

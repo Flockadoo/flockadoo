@@ -49,7 +49,7 @@ func newWorld(t *testing.T, aliases ...string) *world {
 	if err := cat.Refresh(context.Background()); err != nil {
 		t.Fatal(err)
 	}
-	v := NewVerifier(cat, NewServerClient(plat.URL, "k"), "vllm", "", dir)
+	v := NewVerifier(cat, NewServerClient(plat.URL, "k"), "vllm", dir)
 	v.SetTiming(refreshAfter, outageGrace)
 	return &world{v: v, plat: plat, dir: dir}
 }

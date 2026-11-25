@@ -23,10 +23,10 @@ provider:
   llm_url: "http://127.0.0.1:8000"
   # model: "Qwen/Qwen2.5-7B-Instruct"
   # auto_start: true  # start the engine if llm_url is down
-  # vLLM: weights are auto-found in ~/.cache/huggingface/hub from the model
-  # vLLM serves (e.g. Qwen/Qwen3-0.6B → models--Qwen--Qwen3-0.6B/snapshots/<revision>).
-  # Optional overrides:
-  # hf_hub_cache: /home/ubuntu/.cache/huggingface/hub
+  # Models are downloaded to, served from and verified in the Hugging Face cache
+  # (~/.cache/huggingface/hub, e.g. models--Qwen--Qwen3-0.6B/snapshots/<commit>).
+  # To use another folder, set HF_HUB_CACHE in the client's environment.
+  # Optional override:
   # model_path: /home/ubuntu/models/Qwen3-0.6B  # flat dir from hf download --local-dir
 
 # Logging configuration

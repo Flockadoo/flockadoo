@@ -29,7 +29,6 @@ type Verifier struct {
 	catalog           *Catalog
 	server            *ServerClient
 	serviceType       string
-	hfHubCache        string
 	modelPathOverride string
 	revision          string // the commit the engine serves (C5); empty: refs/main
 	verdicts          *VerdictLog
@@ -296,12 +295,14 @@ func (v *Verifier) refFor(entry CatalogEntry) string {
 }
 
 // NewVerifier creates a verifier. Measurements are sent to the server; expected hashes stay in the DB.
-func NewVerifier(catalog *Catalog, server *ServerClient, serviceType, hfHubCache, modelPathOverride string) *Verifier {
+// The model is found in the Hugging Face cache (DefaultHFHubCache), the one
+// hf downloads to and the engine serves from, unless modelPathOverride names
+// a flat folder.
+func NewVerifier(catalog *Catalog, server *ServerClient, serviceType, modelPathOverride string) *Verifier {
 	return &Verifier{
 		catalog:           catalog,
 		server:            server,
 		serviceType:       strings.ToLower(serviceType),
-		hfHubCache:        strings.TrimSpace(hfHubCache),
 		modelPathOverride: strings.TrimSpace(modelPathOverride),
 		cache:             make(map[string]*fingerprintCache),
 		resultTTL:         DefaultRefreshAfter,
@@ -323,13 +324,9 @@ func (v *Verifier) resolveVLLMRoot(entry CatalogEntry, alias string) (string, er
 
 	repo := hfRepoForCatalog(alias, entry)
 	ref := v.refFor(entry)
-	hub := v.hfHubCache
-	if hub == "" {
-		var err error
-		hub, err = DefaultHFHubCache()
-		if err != nil {
-			return "", err
-		}
+	hub, err := DefaultHFHubCache()
+	if err != nil {
+		return "", err
 	}
 	return ResolveHFModelRoot(hub, repo, ref)
 }

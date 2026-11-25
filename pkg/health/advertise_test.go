@@ -34,7 +34,7 @@ func TestAdvertiseModelsKeepsFirstFiveApproved(t *testing.T) {
 		t.Fatal(err)
 	}
 	r := NewReporter(&config.Config{}, nil, nil)
-	r.SetVerifier(verify.NewVerifier(cat, nil, "vllm", "", ""))
+	r.SetVerifier(verify.NewVerifier(cat, nil, "vllm", ""))
 
 	models := make([]llm.Model, 0, 8)
 	models = append(models, llm.Model{ID: "not-approved"})

@@ -95,7 +95,7 @@ func TestHealthReportCarriesEngineAndVersion(t *testing.T) {
 // newRefusalVerifier is a verifier whose node is never reached; only its
 // engine refusal is under test.
 func newRefusalVerifier() *verify.Verifier {
-	return verify.NewVerifier(verify.NewCatalog("http://127.0.0.1:1", "vllm"), verify.NewServerClient("http://127.0.0.1:1", "k"), "vllm", "", "")
+	return verify.NewVerifier(verify.NewCatalog("http://127.0.0.1:1", "vllm"), verify.NewServerClient("http://127.0.0.1:1", "k"), "vllm", "")
 }
 
 // A vLLM below the minimum serves no model through Flockadoo: the health
