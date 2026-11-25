@@ -19,6 +19,9 @@ type StartReport struct {
 	Orphans []engine.Orphan
 	// MemoryShare is the share vLLM was started with (E2).
 	MemoryShare ShareChoice
+	// NotReady is why the engine is not ready after the start. Stub: the
+	// tests come first.
+	NotReady string
 }
 
 // Note is the dashboard's Orphaned engines line; empty when none were found.

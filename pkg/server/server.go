@@ -251,6 +251,10 @@ func (s *Server) SetOrphanedEngines(note string) {
 	s.redrawConsole()
 }
 
+// SetEngineNotReady is the local dashboard line for why the engine is not
+// ready after the start. Stub: the tests come first.
+func (s *Server) SetEngineNotReady(note string) {}
+
 // SetMemoryShare is the local dashboard line for the memory share vLLM was
 // started with on unified memory (engine start memory E2).
 func (s *Server) SetMemoryShare(note string) {
