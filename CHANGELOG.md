@@ -1,5 +1,9 @@
 # Changelog
 
+## [0.48.2] - 2026-11-25
+
+- When the engine is not started (a model that does not fit the memory free, vLLM refusing for memory, or an engine that is not ready in time), the reason now stays on screen. It used to be printed once and cleared by the console half a second later, and it was not logged, so the machine showed a client with no engine and no reason. The reason is now logged, shown in a red Engine not ready row on the dashboard and the console, and given as `engine_not_ready` in `/api/status`. The row goes once the engine serves a model.
+
 ## [0.48.1] - 2026-11-25
 
 - The out-of-memory messages no longer suggest a shorter context. A context below the catalog's `max_model_len` fails model verification, so that advice could not work. The "does not fit" message before the start and the explanation of a vLLM Metal "Insufficient Memory" refusal now end "Close other programs, or choose a smaller model" (the Metal one also names any orphaned vLLM engine process).
