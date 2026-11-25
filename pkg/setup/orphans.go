@@ -21,13 +21,22 @@ type StartReport struct {
 
 // Note is the dashboard's Orphaned engines line; empty when none were found.
 func (r StartReport) Note() string {
-	n := len(r.Orphans)
+	if hint := orphanHint(r.Orphans); hint != "" {
+		return "found at start: " + hint
+	}
+	return ""
+}
+
+// orphanHint says which orphaned engine processes hold memory and how to stop
+// them; empty when there are none.
+func orphanHint(orphans []engine.Orphan) string {
+	n := len(orphans)
 	if n == 0 {
 		return ""
 	}
 	summaries := make([]string, 0, n)
 	pids := make([]string, 0, n)
-	for _, o := range r.Orphans {
+	for _, o := range orphans {
 		summaries = append(summaries, o.Summary())
 		pids = append(pids, strconv.Itoa(o.PID))
 	}
@@ -35,7 +44,7 @@ func (r StartReport) Note() string {
 	if n > 1 {
 		what, it = fmt.Sprintf("%d vLLM engine processes with no API server are", n), "them"
 	}
-	return fmt.Sprintf("found at start: %s holding memory (%s); stop %s with: kill %s",
+	return fmt.Sprintf("%s holding memory (%s); stop %s with: kill %s",
 		what, strings.Join(summaries, "; "), it, strings.Join(pids, " "))
 }
 

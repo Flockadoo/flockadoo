@@ -71,8 +71,8 @@ features:
 
   - name: Engine install and start
     entry: engine.Install, engine.StartAndWait, setup.EnsureOnStart
-    code: [pkg/engine/install.go, pkg/engine/uv.go, pkg/engine/uv.json, pkg/engine/install_llama.go, pkg/engine/llama_pin.go, pkg/engine/llamacpp.json, pkg/engine/start.go, pkg/engine/detect.go, pkg/engine/health.go, pkg/engine/ensure.go, pkg/engine/pin.go, pkg/engine/kind.go, pkg/engine/minversion.go, pkg/setup/ensure.go, pkg/setup/revision.go, pkg/engine/orphans.go, pkg/engine/orphans_unix.go, pkg/engine/orphans_windows.go, pkg/setup/orphans.go]
-    tests: [pkg/engine/*_test.go, pkg/setup/ensure_test.go, pkg/setup/revision_test.go, pkg/setup/orphans_test.go, cmd/engine_version_test.go]
+    code: [pkg/engine/install.go, pkg/engine/uv.go, pkg/engine/uv.json, pkg/engine/install_llama.go, pkg/engine/llama_pin.go, pkg/engine/llamacpp.json, pkg/engine/start.go, pkg/engine/detect.go, pkg/engine/health.go, pkg/engine/ensure.go, pkg/engine/pin.go, pkg/engine/kind.go, pkg/engine/minversion.go, pkg/setup/ensure.go, pkg/setup/revision.go, pkg/engine/orphans.go, pkg/engine/orphans_unix.go, pkg/engine/orphans_windows.go, pkg/setup/orphans.go, pkg/engine/memory.go, pkg/setup/startfit.go]
+    tests: [pkg/engine/*_test.go, pkg/setup/ensure_test.go, pkg/setup/revision_test.go, pkg/setup/orphans_test.go, pkg/setup/startfit_test.go, cmd/engine_version_test.go]
     invariants: [I10]
 
   - name: Model download
@@ -87,7 +87,7 @@ features:
 
   - name: Compatibility check
     entry: compat.Run (flockadoo compatibility)
-    code: [pkg/compat/command.go, pkg/compat/score.go, pkg/compat/hardware.go, pkg/compat/hardware_linux.go, pkg/compat/hardware_darwin.go, pkg/compat/hardware_windows.go, pkg/compat/hardware_other.go, pkg/compat/output.go]
+    code: [pkg/compat/command.go, pkg/compat/score.go, pkg/compat/hardware.go, pkg/compat/hardware_linux.go, pkg/compat/hardware_darwin.go, pkg/compat/hardware_windows.go, pkg/compat/hardware_other.go, pkg/compat/output.go, pkg/compat/startfit.go]
     tests: [pkg/compat/*_test.go]
 
   - name: GPU information
