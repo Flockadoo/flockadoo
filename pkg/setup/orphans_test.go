@@ -56,7 +56,7 @@ func TestTheStartReportsOrphansBeforeItStartsTheEngine(t *testing.T) {
 		return errStop
 	}
 	var out bytes.Buffer
-	err := ensureOnStartWith(t.Context(), autoStartConfig(t), Streams{In: strings.NewReader(""), Out: &out}, false, revision, recordScan(&order, []engine.Orphan{macminiOrphan}, nil))
+	err := ensureOnStartWith(t.Context(), autoStartConfig(t), Streams{In: strings.NewReader(""), Out: &out}, false, revision, recordScan(&order, []engine.Orphan{macminiOrphan}, nil), nil)
 	if !errors.Is(err, errStop) {
 		t.Fatalf("ensureOnStartWith = %v", err)
 	}

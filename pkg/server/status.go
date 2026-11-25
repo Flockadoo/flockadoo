@@ -64,6 +64,9 @@ type StatusSnapshot struct {
 	// OrphanedEngines reports vLLM engine processes with no API server that
 	// the start found (engine start memory E4). The client does not stop them.
 	OrphanedEngines string `json:"orphaned_engines,omitempty"`
+	// MemoryShare is the memory share vLLM was started with on unified
+	// memory (engine start memory E2).
+	MemoryShare string `json:"memory_share,omitempty"`
 	// Connection and ConnectionReason are the tunnel's state and why (plan
 	// item C1, decision DC8).
 	Connection       string `json:"connection,omitempty"`
@@ -172,6 +175,7 @@ func (s *Server) snapshot(ctx context.Context) StatusSnapshot {
 		EngineNote:               s.engineNoteText(),
 		CapabilityLine:           s.capabilitiesText(),
 		OrphanedEngines:          s.orphanedEnginesText(),
+		MemoryShare:              s.memoryShareText(),
 	}
 }
 
@@ -186,6 +190,12 @@ func (s *Server) engineNoteText() string {
 	s.engineNoteMu.Lock()
 	defer s.engineNoteMu.Unlock()
 	return s.engineNote
+}
+
+func (s *Server) memoryShareText() string {
+	s.engineNoteMu.Lock()
+	defer s.engineNoteMu.Unlock()
+	return s.memoryShare
 }
 
 func (s *Server) orphanedEnginesText() string {

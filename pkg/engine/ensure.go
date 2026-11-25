@@ -13,7 +13,8 @@ import (
 
 // StartAndWait starts the configured engine if llm_url is down and waits until it is serving.
 // A multi-node master returns once its torch store is accepting other ranks.
-func StartAndWait(ctx context.Context, cfg *config.Config, logDir string) error {
+// Each option adjusts the command just before it starts.
+func StartAndWait(ctx context.Context, cfg *config.Config, logDir string, opts ...StartOption) error {
 	if cfg == nil {
 		return fmt.Errorf("config is nil")
 	}
@@ -53,6 +54,10 @@ func StartAndWait(ctx context.Context, cfg *config.Config, logDir string) error 
 		if err := CheckVersion(kind, InstalledVersion(ctx, spec.Bin)); err != nil {
 			return err
 		}
+	}
+	// Read right before the start: a memory share fits the memory free now (E2).
+	for _, adjust := range opts {
+		adjust(kind, &spec)
 	}
 	offset := LogOffset(LogPath(logDir))
 	exited, err := StartDetached(spec, LogPath(logDir))

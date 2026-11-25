@@ -251,6 +251,15 @@ func (s *Server) SetOrphanedEngines(note string) {
 	s.redrawConsole()
 }
 
+// SetMemoryShare is the local dashboard line for the memory share vLLM was
+// started with on unified memory (engine start memory E2).
+func (s *Server) SetMemoryShare(note string) {
+	s.engineNoteMu.Lock()
+	s.memoryShare = note
+	s.engineNoteMu.Unlock()
+	s.redrawConsole()
+}
+
 // SetCapabilities is the local dashboard line for capability checks.
 // Session status stays online while this line is set.
 func (s *Server) SetCapabilities(note string) {
@@ -463,6 +472,9 @@ func (s *Server) redrawConsole() {
 		fmt.Fprintf(&buf, "\033[1;33mUpdate available: %s -> %s. Run 'flockadoo update' then restart.\033[0m\n", snap.ClientVersion, snap.LatestVersion)
 	}
 	fmt.Fprintf(&buf, "\033[1;35mEngine                        \033[0m%s\n", snap.ProviderType)
+	if snap.MemoryShare != "" {
+		fmt.Fprintf(&buf, "\033[1;35m%-30s\033[0m%s\n", "Memory share", snap.MemoryShare)
+	}
 	fmt.Fprintf(&buf, "\033[1;35mProvider API Key              \033[0m%s\n", snap.ProviderAPIKey)
 	fmt.Fprintf(&buf, "\033[1;35mPlatform URL                  \033[0m%s\n", snap.ProviderURL)
 	fmt.Fprintf(&buf, "\033[1;35mLLM URL                       \033[0m%s\n", snap.LLMURL)

@@ -3,7 +3,9 @@ package compat
 import (
 	"fmt"
 	"strconv"
+	"strings"
 
+	"github.com/Flockadoo/flockadoo/pkg/engine"
 	"github.com/Flockadoo/flockadoo/pkg/verify"
 )
 
@@ -16,6 +18,11 @@ type DoesNotFit struct {
 	// Context is the context the need was computed at; 0 when none applies.
 	Context int64
 	Kind    MemoryKind
+	// Share, Total and Usable are set when vLLM on unified memory may use
+	// only a share of the memory (E2): Usable is Share × Total.
+	Share  float64
+	Total  int64
+	Usable int64
 }
 
 func (e *DoesNotFit) Error() string {
@@ -23,18 +30,25 @@ func (e *DoesNotFit) Error() string {
 	if e.Context > 0 {
 		at = " at a " + groupDigits(e.Context) + "-token context"
 	}
-	free := "of GPU memory is free"
-	if e.Kind == MemoryUnified {
-		free = "of memory (shared by the CPU and GPU) is free"
+	var room string
+	switch {
+	case e.Share > 0:
+		room = fmt.Sprintf("vLLM can use %s: a share of %.2f of the %s of memory shared by the CPU and GPU, leaving room for the system (%s is free)",
+			formatBytes(e.Usable), e.Share, formatBytes(e.Total), formatBytes(e.Free))
+	case e.Kind == MemoryUnified:
+		room = formatBytes(e.Free) + " of memory (shared by the CPU and GPU) is free"
+	default:
+		room = formatBytes(e.Free) + " of GPU memory is free"
 	}
-	return fmt.Sprintf("%s needs about %s to start%s; %s %s. Close other programs, choose a smaller model, or lower the context",
-		e.Model, formatBytes(e.Need), at, formatBytes(e.Free), free)
+	return fmt.Sprintf("%s needs about %s to start%s; %s. Close other programs, choose a smaller model, or lower the context",
+		e.Model, formatBytes(e.Need), at, room)
 }
 
 // StartCheck compares what a model needs to start (its weights plus one
 // request at its full context, the estimate the compatibility check uses)
 // with the memory free for the engine now: free VRAM on a dedicated GPU, free
-// system memory on unified memory. maxModelLen is the configured context; 0
+// system memory on unified memory, and for vLLM on unified memory the share of
+// it vLLM starts with (E2). maxModelLen is the configured context; 0
 // uses the catalog's. It returns *DoesNotFit when the need is larger, and nil
 // when the model fits or the client cannot tell: no free-memory reading (a
 // Mac, for now), no GPU, several GPUs (the engine may split the model), or no
@@ -55,13 +69,24 @@ func StartCheck(hw *Hardware, entry verify.CatalogEntry, maxModelLen int64) erro
 		lenPtr = &ctxLen
 	}
 	need := requiredMemoryBytes(entry.MinSizeBytes, entry.ServiceType, lenPtr, entry.KVCacheBytesPerToken)
-	if need <= hw.MemoryFreeBytes {
+	usable, share := hw.MemoryFreeBytes, 0.0
+	// vLLM on unified memory starts with a share of the memory that leaves
+	// room for the system (E2); the model must fit that share.
+	if hw.MemoryKind == MemoryUnified && strings.EqualFold(strings.TrimSpace(entry.ServiceType), "vllm") {
+		share = engine.MemoryShare(hw.MemoryTotalBytes, hw.MemoryFreeBytes)
+		usable = hw.MemoryTotalBytes * int64(share*100+0.5) / 100
+	}
+	if need <= usable {
 		return nil
 	}
 	if lenPtr == nil || !contextFit(entry.ServiceType) {
 		ctxLen = 0
 	}
-	return &DoesNotFit{Model: entry.Alias, Need: need, Free: hw.MemoryFreeBytes, Context: ctxLen, Kind: hw.MemoryKind}
+	dnf := &DoesNotFit{Model: entry.Alias, Need: need, Free: hw.MemoryFreeBytes, Context: ctxLen, Kind: hw.MemoryKind}
+	if share > 0 {
+		dnf.Share, dnf.Total, dnf.Usable = share, hw.MemoryTotalBytes, usable
+	}
+	return dnf
 }
 
 // groupDigits is 32768 as "32,768".

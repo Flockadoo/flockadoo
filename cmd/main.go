@@ -290,6 +290,10 @@ func main() {
 		logger.Warn(note)
 		srv.SetOrphanedEngines(note)
 	}
+	if note := startReport.MemoryShare.Note(); note != "" {
+		logger.Info("vLLM memory share: " + note)
+		srv.SetMemoryShare(note)
+	}
 	if !useTray {
 		srv.SetConsole(os.Stdout)
 	}

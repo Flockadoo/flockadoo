@@ -117,7 +117,7 @@ func TestAFlockMemberDownloadsBeforeItShowsTheCommand(t *testing.T) {
 				_, _ = io.WriteString(&out, "DOWNLOADED "+c.Provider.HFRevision+"\n")
 				return nil
 			}
-			if err := ensureOnStartWith(t.Context(), cfg, Streams{In: strings.NewReader(""), Out: &out}, false, revision, nil); err != nil {
+			if err := ensureOnStartWith(t.Context(), cfg, Streams{In: strings.NewReader(""), Out: &out}, false, revision, nil, nil); err != nil {
 				t.Fatal(err)
 			}
 			text := out.String()
@@ -128,7 +128,7 @@ func TestAFlockMemberDownloadsBeforeItShowsTheCommand(t *testing.T) {
 
 			out.Reset()
 			failing := func(context.Context, *config.Config) error { return errors.New("no space") }
-			if err := ensureOnStartWith(t.Context(), cfg, Streams{In: strings.NewReader(""), Out: &out}, false, failing, nil); err == nil {
+			if err := ensureOnStartWith(t.Context(), cfg, Streams{In: strings.NewReader(""), Out: &out}, false, failing, nil, nil); err == nil {
 				t.Error("a failed download did not stop the start")
 			}
 			if strings.Contains(out.String(), "serve org/m") {

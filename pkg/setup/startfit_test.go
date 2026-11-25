@@ -149,7 +149,7 @@ func TestTheStartChecksTheFitBeforeItStarts(t *testing.T) {
 		return nil
 	}
 	var out bytes.Buffer
-	err := ensureOnStartWith(t.Context(), autoStartConfig(t), Streams{In: strings.NewReader(""), Out: &out}, false, revision, recordScan(&order, nil, nil))
+	err := ensureOnStartWith(t.Context(), autoStartConfig(t), Streams{In: strings.NewReader(""), Out: &out}, false, revision, recordScan(&order, nil, nil), nil)
 	if !errors.Is(err, errDoesNotFit) {
 		t.Errorf("ensureOnStartWith = %v, want the refusal", err)
 	}

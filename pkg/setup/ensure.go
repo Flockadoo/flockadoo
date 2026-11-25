@@ -31,12 +31,7 @@ func EnsureOnStartAt(ctx context.Context, cfg *config.Config, configPath string,
 		out = os.Stdout
 	}
 	var report StartReport
-	scan := func(ctx context.Context) ([]engine.Orphan, error) {
-		found, err := scanOrphans(ctx)
-		report.Orphans = append(report.Orphans, found...)
-		return found, err
-	}
-	err := ensureOnStartWith(ctx, cfg, io, interactiveReader(io.In), startRevision(configPath, out), scan)
+	err := ensureOnStartWith(ctx, cfg, io, interactiveReader(io.In), startRevision(configPath, out), nil, &report)
 	return report, err
 }
 
@@ -46,12 +41,13 @@ func interactiveReader(in io.Reader) bool {
 }
 
 func ensureOnStart(ctx context.Context, cfg *config.Config, io Streams, interactive bool) error {
-	return ensureOnStartWith(ctx, cfg, io, interactive, nil, nil)
+	return ensureOnStartWith(ctx, cfg, io, interactive, nil, nil, nil)
 }
 
 // ensureOnStartWith runs revision, when set, just before it starts an engine,
 // and scan (scanOrphans when nil) before that.
-func ensureOnStartWith(ctx context.Context, cfg *config.Config, io Streams, interactive bool, revision func(context.Context, *config.Config) error, scan func(context.Context) ([]engine.Orphan, error)) error {
+// What the start did that the dashboard shows goes into report, when set.
+func ensureOnStartWith(ctx context.Context, cfg *config.Config, io Streams, interactive bool, revision func(context.Context, *config.Config) error, scan func(context.Context) ([]engine.Orphan, error), report *StartReport) error {
 	if scan == nil {
 		scan = scanOrphans
 	}
@@ -151,6 +147,9 @@ func ensureOnStartWith(ctx context.Context, cfg *config.Config, io Streams, inte
 	}
 
 	found := reportOrphans(ctx, io.Out, scan)
+	if report != nil {
+		report.Orphans = found
+	}
 	// A model that does not fit the memory free now is not started (E3).
 	if err := checkStartFit(ctx, cfg, found); err != nil {
 		return err
@@ -161,7 +160,14 @@ func ensureOnStartWith(ctx context.Context, cfg *config.Config, io Streams, inte
 				return err
 			}
 		}
-		return engine.StartAndWait(ctx, cfg, cfg.Logging.LogDir)
+		// The memory share is chosen from the memory free right before the start (E2).
+		return engine.StartAndWait(ctx, cfg, cfg.Logging.LogDir, func(kind engine.Kind, spec *engine.Spec) {
+			choice := chooseShare(ctx, cfg, kind, spec.Args)
+			*spec = withShare(*spec, choice)
+			if report != nil {
+				report.MemoryShare = choice
+			}
+		})
 	})
 	if err != nil {
 		return fmt.Errorf("%w (see %s)", err, engine.LogPath(cfg.Logging.LogDir))
