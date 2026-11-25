@@ -1,5 +1,9 @@
 # Changelog
 
+## [0.47.1] - 2026-11-25
+
+- The engine now always starts on the commit the client serves and verifies. Setup saves the engine command once (`provider.engine_args`), with the commit approved at the time. When the client later moved to another commit (a newer one approved and downloaded), it saved the new `provider.hf_revision` but kept starting the engine from the old command. So the engine served the old commit while the client verified, and reported, the new one. At every start the client now sets the saved command to the configured commit: for vLLM, `--revision` and `--tokenizer-revision` on that commit and `HF_HUB_OFFLINE=1`; for llama.cpp, `-m` on that commit's cached file. A command saved before 0.46 (with no commit, or a llama.cpp command that fetches by repo and file) is pinned the same way. Other saved flags and variables stay. The config file is not rewritten. With no configured commit the saved command runs as saved.
+
 ## [0.47.0] - 2026-11-25
 
 - `provider.hf_hub_cache` is removed. It only ever told the verifier where to look, not `hf` or the engine, so a machine that set it downloaded a model to one folder and was verified in another. A line left in `config.yaml` is ignored: at start (and in `flockadoo model`) the client warns that it is ignored, names the folder it uses, and the line is dropped the next time the client saves the config. Models are downloaded to, served from and verified in the Hugging Face cache (`HF_HUB_CACHE`, then `HF_HOME/hub`, then `~/.cache/huggingface/hub`). To use another folder, set `HF_HUB_CACHE` in the client's environment. `provider.model_path` still points the verifier at a flat folder of weights.
