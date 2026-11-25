@@ -71,8 +71,8 @@ features:
 
   - name: Engine install and start
     entry: engine.Install, engine.StartAndWait, setup.EnsureOnStart
-    code: [pkg/engine/install.go, pkg/engine/uv.go, pkg/engine/uv.json, pkg/engine/install_llama.go, pkg/engine/llama_pin.go, pkg/engine/llamacpp.json, pkg/engine/start.go, pkg/engine/detect.go, pkg/engine/health.go, pkg/engine/ensure.go, pkg/engine/pin.go, pkg/engine/kind.go, pkg/engine/minversion.go, pkg/setup/ensure.go, pkg/setup/revision.go]
-    tests: [pkg/engine/*_test.go, pkg/setup/ensure_test.go, pkg/setup/revision_test.go, cmd/engine_version_test.go]
+    code: [pkg/engine/install.go, pkg/engine/uv.go, pkg/engine/uv.json, pkg/engine/install_llama.go, pkg/engine/llama_pin.go, pkg/engine/llamacpp.json, pkg/engine/start.go, pkg/engine/detect.go, pkg/engine/health.go, pkg/engine/ensure.go, pkg/engine/pin.go, pkg/engine/kind.go, pkg/engine/minversion.go, pkg/setup/ensure.go, pkg/setup/revision.go, pkg/engine/orphans.go, pkg/engine/orphans_unix.go, pkg/engine/orphans_windows.go, pkg/setup/orphans.go]
+    tests: [pkg/engine/*_test.go, pkg/setup/ensure_test.go, pkg/setup/revision_test.go, pkg/setup/orphans_test.go, cmd/engine_version_test.go]
     invariants: [I10]
 
   - name: Model download
@@ -110,7 +110,7 @@ features:
   - name: Dashboard, console and tray
     entry: Server.snapshot and redrawConsole; /api/status, /api/health, /api/busy; the Windows tray
     code: [pkg/server/status.go, pkg/server/server.go, pkg/server/dashboard.html, pkg/tray/tray.go, cmd/dashboard.go, pkg/usermsg/*.go]
-    tests: [pkg/server/status_test.go, pkg/server/dashboard_parity_test.go, cmd/dashboard_test.go, cmd/benchmark_note_test.go, pkg/usermsg/*_test.go]
+    tests: [pkg/server/status_test.go, pkg/server/dashboard_parity_test.go, pkg/server/orphaned_engines_test.go, cmd/dashboard_test.go, cmd/benchmark_note_test.go, pkg/usermsg/*_test.go]
     invariants: [I12]
 
   - name: Configuration

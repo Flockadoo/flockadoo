@@ -54,6 +54,7 @@ type Server struct {
 	engineNote       string
 	engineNoteMu     sync.Mutex
 	capabilitiesNote string
+	orphanedEngines  string // orphaned vLLM engine processes the start found (E4)
 	sessionQueueWait time.Duration
 	// sessionQueueLimit is how many returning turns may wait for a slot at
 	// once; beyond it a turn is refused at once. Zero means the default.
