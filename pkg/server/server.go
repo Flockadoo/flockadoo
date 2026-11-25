@@ -251,6 +251,17 @@ func (s *Server) SetOrphanedEngines(note string) {
 	s.redrawConsole()
 }
 
+// SetEngineNotReady is the local dashboard line for why the engine is not
+// ready after the start (a model that does not fit, say). Without it the
+// reason went only to stderr, which the console clears. The line is shown
+// until the engine serves a model.
+func (s *Server) SetEngineNotReady(note string) {
+	s.engineNoteMu.Lock()
+	s.engineNotReady = note
+	s.engineNoteMu.Unlock()
+	s.redrawConsole()
+}
+
 // SetMemoryShare is the local dashboard line for the memory share vLLM was
 // started with on unified memory (engine start memory E2).
 func (s *Server) SetMemoryShare(note string) {
@@ -455,6 +466,9 @@ func (s *Server) redrawConsole() {
 	fmt.Fprintf(&buf, "\033[1;35mSession Status                \033[0m%s%s\033[0m\n", statusColor, snap.SessionStatus)
 	if snap.NotServing != "" {
 		fmt.Fprintf(&buf, "\033[1;35m%-30s\033[0m\033[1;31m%s\033[0m\n", "Not serving", snap.NotServing)
+	}
+	if snap.EngineNotReady != "" {
+		fmt.Fprintf(&buf, "\033[1;35m%-30s\033[0m\033[1;31m%s\033[0m\n", "Engine not ready", snap.EngineNotReady)
 	}
 	if snap.EngineNote != "" {
 		fmt.Fprintf(&buf, "\033[1;35mBenchmark                     \033[0m%s\n", snap.EngineNote)

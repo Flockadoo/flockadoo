@@ -55,6 +55,7 @@ type Server struct {
 	engineNoteMu     sync.Mutex
 	capabilitiesNote string
 	orphanedEngines  string // orphaned vLLM engine processes the start found (E4)
+	engineNotReady   string // why the engine is not ready after the start
 	memoryShare      string // the memory share vLLM was started with (E2)
 	sessionQueueWait time.Duration
 	// sessionQueueLimit is how many returning turns may wait for a slot at

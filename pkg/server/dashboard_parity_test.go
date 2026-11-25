@@ -174,6 +174,7 @@ var consoleOrder = []string{
 	"Last Health Update",
 	"Session Status",
 	"Not serving",
+	"Engine not ready",
 	"Benchmark",
 	"Capabilities",
 	"Orphaned engines",
@@ -197,6 +198,7 @@ var consoleOrder = []string{
 // it pins the order the dashboard is held to below.
 func TestTheConsoleRowsAreInOrder(t *testing.T) {
 	s := newTestServer("http://unused", &fakeLLM{})
+	s.SetEngineNotReady("model needs about 24.03 GiB to start")
 	s.SetEngineNote("verified for 1 concurrent")
 	s.SetCapabilities("completed")
 	s.SetOrphanedEngines("found at start: 1 vLLM engine process with no API server")
@@ -209,7 +211,9 @@ func TestTheConsoleRowsAreInOrder(t *testing.T) {
 		case "Not serving", "Update", "Nodes", "Winglink IP":
 			continue
 		}
-		i := strings.Index(console, "\n"+label+" ")
+		// Labels are padded to 30 columns: two spaces end a label, so
+		// "Engine" does not match the start of "Engine not ready".
+		i := strings.Index(console, "\n"+label+"  ")
 		if label == "FLOCK STATUS" || label == "GPU INFORMATION" {
 			i = strings.Index(console, label)
 		}

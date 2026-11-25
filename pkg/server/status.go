@@ -58,7 +58,10 @@ type StatusSnapshot struct {
 	Nodes            string        `json:"nodes,omitempty"`
 	// NotServing is why the running engine is refused (too old), so the
 	// client advertises no model; empty while it serves.
-	NotServing     string `json:"not_serving,omitempty"`
+	NotServing string `json:"not_serving,omitempty"`
+	// EngineNotReady is why the engine is not ready after the start (a model
+	// that does not fit, say); empty once the engine serves a model.
+	EngineNotReady string `json:"engine_not_ready,omitempty"`
 	EngineNote     string `json:"engine_note,omitempty"`
 	CapabilityLine string `json:"capability_line,omitempty"`
 	// OrphanedEngines reports vLLM engine processes with no API server that
@@ -175,6 +178,7 @@ func (s *Server) snapshot(ctx context.Context) StatusSnapshot {
 		EngineNote:               s.engineNoteText(),
 		CapabilityLine:           s.capabilitiesText(),
 		OrphanedEngines:          s.orphanedEnginesText(),
+		EngineNotReady:           s.engineNotReadyText(len(models) > 0),
 		MemoryShare:              s.memoryShareText(),
 	}
 }
@@ -196,6 +200,17 @@ func (s *Server) memoryShareText() string {
 	s.engineNoteMu.Lock()
 	defer s.engineNoteMu.Unlock()
 	return s.memoryShare
+}
+
+// engineNotReadyText is why the engine is not ready after the start, until
+// the engine serves a model: then the reason no longer applies.
+func (s *Server) engineNotReadyText(serving bool) string {
+	if serving {
+		return ""
+	}
+	s.engineNoteMu.Lock()
+	defer s.engineNoteMu.Unlock()
+	return s.engineNotReady
 }
 
 func (s *Server) orphanedEnginesText() string {
