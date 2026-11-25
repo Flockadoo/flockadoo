@@ -45,6 +45,10 @@ func TestMetalOutOfMemoryIsExplained(t *testing.T) {
 			t.Errorf("%q does not say %q", msg, want)
 		}
 	}
+	// A context below the catalog's max_model_len fails verification.
+	if strings.Contains(msg, "context") {
+		t.Errorf("%q advises a shorter context, which fails verification", msg)
+	}
 }
 
 // Negative: a log without a memory refusal is not called a memory problem.

@@ -42,9 +42,16 @@ func TestAModelThatDoesNotFitIsRefusedWithBothNumbers(t *testing.T) {
 		t.Fatalf("StartCheck = %v, want DoesNotFit", err)
 	}
 	msg := err.Error()
-	for _, want := range []string{"Qwen/Qwen2.5-14B-Instruct", "14.80 GiB", "32,768-token context", "10.00 GiB", "GPU memory", "Close other programs", "smaller model", "lower the context"} {
+	for _, want := range []string{"Qwen/Qwen2.5-14B-Instruct", "14.80 GiB", "32,768-token context", "10.00 GiB", "GPU memory", "Close other programs", "smaller model"} {
 		if !strings.Contains(msg, want) {
 			t.Errorf("%q does not say %q", msg, want)
+		}
+	}
+	// Serving a context below the catalog's max_model_len fails verification,
+	// so the advice must not suggest it.
+	for _, never := range []string{"lower the context", "shorter context"} {
+		if strings.Contains(msg, never) {
+			t.Errorf("%q advises %q, which fails verification", msg, never)
 		}
 	}
 }

@@ -40,7 +40,7 @@ func memoryRefusal(log string) (string, bool) {
 			m[5], m[4], m[3], m[1], m[2]), true
 	}
 	if strings.Contains(log, metalOutOfMemory) {
-		return "vLLM ran out of memory on this Mac's GPU while loading the model. Close other programs (and any orphaned vLLM engine process), or choose a smaller model or a shorter context", true
+		return "vLLM ran out of memory on this Mac's GPU while loading the model. Close other programs (and any orphaned vLLM engine process), or choose a smaller model", true
 	}
 	return "", false
 }
