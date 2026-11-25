@@ -182,10 +182,14 @@ func main() {
 		fmt.Fprintln(os.Stderr, "--tray is only supported on Windows; using console")
 	}
 
+	// What the engine start did that the dashboard shows (engine start memory E4).
+	var startReport setup.StartReport
 	if !isTrayChild() {
-		if err := setup.EnsureOnStartAt(context.Background(), cfg, *configPath, setup.Streams{In: os.Stdin, Out: os.Stdout, Err: os.Stderr}); err != nil {
+		report, err := setup.EnsureOnStartAt(context.Background(), cfg, *configPath, setup.Streams{In: os.Stdin, Out: os.Stdout, Err: os.Stderr})
+		if err != nil {
 			fmt.Fprintf(os.Stderr, "warning: inference engine not ready: %v\n", err)
 		}
+		startReport = report
 	}
 
 	if useTray && spawnDetachedIfNeeded(cfg.LocalDashboardURL()) {
@@ -282,6 +286,10 @@ func main() {
 	}
 
 	srv := server.CreateServer(ctx, cfg, gpuMonitor, healthReporter, modelVerifier)
+	if note := startReport.Note(); note != "" {
+		logger.Warn(note)
+		srv.SetEngineCleanup(note)
+	}
 	if !useTray {
 		srv.SetConsole(os.Stdout)
 	}

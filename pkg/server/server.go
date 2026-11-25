@@ -242,6 +242,10 @@ func (s *Server) SetEngineNote(note string) {
 	s.redrawConsole()
 }
 
+// SetEngineCleanup is the local dashboard line for what the engine start
+// cleaned up: orphaned engine processes it stopped (engine start memory E4).
+func (s *Server) SetEngineCleanup(note string) {}
+
 // SetCapabilities is the local dashboard line for capability checks.
 // Session status stays online while this line is set.
 func (s *Server) SetCapabilities(note string) {

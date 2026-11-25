@@ -176,6 +176,7 @@ var consoleOrder = []string{
 	"Not serving",
 	"Benchmark",
 	"Capabilities",
+	"Engine cleanup",
 	"Update",
 	"Engine",
 	"Provider API Key",
@@ -197,6 +198,7 @@ func TestTheConsoleRowsAreInOrder(t *testing.T) {
 	s := newTestServer("http://unused", &fakeLLM{})
 	s.SetEngineNote("verified for 1 concurrent")
 	s.SetCapabilities("completed")
+	s.SetEngineCleanup("stopped 1 orphaned vLLM engine process at start")
 	console := ansi.ReplaceAllString(consoleOutput(t, s), "")
 	last, lastLabel := -1, ""
 	for _, label := range consoleOrder {

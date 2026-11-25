@@ -15,20 +15,29 @@ import (
 // Interactive TTYs prompt to start it when it is down; otherwise auto_start
 // decides. A spinner stays on stdout until the engine is serving.
 func EnsureOnStart(ctx context.Context, cfg *config.Config, io Streams) error {
-	return EnsureOnStartAt(ctx, cfg, "", io)
+	_, err := EnsureOnStartAt(ctx, cfg, "", io)
+	return err
 }
 
 // EnsureOnStartAt is EnsureOnStart that also picks, downloads and remembers
 // the commit to serve before it starts an engine (model revisions C4),
 // saving the choice to the config file at configPath.
-func EnsureOnStartAt(ctx context.Context, cfg *config.Config, configPath string, io Streams) error {
+// The report says what the start did that the dashboard shows.
+func EnsureOnStartAt(ctx context.Context, cfg *config.Config, configPath string, io Streams) (StartReport, error) {
 	ctx, cancel := context.WithTimeout(ctx, engine.DefaultDownloadTimeout)
 	defer cancel()
 	out := io.Out
 	if out == nil {
 		out = os.Stdout
 	}
-	return ensureOnStartWith(ctx, cfg, io, interactiveReader(io.In), startRevision(configPath, out))
+	var report StartReport
+	sweep := func(ctx context.Context) ([]engine.Orphan, error) {
+		stopped, err := stopOrphans(ctx)
+		report.StoppedOrphans = append(report.StoppedOrphans, stopped...)
+		return stopped, err
+	}
+	err := ensureOnStartWith(ctx, cfg, io, interactiveReader(io.In), startRevision(configPath, out), sweep)
+	return report, err
 }
 
 func interactiveReader(in io.Reader) bool {
@@ -37,11 +46,15 @@ func interactiveReader(in io.Reader) bool {
 }
 
 func ensureOnStart(ctx context.Context, cfg *config.Config, io Streams, interactive bool) error {
-	return ensureOnStartWith(ctx, cfg, io, interactive, nil)
+	return ensureOnStartWith(ctx, cfg, io, interactive, nil, nil)
 }
 
-// ensureOnStartWith runs revision, when set, just before it starts an engine.
-func ensureOnStartWith(ctx context.Context, cfg *config.Config, io Streams, interactive bool, revision func(context.Context, *config.Config) error) error {
+// ensureOnStartWith runs revision, when set, just before it starts an engine,
+// and sweep (stopOrphans when nil) before that.
+func ensureOnStartWith(ctx context.Context, cfg *config.Config, io Streams, interactive bool, revision func(context.Context, *config.Config) error, sweep func(context.Context) ([]engine.Orphan, error)) error {
+	if sweep == nil {
+		sweep = stopOrphans
+	}
 	if cfg == nil {
 		return nil
 	}
@@ -137,6 +150,7 @@ func ensureOnStartWith(ctx context.Context, cfg *config.Config, io Streams, inte
 		return nil
 	}
 
+	sweepOrphans(ctx, io.Out, sweep)
 	err := SpinWhile(io.Out, waitMsg, func() error {
 		if revision != nil {
 			if err := revision(ctx, cfg); err != nil {
