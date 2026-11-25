@@ -244,7 +244,12 @@ func (s *Server) SetEngineNote(note string) {
 
 // SetOrphanedEngines is the local dashboard line for orphaned vLLM engine
 // processes the start found (engine start memory E4).
-func (s *Server) SetOrphanedEngines(note string) {}
+func (s *Server) SetOrphanedEngines(note string) {
+	s.engineNoteMu.Lock()
+	s.orphanedEngines = note
+	s.engineNoteMu.Unlock()
+	s.redrawConsole()
+}
 
 // SetCapabilities is the local dashboard line for capability checks.
 // Session status stays online while this line is set.
@@ -447,6 +452,9 @@ func (s *Server) redrawConsole() {
 	}
 	if snap.CapabilityLine != "" {
 		fmt.Fprintf(&buf, "\033[1;35mCapabilities                  \033[0m%s\n", snap.CapabilityLine)
+	}
+	if snap.OrphanedEngines != "" {
+		fmt.Fprintf(&buf, "\033[1;35m%-30s\033[0m\033[1;33m%s\033[0m\n", "Orphaned engines", snap.OrphanedEngines)
 	}
 	switch snap.UpdateStatus {
 	case "required":
