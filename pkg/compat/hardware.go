@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"io"
 	"os/exec"
+	"regexp"
 	"runtime"
 	"strconv"
 	"strings"
@@ -130,6 +131,8 @@ func detectDarwin(ctx context.Context, hw *Hardware) error {
 		if hw.SystemRAMBytes <= 0 {
 			return fmt.Errorf("Apple Silicon detected but system RAM is unknown") //nolint:staticcheck // ST1005: the message starts with a proper noun
 		}
+		vmStat, err := exec.CommandContext(ctx, "/usr/bin/vm_stat").Output()
+		setMacFreeMemory(hw, vmStat, err)
 		return nil
 	}
 
@@ -372,4 +375,63 @@ func splitCSV(line string) []string {
 
 func bytesToGiB(b int64) float64 {
 	return float64(b) / (1024 * 1024 * 1024)
+}
+
+var (
+	vmStatPageSize = regexp.MustCompile(`page size of (\d+) bytes`)
+	vmStatCounters = []struct {
+		name string
+		re   *regexp.Regexp
+	}{
+		{"free", regexp.MustCompile(`(?m)^Pages free:\s+(\d+)\.`)},
+		{"inactive", regexp.MustCompile(`(?m)^Pages inactive:\s+(\d+)\.`)},
+		{"speculative", regexp.MustCompile(`(?m)^Pages speculative:\s+(\d+)\.`)},
+	}
+)
+
+// macFreeMemory reads a Mac's free memory from /usr/bin/vm_stat's output:
+// free, inactive and speculative pages. That is psutil's available memory on
+// macOS, which vLLM Metal sizes its KV cache to, so the client and the engine
+// agree on what is free. Output without any of them gives an error, not a
+// guess.
+func macFreeMemory(vmStat string) (int64, error) {
+	m := vmStatPageSize.FindStringSubmatch(vmStat)
+	if m == nil {
+		return 0, errors.New("vm_stat output has no page size")
+	}
+	pageSize, err := strconv.ParseInt(m[1], 10, 64)
+	if err != nil || pageSize <= 0 {
+		return 0, fmt.Errorf("vm_stat page size %q", m[1])
+	}
+	var pages int64
+	for _, c := range vmStatCounters {
+		m := c.re.FindStringSubmatch(vmStat)
+		if m == nil {
+			return 0, fmt.Errorf("vm_stat output has no %s pages", c.name)
+		}
+		n, err := strconv.ParseInt(m[1], 10, 64)
+		if err != nil {
+			return 0, fmt.Errorf("vm_stat %s pages %q", c.name, m[1])
+		}
+		pages += n
+	}
+	return pages * pageSize, nil
+}
+
+// setMacFreeMemory sets a Mac's free and used memory from vm_stat's output.
+// When vm_stat cannot run or be read, the Mac has no free reading (the start's
+// fit check is then skipped) and a warning says why.
+func setMacFreeMemory(hw *Hardware, vmStat []byte, runErr error) {
+	free, err := macFreeMemory(string(vmStat))
+	if runErr != nil {
+		err = runErr
+	}
+	if err != nil {
+		hw.Warnings = append(hw.Warnings, "free memory not read (vm_stat: "+err.Error()+")")
+		return
+	}
+	hw.MemoryFreeBytes = free
+	if hw.MemoryTotalBytes > free {
+		hw.MemoryUsedBytes = hw.MemoryTotalBytes - free
+	}
 }

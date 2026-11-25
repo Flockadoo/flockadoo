@@ -50,11 +50,13 @@ func (e *DoesNotFit) Error() string {
 // request at its full context, the estimate the compatibility check uses)
 // with the memory free for the engine now: free VRAM on a dedicated GPU, free
 // system memory on unified memory, and for vLLM on unified memory the share of
-// it vLLM starts with (E2). maxModelLen is the configured context; 0
-// uses the catalog's. It returns *DoesNotFit when the need is larger, and nil
-// when the model fits or the client cannot tell: no free-memory reading (a
-// Mac, for now), no GPU, several GPUs (the engine may split the model), or no
-// model size in the catalog.
+// it vLLM starts with (E2). On a Mac vLLM is vLLM Metal, which gets no share:
+// it sizes its KV cache to the memory free at start itself, so the model must
+// fit the free memory. maxModelLen is the configured context; 0 uses the
+// catalog's. It returns *DoesNotFit when the need is larger, and nil when the
+// model fits or the client cannot tell: no free-memory reading, no GPU,
+// several GPUs (the engine may split the model), or no model size in the
+// catalog.
 func StartCheck(hw *Hardware, entry verify.CatalogEntry, maxModelLen int64) error {
 	if hw == nil || entry.MinSizeBytes <= 0 || hw.MemoryFreeBytes <= 0 || hw.GPUCount != 1 {
 		return nil
@@ -72,9 +74,10 @@ func StartCheck(hw *Hardware, entry verify.CatalogEntry, maxModelLen int64) erro
 	}
 	need := requiredMemoryBytes(entry.MinSizeBytes, entry.ServiceType, lenPtr, entry.KVCacheBytesPerToken)
 	usable, share := hw.MemoryFreeBytes, 0.0
-	// vLLM on unified memory starts with a share of the memory that leaves
-	// room for the system (E2); the model must fit that share.
-	if hw.MemoryKind == MemoryUnified && strings.EqualFold(strings.TrimSpace(entry.ServiceType), "vllm") {
+	// vLLM (CUDA) on unified memory starts with a share of the memory that
+	// leaves room for the system (E2); the model must fit that share. The
+	// catalog says "vllm" for vLLM Metal too, so a Mac is told apart by its OS.
+	if hw.MemoryKind == MemoryUnified && hw.OS != "darwin" && strings.EqualFold(strings.TrimSpace(entry.ServiceType), "vllm") {
 		share = engine.MemoryShare(hw.MemoryTotalBytes, hw.MemoryFreeBytes)
 		usable = hw.MemoryTotalBytes * int64(share*100+0.5) / 100
 	}
