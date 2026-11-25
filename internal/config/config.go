@@ -42,6 +42,10 @@ type Config struct {
 		RequestTimeoutSeconds int `yaml:"request_timeout_seconds"`
 	} `yaml:"server"`
 
+	// IgnoredHFHubCache is a provider.hf_hub_cache line left in the file:
+	// read only to warn about it. Stub until H1.
+	IgnoredHFHubCache string `yaml:"-"`
+
 	// Provider configuration
 	Provider struct {
 		APIKey string `yaml:"api_key"`

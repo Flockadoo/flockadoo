@@ -26,3 +26,9 @@ func HubCacheNotice(cfg *config.Config) (resolved, warning string, err error) {
 	}
 	return resolved, warning, nil
 }
+
+// NewModelVerifier is the verifier the client measures its served model
+// with. Stub until H1: it still passes provider.hf_hub_cache on.
+func NewModelVerifier(cfg *config.Config, catalog *verify.Catalog, server *verify.ServerClient) *verify.Verifier {
+	return verify.NewVerifier(catalog, server, cfg.PlatformType(), cfg.Provider.HFHubCache, cfg.Provider.ModelPath)
+}

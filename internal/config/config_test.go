@@ -344,3 +344,30 @@ func TestAConcurrencyLimitBelowOneIsRefused(t *testing.T) {
 		t.Fatal("a config without the setting reports an explicit limit")
 	}
 }
+
+// Model revisions plan, item H1: provider.hf_hub_cache is gone. A line left
+// in an old file loads, is kept only so the client can warn that it is
+// ignored, and is not written back.
+func TestALeftoverHFHubCacheLineIsReadOnlyToWarn(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "config.yaml")
+	if err := os.WriteFile(path, []byte("provider:\n  engine: vllm\n  hf_hub_cache: /data/models\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	cfg, err := Load(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if cfg.IgnoredHFHubCache != "/data/models" {
+		t.Errorf("IgnoredHFHubCache = %q, want the leftover /data/models", cfg.IgnoredHFHubCache)
+	}
+	if err := Save(path, cfg); err != nil {
+		t.Fatal(err)
+	}
+	raw, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if strings.Contains(string(raw), "hf_hub_cache") {
+		t.Errorf("the saved config still has hf_hub_cache:\n%s", raw)
+	}
+}
