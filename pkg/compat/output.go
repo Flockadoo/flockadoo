@@ -95,7 +95,7 @@ func WriteTable(w io.Writer, report Report) error {
 	}
 	_, _ = fmt.Fprintf(w, "  Memory kind:    %s\n", hw.MemoryKind)
 	if hw.UnifiedMemory {
-		_, _ = fmt.Fprintln(w, "  Unified memory: yes (Apple Silicon)")
+		_, _ = fmt.Fprintf(w, "  Unified memory: yes (%s)\n", hw.unifiedLabel())
 	}
 	if hw.SystemRAMBytes > 0 {
 		_, _ = fmt.Fprintf(w, "  System RAM:     %s\n", formatBytes(hw.SystemRAMBytes))

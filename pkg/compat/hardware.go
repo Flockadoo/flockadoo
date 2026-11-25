@@ -1,8 +1,11 @@
 package compat
 
 import (
+	"bufio"
 	"context"
+	"errors"
 	"fmt"
+	"io"
 	"os/exec"
 	"runtime"
 	"strconv"
@@ -97,6 +100,12 @@ func fallbackSystemMemory(hw *Hardware, warning string) {
 // appleSiliconUsableFraction is a conservative share of unified memory for model weights + runtime.
 const appleSiliconUsableFraction = 0.65
 
+// nvidiaUnifiedUsableFraction is the share of an NVIDIA unified-memory
+// machine's memory (GB10) scored as usable. It is the share every R1 model
+// started with on peipei, with its desktop running (engine start memory
+// plan, E1; confirmed on the machine in R).
+const nvidiaUnifiedUsableFraction = 0.80
+
 func detectDarwin(ctx context.Context, hw *Hardware) error {
 	productName, coreCount, err := parseSystemProfilerGPU(ctx)
 	if err != nil {
@@ -177,9 +186,58 @@ func detectNVIDIA(ctx context.Context, hw *Hardware) error {
 	if err != nil {
 		return fmt.Errorf("nvidia-smi: %w", err)
 	}
+	return nvidiaHardware(hw, string(output), queryCUDAVersion(ctx), systemMemInfo)
+}
 
-	cudaVersion := queryCUDAVersion(ctx)
+// memInfo is the system's memory: MemTotal and MemAvailable on Linux.
+type memInfo struct {
+	Total     int64
+	Available int64
+}
 
+// parseMemInfo reads MemTotal and MemAvailable from /proc/meminfo's format.
+// Both must be there: a missing MemAvailable is an error, never 0 bytes free.
+func parseMemInfo(r io.Reader) (memInfo, error) {
+	var m memInfo
+	var haveTotal, haveAvailable bool
+	sc := bufio.NewScanner(r)
+	for sc.Scan() {
+		fields := strings.Fields(sc.Text())
+		if len(fields) < 2 {
+			continue
+		}
+		var dst *int64
+		switch fields[0] {
+		case "MemTotal:":
+			dst, haveTotal = &m.Total, true
+		case "MemAvailable:":
+			dst, haveAvailable = &m.Available, true
+		default:
+			continue
+		}
+		kb, err := strconv.ParseInt(fields[1], 10, 64)
+		if err != nil {
+			return memInfo{}, fmt.Errorf("meminfo %s: %w", fields[0], err)
+		}
+		*dst = kb * 1024
+	}
+	if err := sc.Err(); err != nil {
+		return memInfo{}, err
+	}
+	if !haveTotal || !haveAvailable || m.Total <= 0 {
+		return memInfo{}, errors.New("meminfo has no MemTotal or MemAvailable")
+	}
+	return m, nil
+}
+
+// nvidiaHardware fills hw from nvidia-smi's CSV (name, driver, total, used,
+// free, uuid, in MiB). mem reads the system's memory.
+//
+// A GPU that reports no memory of its own ([N/A] or [Not Supported], as an
+// NVIDIA GB10 does) shares the system's memory with the CPU: it is unified
+// memory, like Apple Silicon, measured from the system (engine start memory
+// plan, E1). GPUs that report their memory are scored on their VRAM.
+func nvidiaHardware(hw *Hardware, csv, cudaVersion string, mem func() (memInfo, error)) error {
 	type gpuRow struct {
 		name   string
 		driver string
@@ -187,8 +245,8 @@ func detectNVIDIA(ctx context.Context, hw *Hardware) error {
 		used   int64
 		free   int64
 	}
-	var gpus []gpuRow
-	for _, line := range strings.Split(strings.TrimSpace(string(output)), "\n") {
+	var gpus, unreported []gpuRow
+	for _, line := range strings.Split(strings.TrimSpace(csv), "\n") {
 		line = strings.TrimSpace(line)
 		if line == "" {
 			continue
@@ -197,9 +255,13 @@ func detectNVIDIA(ctx context.Context, hw *Hardware) error {
 		if len(parts) < 5 {
 			continue
 		}
-		totalMiB, _ := strconv.ParseInt(strings.TrimSpace(parts[2]), 10, 64)
+		totalMiB, errTotal := strconv.ParseInt(strings.TrimSpace(parts[2]), 10, 64)
 		usedMiB, _ := strconv.ParseInt(strings.TrimSpace(parts[3]), 10, 64)
 		freeMiB, _ := strconv.ParseInt(strings.TrimSpace(parts[4]), 10, 64)
+		if errTotal != nil {
+			unreported = append(unreported, gpuRow{name: strings.TrimSpace(parts[0]), driver: strings.TrimSpace(parts[1])})
+			continue
+		}
 		gpus = append(gpus, gpuRow{
 			name:   strings.TrimSpace(parts[0]),
 			driver: strings.TrimSpace(parts[1]),
@@ -207,6 +269,24 @@ func detectNVIDIA(ctx context.Context, hw *Hardware) error {
 			used:   usedMiB * 1024 * 1024,
 			free:   freeMiB * 1024 * 1024,
 		})
+	}
+	if len(gpus) == 0 && len(unreported) > 0 {
+		g := unreported[0]
+		m, err := mem()
+		if err != nil {
+			return fmt.Errorf("%s reports no memory of its own (unified memory) and the system's memory could not be read: %w", g.name, err)
+		}
+		hw.ProductName = g.name
+		hw.DriverVersion = g.driver
+		hw.CUDAVersion = cudaVersion
+		hw.GPUCount = len(unreported)
+		hw.MemoryKind = MemoryUnified
+		hw.UnifiedMemory = true
+		hw.MemoryTotalBytes = m.Total
+		hw.MemoryFreeBytes = m.Available
+		hw.MemoryUsedBytes = m.Total - m.Available
+		hw.UsableBytes = int64(float64(m.Total) * nvidiaUnifiedUsableFraction)
+		return nil
 	}
 	if len(gpus) == 0 {
 		return fmt.Errorf("nvidia-smi returned no GPUs")
@@ -241,6 +321,14 @@ func detectNVIDIA(ctx context.Context, hw *Hardware) error {
 			fmt.Sprintf("%d GPUs detected; scoring against largest single GPU (%.1f GiB)", len(gpus), bytesToGiB(best.total)))
 	}
 	return nil
+}
+
+// unifiedLabel names the kind of unified memory a machine has.
+func (hw *Hardware) unifiedLabel() string {
+	if strings.HasPrefix(hw.ProductName, "NVIDIA") {
+		return "NVIDIA"
+	}
+	return "Apple Silicon"
 }
 
 func queryCUDAVersion(ctx context.Context) string {
