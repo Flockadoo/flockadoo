@@ -373,3 +373,11 @@ func splitCSV(line string) []string {
 func bytesToGiB(b int64) float64 {
 	return float64(b) / (1024 * 1024 * 1024)
 }
+
+// macFreeMemory reads a Mac's free memory from vm_stat's output. Stub: the
+// tests come first.
+func macFreeMemory(vmStat string) (int64, error) { return 0, nil }
+
+// setMacFreeMemory sets a Mac's free and used memory. Stub: the tests come
+// first.
+func setMacFreeMemory(hw *Hardware, vmStat []byte, runErr error) {}
