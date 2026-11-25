@@ -678,6 +678,7 @@ func maybeStart(kind engine.Kind, spec engine.Spec, cfg *config.Config, opts Opt
 		}
 	}
 
+	reportOrphans(context.Background(), io.Out, scanOrphans) //nolint:forbidigo // the wizard has no caller context yet (CLU-4, item K1)
 	_, _ = fmt.Fprintf(io.Out, "Starting %s...\n", kind)
 	logPath := engine.LogPath(cfg.Logging.LogDir)
 	exited, err := startDetached(spec, logPath)

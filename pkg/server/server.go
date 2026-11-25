@@ -242,6 +242,10 @@ func (s *Server) SetEngineNote(note string) {
 	s.redrawConsole()
 }
 
+// SetOrphanedEngines is the local dashboard line for orphaned vLLM engine
+// processes the start found (engine start memory E4).
+func (s *Server) SetOrphanedEngines(note string) {}
+
 // SetCapabilities is the local dashboard line for capability checks.
 // Session status stays online while this line is set.
 func (s *Server) SetCapabilities(note string) {
