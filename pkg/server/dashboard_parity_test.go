@@ -211,7 +211,9 @@ func TestTheConsoleRowsAreInOrder(t *testing.T) {
 		case "Not serving", "Update", "Nodes", "Winglink IP":
 			continue
 		}
-		i := strings.Index(console, "\n"+label+" ")
+		// Labels are padded to 30 columns: two spaces end a label, so
+		// "Engine" does not match the start of "Engine not ready".
+		i := strings.Index(console, "\n"+label+"  ")
 		if label == "FLOCK STATUS" || label == "GPU INFORMATION" {
 			i = strings.Index(console, label)
 		}
