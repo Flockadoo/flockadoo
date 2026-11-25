@@ -17,6 +17,8 @@ var scanOrphans = engine.FindOrphans
 // StartReport is what the engine start found that the dashboard shows.
 type StartReport struct {
 	Orphans []engine.Orphan
+	// MemoryShare is the share vLLM was started with (E2).
+	MemoryShare ShareChoice
 }
 
 // Note is the dashboard's Orphaned engines line; empty when none were found.

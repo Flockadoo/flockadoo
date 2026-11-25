@@ -13,7 +13,8 @@ import (
 
 // StartAndWait starts the configured engine if llm_url is down and waits until it is serving.
 // A multi-node master returns once its torch store is accepting other ranks.
-func StartAndWait(ctx context.Context, cfg *config.Config, logDir string) error {
+// Each option adjusts the command just before it starts.
+func StartAndWait(ctx context.Context, cfg *config.Config, logDir string, opts ...StartOption) error {
 	if cfg == nil {
 		return fmt.Errorf("config is nil")
 	}

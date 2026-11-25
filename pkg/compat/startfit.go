@@ -16,6 +16,10 @@ type DoesNotFit struct {
 	// Context is the context the need was computed at; 0 when none applies.
 	Context int64
 	Kind    MemoryKind
+	// Share and Total are set when vLLM on unified memory may use only a
+	// share of the memory (E2): Free is then Share × Total.
+	Share float64
+	Total int64
 }
 
 func (e *DoesNotFit) Error() string {

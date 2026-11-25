@@ -103,3 +103,40 @@ func TestWithoutTheNumbersNothingIsRefused(t *testing.T) {
 		})
 	}
 }
+
+// E2: on unified memory vLLM starts with a share of the memory (free less a
+// margin), so that share, not all the free memory, is what the model must fit.
+// peipei: 0.81 of 121.86 GiB is 98.7 GiB, with 105.25 GiB free. A model that
+// needs 100 GiB fits the free memory but not the share.
+func TestOnUnifiedMemoryVLLMMustFitItsShare(t *testing.T) {
+	hw := &Hardware{OS: "linux", SystemRAMBytes: gb10Total}
+	if err := nvidiaHardware(hw, gb10CSV, "13.0", gb10Mem); err != nil {
+		t.Fatal(err)
+	}
+	// 80 GiB * 1.20 + 4 GiB of KV cache = 100 GiB.
+	needs100 := verify.CatalogEntry{Alias: "big", ServiceType: "vllm", MinSizeBytes: 80 * gib, MaxModelLen: i64(32768), KVCacheBytesPerToken: i64(128 << 10), IsActive: true}
+	err := StartCheck(hw, needs100, 0)
+	var dnf *DoesNotFit
+	if !errors.As(err, &dnf) {
+		t.Fatalf("StartCheck = %v, want DoesNotFit: 100 GiB does not fit vLLM's 0.81 share", err)
+	}
+	for _, want := range []string{"0.81", "121.86 GiB", "105.25 GiB"} {
+		if !strings.Contains(err.Error(), want) {
+			t.Errorf("%q does not say %q", err, want)
+		}
+	}
+}
+
+// Negative: llama.cpp takes no memory share; on the same machine the same
+// need is checked against all the free memory.
+func TestLlamaCppOnUnifiedMemoryUsesAllTheFreeMemory(t *testing.T) {
+	hw := &Hardware{OS: "linux", SystemRAMBytes: gb10Total}
+	if err := nvidiaHardware(hw, gb10CSV, "13.0", gb10Mem); err != nil {
+		t.Fatal(err)
+	}
+	// 80 GiB * 1.20 + 4 GiB of KV cache = 100 GiB, under 105.25 GiB free.
+	gguf := verify.CatalogEntry{Alias: "big-gguf", ServiceType: "llama_cpp", MinSizeBytes: 80 * gib, MaxModelLen: i64(32768), KVCacheBytesPerToken: i64(128 << 10), IsActive: true}
+	if err := StartCheck(hw, gguf, 0); err != nil {
+		t.Errorf("StartCheck = %v, want nil", err)
+	}
+}

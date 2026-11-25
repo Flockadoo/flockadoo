@@ -21,6 +21,8 @@ func TestMain(m *testing.M) {
 	scanOrphans = func(context.Context) ([]engine.Orphan, error) { return nil, nil }
 	// No test reads the catalog or the hardware to check a start.
 	checkStartFit = func(context.Context, *config.Config, []engine.Orphan) error { return nil }
+	// No test reads the machine's memory to choose a memory share.
+	chooseShare = func(context.Context, *config.Config, engine.Kind, []string) ShareChoice { return ShareChoice{} }
 	flockPlan = func(*config.Config) (flockSettings, error) {
 		return flockSettings{Role: "single"}, nil
 	}

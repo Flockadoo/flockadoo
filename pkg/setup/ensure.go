@@ -36,7 +36,7 @@ func EnsureOnStartAt(ctx context.Context, cfg *config.Config, configPath string,
 		report.Orphans = append(report.Orphans, found...)
 		return found, err
 	}
-	err := ensureOnStartWith(ctx, cfg, io, interactiveReader(io.In), startRevision(configPath, out), scan)
+	err := ensureOnStartWith(ctx, cfg, io, interactiveReader(io.In), startRevision(configPath, out), scan, nil)
 	return report, err
 }
 
@@ -46,12 +46,13 @@ func interactiveReader(in io.Reader) bool {
 }
 
 func ensureOnStart(ctx context.Context, cfg *config.Config, io Streams, interactive bool) error {
-	return ensureOnStartWith(ctx, cfg, io, interactive, nil, nil)
+	return ensureOnStartWith(ctx, cfg, io, interactive, nil, nil, nil)
 }
 
 // ensureOnStartWith runs revision, when set, just before it starts an engine,
 // and scan (scanOrphans when nil) before that.
-func ensureOnStartWith(ctx context.Context, cfg *config.Config, io Streams, interactive bool, revision func(context.Context, *config.Config) error, scan func(context.Context) ([]engine.Orphan, error)) error {
+// What the start did that the dashboard shows goes into report, when set.
+func ensureOnStartWith(ctx context.Context, cfg *config.Config, io Streams, interactive bool, revision func(context.Context, *config.Config) error, scan func(context.Context) ([]engine.Orphan, error), report *StartReport) error {
 	if scan == nil {
 		scan = scanOrphans
 	}
