@@ -87,7 +87,7 @@ features:
 
   - name: Compatibility check
     entry: compat.Run (flockadoo compatibility)
-    code: [pkg/compat/command.go, pkg/compat/score.go, pkg/compat/hardware.go, pkg/compat/output.go]
+    code: [pkg/compat/command.go, pkg/compat/score.go, pkg/compat/hardware.go, pkg/compat/hardware_linux.go, pkg/compat/hardware_darwin.go, pkg/compat/hardware_windows.go, pkg/compat/hardware_other.go, pkg/compat/output.go]
     tests: [pkg/compat/*_test.go]
 
   - name: GPU information

@@ -126,7 +126,7 @@ func ScoreModel(hw *Hardware, entry verify.CatalogEntry) ModelResult {
 		}
 	case MemoryUnified:
 		if res.Status == StatusTight {
-			res.Reason += "; Apple Silicon unified memory is shared with the OS"
+			res.Reason += "; " + hw.unifiedLabel() + " unified memory is shared with the OS"
 		}
 	case MemoryVRAM:
 		if hw.MemoryFreeBytes > 0 && hw.MemoryFreeBytes < required && res.Status != StatusTooLarge {
