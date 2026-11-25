@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.48.3] - 2026-11-25
+
+- On a Mac, a model that does not fit the memory free now is not started. The client reads the Mac's free memory the way vLLM Metal does (free, inactive and speculative pages from `vm_stat`), and refuses before vLLM starts, with both numbers, when the model's need (its weights plus one request at the configured context) is larger. The setup wizard checks this before it downloads. A Mac gets no memory share: vLLM Metal sizes its KV cache to the free memory itself. `flockadoo compatibility` now shows a Mac's free memory.
+- When vLLM refuses to start because the memory left after loading the model cannot hold the KV cache for one request at the model's context, the client now explains it with vLLM's numbers, for example "one request at the model's 8,192-token context needs 0.88 GiB of KV cache, and only 0.53 GiB is left for it after loading the model", instead of "process exited". vLLM's advice to lower `max_model_len` is not passed on: a context below the catalog's fails verification.
+- An orphaned vLLM engine process that macOS has paged out is reported as "memory paged out" instead of "0.0 GiB".
+- On an NVIDIA GB10, the client no longer logs three "Failed to parse memory" warnings every 3 seconds: nvidia-smi reports a GB10's GPU memory as N/A, which means not reported, not a failure.
+
 ## [0.48.2] - 2026-11-25
 
 - When the engine is not started (a model that does not fit the memory free, vLLM refusing for memory, or an engine that is not ready in time), the reason now stays on screen. It used to be printed once and cleared by the console half a second later, and it was not logged, so the machine showed a client with no engine and no reason. The reason is now logged, shown in a red Engine not ready row on the dashboard and the console, and given as `engine_not_ready` in `/api/status`. The row goes once the engine serves a model.
