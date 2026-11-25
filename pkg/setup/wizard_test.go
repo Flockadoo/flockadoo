@@ -19,6 +19,8 @@ func TestMain(m *testing.M) {
 	prepareFlock = func(*config.Config, *engine.Spec) error { return nil }
 	// No test reads the process table of the machine running it.
 	scanOrphans = func(context.Context) ([]engine.Orphan, error) { return nil, nil }
+	// No test reads the catalog or the hardware to check a start.
+	checkStartFit = func(context.Context, *config.Config, []engine.Orphan) error { return nil }
 	flockPlan = func(*config.Config) (flockSettings, error) {
 		return flockSettings{Role: "single"}, nil
 	}
