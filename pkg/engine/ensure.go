@@ -55,6 +55,10 @@ func StartAndWait(ctx context.Context, cfg *config.Config, logDir string, opts .
 			return err
 		}
 	}
+	// Read right before the start: a memory share fits the memory free now (E2).
+	for _, adjust := range opts {
+		adjust(kind, &spec)
+	}
 	offset := LogOffset(LogPath(logDir))
 	exited, err := StartDetached(spec, LogPath(logDir))
 	if err != nil {

@@ -685,6 +685,12 @@ func maybeStart(kind engine.Kind, spec engine.Spec, cfg *config.Config, opts Opt
 		}
 	}
 
+	// The memory share is chosen from the memory free right before the start (E2).
+	share := chooseShare(startCtx, cfg, kind, spec.Args)
+	spec = withShare(spec, share)
+	if note := share.Note(); note != "" {
+		_, _ = fmt.Fprintf(io.Out, "vLLM memory share: %s.\n", note)
+	}
 	_, _ = fmt.Fprintf(io.Out, "Starting %s...\n", kind)
 	logPath := engine.LogPath(cfg.Logging.LogDir)
 	offset := engine.LogOffset(logPath)

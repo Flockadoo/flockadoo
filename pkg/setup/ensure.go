@@ -31,12 +31,7 @@ func EnsureOnStartAt(ctx context.Context, cfg *config.Config, configPath string,
 		out = os.Stdout
 	}
 	var report StartReport
-	scan := func(ctx context.Context) ([]engine.Orphan, error) {
-		found, err := scanOrphans(ctx)
-		report.Orphans = append(report.Orphans, found...)
-		return found, err
-	}
-	err := ensureOnStartWith(ctx, cfg, io, interactiveReader(io.In), startRevision(configPath, out), scan, nil)
+	err := ensureOnStartWith(ctx, cfg, io, interactiveReader(io.In), startRevision(configPath, out), nil, &report)
 	return report, err
 }
 
@@ -152,6 +147,9 @@ func ensureOnStartWith(ctx context.Context, cfg *config.Config, io Streams, inte
 	}
 
 	found := reportOrphans(ctx, io.Out, scan)
+	if report != nil {
+		report.Orphans = found
+	}
 	// A model that does not fit the memory free now is not started (E3).
 	if err := checkStartFit(ctx, cfg, found); err != nil {
 		return err
@@ -162,7 +160,14 @@ func ensureOnStartWith(ctx context.Context, cfg *config.Config, io Streams, inte
 				return err
 			}
 		}
-		return engine.StartAndWait(ctx, cfg, cfg.Logging.LogDir)
+		// The memory share is chosen from the memory free right before the start (E2).
+		return engine.StartAndWait(ctx, cfg, cfg.Logging.LogDir, func(kind engine.Kind, spec *engine.Spec) {
+			choice := chooseShare(ctx, cfg, kind, spec.Args)
+			*spec = withShare(*spec, choice)
+			if report != nil {
+				report.MemoryShare = choice
+			}
+		})
 	})
 	if err != nil {
 		return fmt.Errorf("%w (see %s)", err, engine.LogPath(cfg.Logging.LogDir))
