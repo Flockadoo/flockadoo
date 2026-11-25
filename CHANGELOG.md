@@ -1,5 +1,9 @@
 # Changelog
 
+## [0.47.0] - 2026-11-25
+
+- `provider.hf_hub_cache` is removed. It only ever told the verifier where to look, not `hf` or the engine, so a machine that set it downloaded a model to one folder and was verified in another. A line left in `config.yaml` is ignored: at start (and in `flockadoo model`) the client warns that it is ignored, names the folder it uses, and the line is dropped the next time the client saves the config. Models are downloaded to, served from and verified in the Hugging Face cache (`HF_HUB_CACHE`, then `HF_HOME/hub`, then `~/.cache/huggingface/hub`). To use another folder, set `HF_HUB_CACHE` in the client's environment. `provider.model_path` still points the verifier at a flat folder of weights.
+
 ## [0.46.0] - 2026-11-25
 
 - A model is now downloaded and served at the exact Hugging Face commit Flockadoo approved, so a change upstream can no longer change what a machine serves. vLLM starts with `--revision` and `--tokenizer-revision` set to that commit and with `HF_HUB_OFFLINE=1`, so it never downloads `main` by itself; llama.cpp is started with `-m` on that commit's cached file. Before the engine starts, the client picks the commit to serve: the one in the config while it is still approved, otherwise the current or the accepted one already on disk, otherwise it downloads the current one. It then saves the choice in the config as `provider.hf_revision` (with `hf_repo` and `gguf_file`). A commit that is no longer current, or that is retired, is reported at start and kept: a retired commit is not replaced automatically, because the download can be 20 to 60 GB. Against a server that lists no commits, the client serves the model as configured, as before.
