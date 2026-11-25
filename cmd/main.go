@@ -297,7 +297,7 @@ func main() {
 	if !useTray {
 		srv.SetConsole(os.Stdout)
 	}
-	startCapacity(ctx, cfg, *configPath, llmURL, llmClient, gpuMonitor, catalog, srv, healthReporter)
+	startCapacity(ctx, cfg, *configPath, llmURL, llmClient, gpuMonitor, catalog, srv, healthReporter, startReport.MemoryShare.Share)
 
 	serverErr := make(chan error, 1)
 	go func() {
@@ -609,7 +609,9 @@ func runBenchmark(args []string) error {
 	return nil
 }
 
-func startCapacity(ctx context.Context, cfg *config.Config, configPath, llmURL string, llmClient llm.Client, gpuMonitor *gpu.Monitor, catalog *verify.Catalog, srv *server.Server, reporter *health.Reporter) {
+// share is the memory share this start gave vLLM (E2); 0 when the client did
+// not start the engine or chose none.
+func startCapacity(ctx context.Context, cfg *config.Config, configPath, llmURL string, llmClient llm.Client, gpuMonitor *gpu.Monitor, catalog *verify.Catalog, srv *server.Server, reporter *health.Reporter, share float64) {
 	if cfg.EnrolledWorker() || cfg.Provider.FlockRole == "worker" {
 		return
 	}
@@ -705,6 +707,8 @@ func startCapacity(ctx context.Context, cfg *config.Config, configPath, llmURL s
 		},
 		// An embedding model answers no chat; it is measured with embeddings.
 		Embedding: engine.IsEmbedding(cfg.Provider.Task),
+		// A lower memory share than the limit was measured at makes it stale (D2).
+		Share: func() float64 { return share },
 		Record: func(res benchmark.Result) {
 			reporter.SetBenchmark(&health.BenchmarkSummary{
 				Concurrency: res.Concurrency,

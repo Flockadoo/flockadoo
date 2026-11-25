@@ -2,6 +2,8 @@ package benchmark
 
 import (
 	"context"
+	"fmt"
+	"math"
 	"net/http"
 	"time"
 
@@ -85,10 +87,52 @@ func (w *Watcher) step(ctx context.Context) {
 		fp = w.Fingerprint()
 	}
 	if cached, ok := load(w.ConfigPath); ok && cached.Fingerprint == fp && fp != "" {
+		if scaled, stale := w.staleForShare(cached); stale {
+			// Measured with more request cache than this start has (D2):
+			// scale the limit down now, then measure again.
+			note := fmt.Sprintf("memory share %.2f is below the %.2f the limit was measured at; limit scaled to %d until measured again",
+				w.share(), cached.MemoryShare, scaled)
+			logger.Info("benchmark stale: " + note)
+			if w.Apply != nil {
+				w.Apply(scaled)
+			}
+			if w.Note != nil {
+				w.Note(note)
+			}
+			w.measure(ctx, fp)
+			return
+		}
 		w.finish(cached)
 		return
 	}
 	w.measure(ctx, fp)
+}
+
+// staleShareStep is how much lower, in hundredths, a start's memory share may
+// be than the one a result was measured at before the result is stale (D2).
+const staleShareStep = 5
+
+// share is the memory share the running engine was started with; 0 when it
+// is not known.
+func (w *Watcher) share() float64 {
+	if w.Share == nil {
+		return 0
+	}
+	return w.Share()
+}
+
+// staleForShare reports whether cached was measured at a memory share more
+// than 0.05 above this start's, and the limit scaled to this start's share.
+// Shares are compared in whole hundredths, as vLLM's flag is written.
+func (w *Watcher) staleForShare(cached Result) (int, bool) {
+	now := w.share()
+	if now <= 0 || cached.MemoryShare <= 0 {
+		return 0, false
+	}
+	if math.Round(cached.MemoryShare*100)-math.Round(now*100) <= staleShareStep {
+		return 0, false
+	}
+	return max(1, int(float64(cached.Concurrency)*now/cached.MemoryShare)), true
 }
 
 func (w *Watcher) measure(ctx context.Context, fp string) {
@@ -172,6 +216,7 @@ func (w *Watcher) measure(ctx context.Context, fp string) {
 		Levels:      levels,
 		GPUBusy:     w.GPUBusy != nil && w.GPUBusy(),
 		Fallback:    fallback,
+		MemoryShare: w.share(),
 	}
 	if err := save(w.ConfigPath, res); err != nil {
 		logger.Warn("could not save benchmark", zap.Error(err))
