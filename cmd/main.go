@@ -266,7 +266,7 @@ func main() {
 				zap.Strings("aliases", catalog.Aliases()))
 		}
 		serverClient := verify.NewServerClient(cfg.Provider.URL, cfg.Provider.APIKey)
-		modelVerifier = verify.NewVerifier(catalog, serverClient, cfg.PlatformType(), cfg.Provider.HFHubCache, cfg.Provider.ModelPath)
+		modelVerifier = setup.NewModelVerifier(cfg, catalog, serverClient)
 		// The commit the engine serves (model revisions C5), chosen at start.
 		modelVerifier.SetRevision(cfg.Provider.HFRevision)
 		// Its answers, for `flockadoo model list` (model revisions C2).

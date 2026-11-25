@@ -27,6 +27,7 @@ const servedCommit = "aa8e72537993ba99e69dfaafa59ed015b17504d1"
 func snapshotWorld(t *testing.T, tokenizer string) (hub string) {
 	t.Helper()
 	hub = t.TempDir()
+	t.Setenv("HF_HUB_CACHE", hub)
 	snap := filepath.Join(hub, HFRepoToCacheDir("org/m"), "snapshots", servedCommit)
 	if err := os.MkdirAll(snap, 0o755); err != nil {
 		t.Fatal(err)
@@ -57,13 +58,13 @@ var orgM = map[string]any{"object": "list", "data": []map[string]any{
 }}
 
 func TestTheServersVerdictIsKeptForTheSnapshotItJudged(t *testing.T) {
-	hub := snapshotWorld(t, `{"a":1}`)
+	snapshotWorld(t, `{"a":1}`)
 	plat := fakeplatform.New(t, "k")
 	plat.Set(http.MethodGet, "/api/models/approved-builds", fakeplatform.JSON(http.StatusOK, orgM))
 	plat.Set(http.MethodPost, "/api/provider/verify-model", fakeplatform.JSON(http.StatusOK, map[string]string{"verification_status": "verified"}))
 	path := filepath.Join(t.TempDir(), "model-verdicts.json")
 
-	v := NewVerifier(catalogFor(t, plat.URL), NewServerClient(plat.URL, "k"), "vllm", hub, "")
+	v := NewVerifier(catalogFor(t, plat.URL), NewServerClient(plat.URL, "k"), "vllm", "")
 	v.SetRevision(servedCommit)
 	v.SetVerdictLog(NewVerdictLog(path))
 	before := time.Now()
@@ -84,13 +85,13 @@ func TestTheServersVerdictIsKeptForTheSnapshotItJudged(t *testing.T) {
 
 // An outage is not a verdict: nothing is written, and Check says why.
 func TestAFailureToAskTheServerRecordsNothing(t *testing.T) {
-	hub := snapshotWorld(t, `{"a":1}`)
+	snapshotWorld(t, `{"a":1}`)
 	plat := fakeplatform.New(t, "k")
 	plat.Set(http.MethodGet, "/api/models/approved-builds", fakeplatform.JSON(http.StatusOK, orgM))
 	plat.Set(http.MethodPost, "/api/provider/verify-model", fakeplatform.JSON(http.StatusBadGateway, map[string]string{"error": "upstream unavailable"}))
 	path := filepath.Join(t.TempDir(), "model-verdicts.json")
 
-	v := NewVerifier(catalogFor(t, plat.URL), NewServerClient(plat.URL, "k"), "vllm", hub, "")
+	v := NewVerifier(catalogFor(t, plat.URL), NewServerClient(plat.URL, "k"), "vllm", "")
 	v.SetRevision(servedCommit)
 	v.SetVerdictLog(NewVerdictLog(path))
 	if _, err := v.Check(context.Background(), "org/m"); err == nil {
@@ -125,8 +126,8 @@ func TestAChangedTokenizerFileIsJudgedFailed(t *testing.T) {
 	t.Cleanup(judge.Close)
 
 	for tokenizer, wantStatus := range map[string]Status{approved: StatusVerified, `{"a":2}`: StatusFailed} {
-		hub := snapshotWorld(t, tokenizer)
-		v := NewVerifier(catalogFor(t, judge.URL), NewServerClient(judge.URL, "k"), "vllm", hub, "")
+		snapshotWorld(t, tokenizer)
+		v := NewVerifier(catalogFor(t, judge.URL), NewServerClient(judge.URL, "k"), "vllm", "")
 		v.SetRevision(servedCommit)
 		v.SetVerdictLog(NewVerdictLog(filepath.Join(t.TempDir(), "v.json")))
 		if got, err := v.Check(context.Background(), "org/m"); err != nil || got != wantStatus {

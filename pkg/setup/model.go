@@ -135,7 +135,7 @@ func RunModel(ctx context.Context, args []string, s Streams) error {
 			if err := load(ctx); err != nil {
 				return "", err
 			}
-			v := verify.NewVerifier(catalog, verify.NewServerClient(cfg.Provider.URL, cfg.Provider.APIKey), cfg.PlatformType(), hub, "")
+			v := verify.NewVerifier(catalog, verify.NewServerClient(cfg.Provider.URL, cfg.Provider.APIKey), cfg.PlatformType(), "")
 			v.SetRevision(sha)
 			v.SetVerdictLog(verdicts)
 			return v.Check(ctx, alias)
