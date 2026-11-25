@@ -1,0 +1,4 @@
+{
+  "comment": "Folders no Flockadoo engine loads, which are never downloaded, hashed, sized or judged. One list for getModels (SKIP_MANIFEST_DIRS), the client (pkg/verify skipManifestDirs) and the server judge (pkg/modelverify altWeightDirs). The original is flockadoo-server tests/contract/testdata/skip-dirs.json; change all three copies together.",
+  "dirs": [".cache", ".git", "metal", "mlx", "onnx", "onnx-gpu", "openvino", "original"]
+}
