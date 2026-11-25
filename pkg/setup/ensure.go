@@ -32,6 +32,9 @@ func EnsureOnStartAt(ctx context.Context, cfg *config.Config, configPath string,
 	}
 	var report StartReport
 	err := ensureOnStartWith(ctx, cfg, io, interactiveReader(io.In), startRevision(configPath, out), nil, &report)
+	if err != nil {
+		report.NotReady = err.Error()
+	}
 	return report, err
 }
 

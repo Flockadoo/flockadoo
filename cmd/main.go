@@ -290,6 +290,10 @@ func main() {
 		logger.Warn(note)
 		srv.SetOrphanedEngines(note)
 	}
+	if startReport.NotReady != "" {
+		logger.Warn("inference engine not ready: " + startReport.NotReady)
+		srv.SetEngineNotReady(startReport.NotReady)
+	}
 	if note := startReport.MemoryShare.Note(); note != "" {
 		logger.Info("vLLM memory share: " + note)
 		srv.SetMemoryShare(note)

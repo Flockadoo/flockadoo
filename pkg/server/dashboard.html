@@ -118,6 +118,7 @@ function render(s) {
     ${row("Last Health Update", esc(s.last_health_update))}
     ${row("Session Status", esc(s.session_status || "online"), s.session_status === "benchmarking" ? "warn" : "ok")}
     ${s.not_serving ? row("Not serving", esc(s.not_serving), "bad") : ""}
+    ${s.engine_not_ready ? row("Engine not ready", esc(s.engine_not_ready), "bad") : ""}
     ${s.engine_note ? row("Benchmark", esc(s.engine_note)) : ""}
     ${s.capability_line ? row("Capabilities", esc(s.capability_line)) : ""}
     ${s.orphaned_engines ? row("Orphaned engines", esc(s.orphaned_engines), "warn") : ""}
