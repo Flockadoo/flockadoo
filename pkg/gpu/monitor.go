@@ -240,20 +240,9 @@ func parseNvidiaSMI(output []byte) (*GPUInfo, error) {
 	gpu := nvidiaSMI.GPUs[0]
 
 	// Parse memory values
-	memTotal, err := parseMemoryValue(gpu.FBMemoryUsage.Total)
-	if err != nil {
-		logger.Warn("Failed to parse memory total", zap.Error(err), zap.String("memory_total", gpu.FBMemoryUsage.Total))
-	}
-
-	memUsed, err := parseMemoryValue(gpu.FBMemoryUsage.Used)
-	if err != nil {
-		logger.Warn("Failed to parse memory used", zap.Error(err), zap.String("memory_used", gpu.FBMemoryUsage.Used))
-	}
-
-	memFree, err := parseMemoryValue(gpu.FBMemoryUsage.Free)
-	if err != nil {
-		logger.Warn("Failed to parse memory free", zap.Error(err), zap.String("memory_free", gpu.FBMemoryUsage.Free))
-	}
+	memTotal := memoryField("total", gpu.FBMemoryUsage.Total)
+	memUsed := memoryField("used", gpu.FBMemoryUsage.Used)
+	memFree := memoryField("free", gpu.FBMemoryUsage.Free)
 
 	// Parse utilization
 	utilization, err := parseUtilization(gpu.Utilization.GPUUtil)
@@ -405,6 +394,20 @@ func macProductName(ctx context.Context) (string, error) {
 }
 
 // parseMemoryValue parses a memory value string (e.g., "1234 MiB")
+// memoryField reads one of the GPU's memory values in MiB; 0 when it cannot.
+// N/A is a GPU with no memory of its own (unified memory, a GB10): not
+// reported, so not a failure, and not warned about at every query.
+func memoryField(name, value string) int64 {
+	if v := strings.TrimSpace(value); v == "N/A" || v == "[N/A]" {
+		return 0
+	}
+	n, err := parseMemoryValue(value)
+	if err != nil {
+		logger.Warn("Failed to parse memory "+name, zap.Error(err), zap.String("memory_"+name, value))
+	}
+	return n
+}
+
 func parseMemoryValue(value string) (int64, error) {
 	parts := strings.Split(value, " ")
 	if len(parts) != 2 {
