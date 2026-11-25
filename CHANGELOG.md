@@ -1,5 +1,9 @@
 # Changelog
 
+## [0.48.1] - 2026-11-25
+
+- The out-of-memory messages no longer suggest a shorter context. A context below the catalog's `max_model_len` fails model verification, so that advice could not work. The "does not fit" message before the start and the explanation of a vLLM Metal "Insufficient Memory" refusal now end "Close other programs, or choose a smaller model" (the Metal one also names any orphaned vLLM engine process).
+
 ## [0.48.0] - 2026-11-25
 
 - On a machine whose GPU shares its memory with the CPU (an NVIDIA GB10 / DGX Spark), vLLM now starts with a memory share that fits the memory free at that moment. vLLM reserves 0.92 of the total memory by default and refuses to start when that much is not free, which on a GB10 running a desktop happened even for a 2 GB model. Right before each start the client reads the free memory and passes `--gpu-memory-utilization` as min(0.92, (free − margin) / total), rounded down to 0.01, where the margin is 4 GiB or 5% of the total, whichever is larger (0.81 on a 128 GB GB10 with a desktop running). The share is not saved, so every start chooses again. A share you wrote into the engine command yourself is kept. Dedicated GPUs, Macs, llama.cpp and Team Flocks are unchanged. The share is logged and shown in a new Memory share row on the dashboard and the console, and as `memory_share` in `/api/status`.
