@@ -24,6 +24,9 @@ type Result struct {
 	// Fallback is true when no level ran and Concurrency is the catalog's
 	// number or the engine's default, not a measurement.
 	Fallback bool `json:"fallback,omitempty"`
+	// MemoryShare is the --gpu-memory-utilization the engine was measured at
+	// (engine start memory plan, D2); 0 when it was not known.
+	MemoryShare float64 `json:"memory_share,omitempty"`
 }
 
 func pathFor(configPath string) string {

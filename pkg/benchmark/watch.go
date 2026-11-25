@@ -35,6 +35,9 @@ type Watcher struct {
 	Inflight    func() int32
 	Preemptions func(ctx context.Context) int64
 	Record      func(Result)
+	// Share is the memory share the running engine was started with; 0 when
+	// it is not known (engine start memory plan, D2).
+	Share func() float64
 	// Embedding is true when the catalog's task for the model is embedding:
 	// it is measured with /v1/embeddings requests, since it answers no chat.
 	Embedding bool
