@@ -16,9 +16,13 @@ import (
 // The fixtures are lines the R1 runs wrote (2026-11-24), copied, not written:
 // peipei (GB10, vLLM 0.34.0, bge-m3 at vLLM's default memory share) and the
 // macmini (M4, vLLM Metal 0.33.0, Qwen2.5-3B with an orphan holding 6 GB).
-// vLLM's other memory errors (CUDA out of memory, a KV cache too small for the
-// context) are added when a run records them.
+// kvCacheRefusal is the line the R run wrote on the macmini (2026-11-25,
+// vLLM Metal 0.33.0, Qwen3-1.7B at --gpu-memory-utilization 0.4), copied from
+// its log by bytes (SHA-256 595246be...8f6f). The check that writes it is
+// upstream vLLM's, so vLLM on CUDA writes the same line. CUDA out of memory is
+// added when a run records it.
 const (
+	kvCacheRefusal = "(EngineCore pid=11009) ERROR 11-25 16:26:06 [core.py:1584] ValueError: To serve at least one request with the model's max seq len (8192), (0.88 GiB KV cache is needed, which is larger than the available KV cache memory (0.53 GiB). Based on the available memory, the estimated maximum model length is 4992. Try increasing `gpu_memory_utilization` (which also controls CPU memory on the CPU backend) or decreasing `max_model_len` when initializing the engine. See https://docs.vllm.ai/en/latest/configuration/conserving_memory/ for more details."
 	peipeiRefusal  = "(EngineCore pid=2132371) ERROR 11-24 09:15:32 [core.py:1757] ValueError: Free memory on device cuda:0 (105.25/121.86 GiB) on startup is less than desired GPU memory utilization (0.92, 112.11 GiB). Decrease GPU memory utilization or reduce GPU memory used by other processes."
 	macminiRefusal = "(EngineCore pid=309) ERROR 11-24 10:11:13 [core.py:1584] RuntimeError: [METAL] Command buffer execution failed: Insufficient Memory (00000008:kIOGPUCommandBufferCallbackErrorOutOfMemory)."
 )
@@ -48,6 +52,38 @@ func TestMetalOutOfMemoryIsExplained(t *testing.T) {
 	// A context below the catalog's max_model_len fails verification.
 	if strings.Contains(msg, "context") {
 		t.Errorf("%q advises a shorter context, which fails verification", msg)
+	}
+}
+
+// A KV cache too small for one request at the model's context: the model
+// loaded, and the memory left for the KV cache does not hold one request.
+func TestAKVCacheTooSmallForOneRequestIsExplained(t *testing.T) {
+	msg, ok := memoryRefusal("loading\n" + kvCacheRefusal + "\nTraceback\n")
+	if !ok {
+		t.Fatal("the refusal was not recognised")
+	}
+	for _, want := range []string{"0.88 GiB", "0.53 GiB", "8,192", "Close other programs", "smaller model"} {
+		if !strings.Contains(msg, want) {
+			t.Errorf("%q does not say %q", msg, want)
+		}
+	}
+	// vLLM suggests decreasing max_model_len and offers a shorter maximum; a
+	// context below the catalog's max_model_len fails verification.
+	for _, advice := range []string{"max_model_len", "4992", "4,992", "shorter", "lower the context", "decreas"} {
+		if strings.Contains(msg, advice) {
+			t.Errorf("%q passes on vLLM's advice %q, which fails verification", msg, advice)
+		}
+	}
+}
+
+func TestAKVCacheRefusalIsANotEnoughMemoryStartFailure(t *testing.T) {
+	log := filepath.Join(t.TempDir(), "engine.log")
+	if err := os.WriteFile(log, []byte("loading\n"+kvCacheRefusal+"\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	got := ExplainStartFailure(errors.New("engine exited"), log, 0)
+	if !errors.Is(got, ErrNotEnoughMemory) || !strings.Contains(got.Error(), "0.88 GiB") {
+		t.Errorf("ExplainStartFailure = %v, want the KV cache refusal in plain words", got)
 	}
 }
 
