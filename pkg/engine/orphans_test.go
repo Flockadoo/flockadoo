@@ -125,6 +125,25 @@ func TestTheReportNamesPIDMemoryAgeAndHowToStopIt(t *testing.T) {
 	}
 }
 
+// Found in R on the macmini (2026-11-25): macOS had paged out an orphan
+// (pid 84833, 6 hours 43 minutes old), so ps gave it almost no resident
+// memory and the report said "holding memory (pid 84833, 0.0 GiB, ...)". Its
+// memory is in the compressor or swap, not gone: the report says it is paged
+// out instead of 0.0 GiB.
+func TestAPagedOutOrphanIsNotReportedAsHoldingNoMemory(t *testing.T) {
+	o := Orphan{PID: 84833, RSSBytes: 3 << 20, Age: 6*time.Hour + 43*time.Minute}
+	if got := o.Summary(); got != "pid 84833, memory paged out, running 6 hours 43 minutes" {
+		t.Errorf("Summary = %q", got)
+	}
+	if line := o.String(); strings.Contains(line, "0.0 GiB") {
+		t.Errorf("%q says 0.0 GiB", line)
+	}
+	// Negative: an orphan with memory resident still gives its size.
+	if got := (Orphan{PID: 84833, RSSBytes: 1288 << 20, Age: 6*time.Hour + 40*time.Minute}).Summary(); got != "pid 84833, 1.3 GiB, running 6 hours 40 minutes" {
+		t.Errorf("Summary = %q", got)
+	}
+}
+
 // The process table as ps prints it on macOS and Linux (pid, ppid, uid, rss in
 // KiB, elapsed time, command).
 func TestPSOutputIsParsed(t *testing.T) {

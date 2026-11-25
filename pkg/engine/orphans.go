@@ -23,7 +23,13 @@ type Orphan struct {
 
 // Summary is "pid 41467, 5.8 GiB, running 7 days 18 hours".
 func (o Orphan) Summary() string {
-	return fmt.Sprintf("pid %d, %.1f GiB, running %s", o.PID, float64(o.RSSBytes)/(1<<30), formatAge(o.Age))
+	memory := fmt.Sprintf("%.1f GiB", float64(o.RSSBytes)/(1<<30))
+	// macOS pages out an idle orphan: ps then gives it almost no resident
+	// memory, while its memory sits in the compressor or swap (R, macmini).
+	if memory == "0.0 GiB" {
+		memory = "memory paged out"
+	}
+	return fmt.Sprintf("pid %d, %s, running %s", o.PID, memory, formatAge(o.Age))
 }
 
 // String is the line the console and the log show.
