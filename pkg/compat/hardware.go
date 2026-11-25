@@ -2,7 +2,9 @@ package compat
 
 import (
 	"context"
+	"errors"
 	"fmt"
+	"io"
 	"os/exec"
 	"runtime"
 	"strconv"
@@ -97,6 +99,12 @@ func fallbackSystemMemory(hw *Hardware, warning string) {
 // appleSiliconUsableFraction is a conservative share of unified memory for model weights + runtime.
 const appleSiliconUsableFraction = 0.65
 
+// nvidiaUnifiedUsableFraction is the share of an NVIDIA unified-memory
+// machine's memory (GB10) scored as usable. It is the share every R1 model
+// started with on peipei, with its desktop running (engine start memory
+// plan, E1; confirmed on the machine in R).
+const nvidiaUnifiedUsableFraction = 0.80
+
 func detectDarwin(ctx context.Context, hw *Hardware) error {
 	productName, coreCount, err := parseSystemProfilerGPU(ctx)
 	if err != nil {
@@ -177,9 +185,24 @@ func detectNVIDIA(ctx context.Context, hw *Hardware) error {
 	if err != nil {
 		return fmt.Errorf("nvidia-smi: %w", err)
 	}
+	return nvidiaHardware(hw, string(output), queryCUDAVersion(ctx), systemMemInfo)
+}
 
-	cudaVersion := queryCUDAVersion(ctx)
+// memInfo is the system's memory: MemTotal and MemAvailable on Linux.
+type memInfo struct {
+	Total     int64
+	Available int64
+}
 
+// parseMemInfo reads MemTotal and MemAvailable from /proc/meminfo's format.
+func parseMemInfo(r io.Reader) (memInfo, error) {
+	return memInfo{}, errors.New("not implemented")
+}
+
+// nvidiaHardware fills hw from nvidia-smi's CSV (name, driver, total, used,
+// free, uuid, in MiB). mem reads the system's memory.
+func nvidiaHardware(hw *Hardware, csv, cudaVersion string, mem func() (memInfo, error)) error {
+	_ = mem
 	type gpuRow struct {
 		name   string
 		driver string
@@ -188,7 +211,7 @@ func detectNVIDIA(ctx context.Context, hw *Hardware) error {
 		free   int64
 	}
 	var gpus []gpuRow
-	for _, line := range strings.Split(strings.TrimSpace(string(output)), "\n") {
+	for _, line := range strings.Split(strings.TrimSpace(csv), "\n") {
 		line = strings.TrimSpace(line)
 		if line == "" {
 			continue

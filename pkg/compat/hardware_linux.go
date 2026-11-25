@@ -38,3 +38,13 @@ func systemRAMBytes() (int64, error) {
 	}
 	return 0, fmt.Errorf("MemTotal not found in /proc/meminfo")
 }
+
+// systemMemInfo reads /proc/meminfo.
+func systemMemInfo() (memInfo, error) {
+	f, err := os.Open("/proc/meminfo")
+	if err != nil {
+		return memInfo{}, err
+	}
+	defer func() { _ = f.Close() }()
+	return parseMemInfo(f)
+}
