@@ -86,9 +86,12 @@ func RunModel(ctx context.Context, args []string, s Streams) error {
 		return err
 	}
 	config.ApplyEnvOverrides(cfg)
-	hub, err := verify.DefaultHFHubCache()
+	hub, warning, err := HubCacheNotice(cfg)
 	if err != nil {
-		return fmt.Errorf("finding the Hugging Face cache: %w", err)
+		return err
+	}
+	if warning != "" {
+		_, _ = fmt.Fprintln(s.Err, "Warning: "+warning)
 	}
 	catalog := verify.NewCatalog(cfg.Provider.URL, cfg.PlatformType())
 	loaded := false

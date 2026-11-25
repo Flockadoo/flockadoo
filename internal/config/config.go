@@ -57,7 +57,7 @@ type Config struct {
 		Model string `yaml:"model,omitempty"`
 		// AutoStart, when true, starts the engine if llm_url is down.
 		AutoStart  bool   `yaml:"auto_start"`
-		HFHubCache string `yaml:"hf_hub_cache,omitempty"` // optional; default ~/.cache/huggingface/hub
+		HFHubCache string `yaml:"hf_hub_cache,omitempty"` // deprecated: reaches only the verifier; set HF_HUB_CACHE instead. Warned about (setup.HubCacheNotice), removed in the next release
 		ModelPath  string `yaml:"model_path,omitempty"`   // optional flat dir override (hf download --local-dir)
 		// LLMTimeoutSeconds is the timeout for non-streaming requests
 		// forwarded to the local vLLM, vLLM Metal, or llama.cpp instance.
