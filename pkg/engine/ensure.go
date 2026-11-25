@@ -3,6 +3,7 @@ package engine
 import (
 	"context"
 	"fmt"
+	"slices"
 	"time"
 
 	"github.com/Flockadoo/flockadoo/internal/config"
@@ -73,7 +74,9 @@ func StartAndWait(ctx context.Context, cfg *config.Config, logDir string) error 
 	return nil
 }
 
-// SpecFromConfig rebuilds the last serve command from a saved config.
+// SpecFromConfig rebuilds the last serve command from a saved config. A saved
+// command (provider.engine_args) is used as saved, pinned to the configured
+// commit.
 func SpecFromConfig(cfg *config.Config) (Spec, error) {
 	if cfg == nil {
 		return Spec{}, fmt.Errorf("config is nil")
@@ -100,8 +103,9 @@ func SpecFromConfig(cfg *config.Config) (Spec, error) {
 	}
 	spec := ServeSpec(kind, bin, cfg.Provider.Model, hfRepo, opts)
 	if len(cfg.Provider.EngineArgs) > 0 {
-		spec.Args = append([]string(nil), cfg.Provider.EngineArgs...)
-		spec.Env = append([]string(nil), cfg.Provider.EngineEnv...)
+		// The saved command, on the commit the config serves now (R1).
+		spec.Args, spec.Env = pinRevision(kind, slices.Clone(cfg.Provider.EngineArgs), slices.Clone(cfg.Provider.EngineEnv),
+			opts.Revision, opts.HubCache, hfRepo, opts.GGUFFile)
 		if cfg.Provider.LLMURL != "" {
 			spec.URL = cfg.Provider.LLMURL
 		}
