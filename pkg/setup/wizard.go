@@ -672,15 +672,22 @@ func maybeStart(kind engine.Kind, spec engine.Spec, cfg *config.Config, opts Opt
 		}
 		return nil
 	}
+	// Orphans are reported, and the fit checked, before a download that
+	// could be tens of GB (E3, E4).
+	startCtx := context.Background() //nolint:forbidigo // the wizard has no caller context yet (CLU-4, item K1)
+	found := reportOrphans(startCtx, io.Out, scanOrphans)
+	if err := checkStartFit(startCtx, cfg, found); err != nil {
+		return err
+	}
 	if download != nil {
-		if err := download(context.Background()); err != nil { //nolint:forbidigo // the wizard has no caller context yet (CLU-4, item K1)
+		if err := download(startCtx); err != nil {
 			return err
 		}
 	}
 
-	reportOrphans(context.Background(), io.Out, scanOrphans) //nolint:forbidigo // the wizard has no caller context yet (CLU-4, item K1)
 	_, _ = fmt.Fprintf(io.Out, "Starting %s...\n", kind)
 	logPath := engine.LogPath(cfg.Logging.LogDir)
+	offset := engine.LogOffset(logPath)
 	exited, err := startDetached(spec, logPath)
 	if err != nil {
 		return err
@@ -690,7 +697,7 @@ func maybeStart(kind engine.Kind, spec engine.Spec, cfg *config.Config, opts Opt
 	if err := SpinWhile(io.Out, waitMsg, func() error {
 		return engine.WaitHealthy(waitCtx, kind, cfg.Provider.LLMURL, 2*time.Second, exited)
 	}); err != nil {
-		return fmt.Errorf("%w (see %s)", err, logPath)
+		return fmt.Errorf("%w (see %s)", engine.ExplainStartFailure(err, logPath, offset), logPath)
 	}
 	_, _ = fmt.Fprintf(io.Out, "Engine is ready at %s.\n", cfg.Provider.LLMURL)
 	return nil

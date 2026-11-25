@@ -150,7 +150,11 @@ func ensureOnStartWith(ctx context.Context, cfg *config.Config, io Streams, inte
 		return nil
 	}
 
-	reportOrphans(ctx, io.Out, scan)
+	found := reportOrphans(ctx, io.Out, scan)
+	// A model that does not fit the memory free now is not started (E3).
+	if err := checkStartFit(ctx, cfg, found); err != nil {
+		return err
+	}
 	err := SpinWhile(io.Out, waitMsg, func() error {
 		if revision != nil {
 			if err := revision(ctx, cfg); err != nil {

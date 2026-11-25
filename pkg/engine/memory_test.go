@@ -77,7 +77,7 @@ func TestOnlyWhatThisStartWroteCounts(t *testing.T) {
 	appendLog("the engine exited for another reason")
 
 	failed := errors.New("engine exited")
-	if got := ExplainStartFailure(failed, log, offset); got != failed {
+	if got := ExplainStartFailure(failed, log, offset); !errors.Is(got, failed) || errors.Is(got, ErrNotEnoughMemory) {
 		t.Errorf("ExplainStartFailure = %v, want the original error: the refusal is from an earlier start", got)
 	}
 
@@ -95,7 +95,7 @@ func TestAMissingLogExplainsNothing(t *testing.T) {
 		t.Errorf("LogOffset = %d, want 0", got)
 	}
 	failed := errors.New("engine exited")
-	if got := ExplainStartFailure(failed, log, 0); got != failed {
+	if got := ExplainStartFailure(failed, log, 0); !errors.Is(got, failed) || errors.Is(got, ErrNotEnoughMemory) {
 		t.Errorf("ExplainStartFailure = %v, want the original error", got)
 	}
 }

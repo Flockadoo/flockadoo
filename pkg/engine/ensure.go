@@ -2,6 +2,7 @@ package engine
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"slices"
 	"time"
@@ -53,6 +54,7 @@ func StartAndWait(ctx context.Context, cfg *config.Config, logDir string) error 
 			return err
 		}
 	}
+	offset := LogOffset(LogPath(logDir))
 	exited, err := StartDetached(spec, LogPath(logDir))
 	if err != nil {
 		return err
@@ -69,6 +71,10 @@ func StartAndWait(ctx context.Context, cfg *config.Config, logDir string) error 
 		errWait = WaitHealthy(ctx, kind, probeURL, 2*time.Second, exited)
 	}
 	if errWait != nil {
+		// A memory refusal in what the engine wrote is said in plain words (E3).
+		if explained := ExplainStartFailure(errWait, LogPath(logDir), offset); errors.Is(explained, ErrNotEnoughMemory) {
+			return explained
+		}
 		return fmt.Errorf("engine started but not ready yet; check %s: %w", LogPath(logDir), errWait)
 	}
 	return nil
