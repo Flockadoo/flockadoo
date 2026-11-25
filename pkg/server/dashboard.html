@@ -120,6 +120,7 @@ function render(s) {
     ${s.not_serving ? row("Not serving", esc(s.not_serving), "bad") : ""}
     ${s.engine_note ? row("Benchmark", esc(s.engine_note)) : ""}
     ${s.capability_line ? row("Capabilities", esc(s.capability_line)) : ""}
+    ${s.engine_cleanup ? row("Engine cleanup", esc(s.engine_cleanup)) : ""}
     ${updateHtml}
     ${row("Engine", esc(s.provider_type))}
     ${row("Provider API Key", esc(s.provider_api_key))}

@@ -30,7 +30,7 @@ const helperEnv = "FLOCKADOO_ORPHAN_HELPER"
 func TestOrphanHelperProcess(t *testing.T) {
 	switch os.Getenv(helperEnv) {
 	case "api":
-		core := exec.CommandContext(context.Background(), os.Args[0], "-test.run=^TestOrphanHelperProcess$") //nolint:forbidigo // the helper process has no test context; the child must outlive this process
+		core := exec.CommandContext(context.Background(), os.Args[0], "-test.run=^TestOrphanHelperProcess$")
 		core.Args[0] = engineCoreTitle
 		core.Env = append(os.Environ(), helperEnv+"=core")
 		if err := core.Start(); err != nil {

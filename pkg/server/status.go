@@ -61,6 +61,8 @@ type StatusSnapshot struct {
 	NotServing     string `json:"not_serving,omitempty"`
 	EngineNote     string `json:"engine_note,omitempty"`
 	CapabilityLine string `json:"capability_line,omitempty"`
+	// EngineCleanup says what the engine start cleaned up (engine start memory E4).
+	EngineCleanup string `json:"engine_cleanup,omitempty"`
 	// Connection and ConnectionReason are the tunnel's state and why (plan
 	// item C1, decision DC8).
 	Connection       string `json:"connection,omitempty"`
@@ -168,6 +170,7 @@ func (s *Server) snapshot(ctx context.Context) StatusSnapshot {
 		NotServing:               notServing,
 		EngineNote:               s.engineNoteText(),
 		CapabilityLine:           s.capabilitiesText(),
+		EngineCleanup:            s.engineCleanupText(),
 	}
 }
 
@@ -182,6 +185,12 @@ func (s *Server) engineNoteText() string {
 	s.engineNoteMu.Lock()
 	defer s.engineNoteMu.Unlock()
 	return s.engineNote
+}
+
+func (s *Server) engineCleanupText() string {
+	s.engineNoteMu.Lock()
+	defer s.engineNoteMu.Unlock()
+	return s.engineCleanup
 }
 
 func (s *Server) capabilitiesText() string {

@@ -244,7 +244,12 @@ func (s *Server) SetEngineNote(note string) {
 
 // SetEngineCleanup is the local dashboard line for what the engine start
 // cleaned up: orphaned engine processes it stopped (engine start memory E4).
-func (s *Server) SetEngineCleanup(note string) {}
+func (s *Server) SetEngineCleanup(note string) {
+	s.engineNoteMu.Lock()
+	s.engineCleanup = note
+	s.engineNoteMu.Unlock()
+	s.redrawConsole()
+}
 
 // SetCapabilities is the local dashboard line for capability checks.
 // Session status stays online while this line is set.
@@ -447,6 +452,9 @@ func (s *Server) redrawConsole() {
 	}
 	if snap.CapabilityLine != "" {
 		fmt.Fprintf(&buf, "\033[1;35mCapabilities                  \033[0m%s\n", snap.CapabilityLine)
+	}
+	if snap.EngineCleanup != "" {
+		fmt.Fprintf(&buf, "\033[1;35m%-30s\033[0m%s\n", "Engine cleanup", snap.EngineCleanup)
 	}
 	switch snap.UpdateStatus {
 	case "required":

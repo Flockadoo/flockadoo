@@ -54,6 +54,7 @@ type Server struct {
 	engineNote       string
 	engineNoteMu     sync.Mutex
 	capabilitiesNote string
+	engineCleanup    string // what the engine start cleaned up (E4)
 	sessionQueueWait time.Duration
 	// sessionQueueLimit is how many returning turns may wait for a slot at
 	// once; beyond it a turn is refused at once. Zero means the default.
