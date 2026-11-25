@@ -40,7 +40,9 @@ func (e *DoesNotFit) Error() string {
 	default:
 		room = formatBytes(e.Free) + " of GPU memory is free"
 	}
-	return fmt.Sprintf("%s needs about %s to start%s; %s. Close other programs, choose a smaller model, or lower the context",
+	// No "lower the context": a context below the catalog's max_model_len
+	// fails verification.
+	return fmt.Sprintf("%s needs about %s to start%s; %s. Close other programs, or choose a smaller model",
 		e.Model, formatBytes(e.Need), at, room)
 }
 
