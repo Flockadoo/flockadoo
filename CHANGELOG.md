@@ -1,5 +1,9 @@
 # Changelog
 
+## [0.49.2] - 2026-11-26
+
+- The local dashboard (the page the Windows tray opens) no longer shows the Memory share row, as the console no longer does since 0.49.1. The share is still in `/api/status` as `memory_share` and in the log.
+
 ## [0.49.1] - 2026-11-26
 
 - The console no longer shows the Memory share row. vLLM still starts with the memory share chosen at start on unified memory, and the share is still in `/api/status` as `memory_share`, in the web dashboard and in the log.
