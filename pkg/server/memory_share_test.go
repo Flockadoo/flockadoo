@@ -6,8 +6,8 @@ import (
 )
 
 // Engine start memory plan, item E2. The memory share vLLM was started with on
-// unified memory is in the status API and the dashboard, in a Memory share row
-// under Engine. The console never shows it (Charles, 2026-11-26).
+// unified memory is in the status API only. Neither the console nor the local
+// dashboard shows it (Charles, 2026-11-26).
 
 const shareNote = "0.81 of 121.86 GiB, chosen at start (105.25 GiB was free)"
 
@@ -40,8 +40,11 @@ func TestWithoutAShareThereIsNoRow(t *testing.T) {
 	}
 }
 
-func TestTheDashboardDrawsTheMemoryShare(t *testing.T) {
-	if page := dashboardPage(t); !strings.Contains(page, `row("Memory share", esc(s.memory_share))`) {
-		t.Error(`the dashboard has no row("Memory share", esc(s.memory_share))`)
+// Negative: the local dashboard (the page the Windows tray opens) draws no
+// Memory share row, though the status API it reads carries the share.
+func TestTheDashboardNeverShowsTheMemoryShare(t *testing.T) {
+	page := dashboardPage(t)
+	if strings.Contains(page, "Memory share") || strings.Contains(page, "memory_share") {
+		t.Error("the dashboard draws the memory share")
 	}
 }
