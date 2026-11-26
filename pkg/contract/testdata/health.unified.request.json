@@ -1,0 +1,33 @@
+{
+  "object": "list",
+  "data": [
+    {
+      "id": "Qwen/Qwen2.5-7B-Instruct",
+      "object": "model",
+      "created": 1710000000,
+      "owned_by": "flockadoo",
+      "size_bytes": 100,
+      "weight_fingerprint": "fp",
+      "verification_status": "verified",
+      "max_model_len": 8192
+    }
+  ],
+  "gpu": {
+    "product_name": "NVIDIA GB10",
+    "driver_version": "580.95.05",
+    "cuda_version": "13.0",
+    "gpu_count": 1,
+    "uuid": "GPU-example",
+    "utilization": 12.5,
+    "memory_total": 99827,
+    "memory_used": 17008,
+    "memory_free": 82819,
+    "is_busy": false,
+    "temperature_c": 51,
+    "power_draw_w": 23.5,
+    "memory_kind": "unified"
+  },
+  "provider_type": "vllm",
+  "engine": "vllm",
+  "engine_version": "0.34.0"
+}

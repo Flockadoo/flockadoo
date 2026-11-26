@@ -11,6 +11,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/Flockadoo/flockadoo/internal/hardware"
 	"github.com/Flockadoo/flockadoo/pkg/exechide"
 	"github.com/Flockadoo/flockadoo/pkg/logger"
 	"go.uber.org/zap"
@@ -211,6 +212,12 @@ func (m *Monitor) getNvidiaGPUInfo(ctx context.Context) (*GPUInfo, error) {
 		logger.Error("Failed to run nvidia-smi", zap.Error(err))
 		return nil, fmt.Errorf("failed to run nvidia-smi: %w", err)
 	}
+	return nvidiaGPUInfo(output, hardware.ReadMemInfo)
+}
+
+// nvidiaGPUInfo is the machine's GPU from nvidia-smi's output; mem reads the
+// system's memory (unified memory plan, C1).
+func nvidiaGPUInfo(output []byte, _ func() (hardware.MemInfo, error)) (*GPUInfo, error) {
 	return parseNvidiaSMI(output)
 }
 
@@ -301,6 +308,22 @@ func (m *Monitor) getMacGPUInfo(ctx context.Context) (*GPUInfo, error) {
 
 	stats := queryMacStats(ctx)
 	powerW, tempC := macSensors()
+	gpuInfo := macGPUInfo(name, stats, powerW, tempC)
+
+	logger.Debug("macOS GPU information retrieved successfully",
+		zap.String("product_name", gpuInfo.ProductName),
+		zap.Float64("utilization", gpuInfo.Utilization),
+		zap.Int64("memory_used_mib", gpuInfo.MemoryUsed),
+		zap.Int64("memory_total_mib", gpuInfo.MemoryTotal),
+		zap.Float64("temperature_c", gpuInfo.TemperatureC),
+		zap.Float64("power_draw_w", gpuInfo.PowerDrawW))
+
+	return gpuInfo, nil
+}
+
+// macGPUInfo is a Mac's GPU: name is the chip, stats its utilization and
+// Metal's memory, powerW and tempC its sensors (zero when not read).
+func macGPUInfo(name string, stats macStats, powerW, tempC float64) *GPUInfo {
 	const mib = 1 << 20
 	used := stats.UsedBytes / mib
 	total := stats.TotalBytes / mib
@@ -308,8 +331,7 @@ func (m *Monitor) getMacGPUInfo(ctx context.Context) (*GPUInfo, error) {
 	if free < 0 {
 		free = 0
 	}
-
-	gpuInfo := &GPUInfo{
+	return &GPUInfo{
 		ProductName:   name,
 		DriverVersion: "macOS Native",
 		CUDAVersion:   "N/A",
@@ -323,16 +345,6 @@ func (m *Monitor) getMacGPUInfo(ctx context.Context) (*GPUInfo, error) {
 		TemperatureC:  tempC,
 		PowerDrawW:    powerW,
 	}
-
-	logger.Debug("macOS GPU information retrieved successfully",
-		zap.String("product_name", gpuInfo.ProductName),
-		zap.Float64("utilization", gpuInfo.Utilization),
-		zap.Int64("memory_used_mib", gpuInfo.MemoryUsed),
-		zap.Int64("memory_total_mib", gpuInfo.MemoryTotal),
-		zap.Float64("temperature_c", gpuInfo.TemperatureC),
-		zap.Float64("power_draw_w", gpuInfo.PowerDrawW))
-
-	return gpuInfo, nil
 }
 
 // macProductName returns the chip name (with core count) from system_profiler.
