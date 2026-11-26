@@ -8,6 +8,8 @@ import (
 	"os"
 	"strconv"
 	"strings"
+
+	"github.com/Flockadoo/flockadoo/internal/hardware"
 )
 
 func systemRAMBytes() (int64, error) {
@@ -40,11 +42,4 @@ func systemRAMBytes() (int64, error) {
 }
 
 // systemMemInfo reads /proc/meminfo.
-func systemMemInfo() (memInfo, error) {
-	f, err := os.Open("/proc/meminfo")
-	if err != nil {
-		return memInfo{}, err
-	}
-	defer func() { _ = f.Close() }()
-	return parseMemInfo(f)
-}
+func systemMemInfo() (memInfo, error) { return hardware.ReadMemInfo() }

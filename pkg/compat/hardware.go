@@ -1,7 +1,6 @@
 package compat
 
 import (
-	"bufio"
 	"context"
 	"errors"
 	"fmt"
@@ -12,6 +11,7 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/Flockadoo/flockadoo/internal/hardware"
 	"github.com/Flockadoo/flockadoo/pkg/exechide"
 )
 
@@ -102,10 +102,9 @@ func fallbackSystemMemory(hw *Hardware, warning string) {
 const appleSiliconUsableFraction = 0.65
 
 // nvidiaUnifiedUsableFraction is the share of an NVIDIA unified-memory
-// machine's memory (GB10) scored as usable. It is the share every R1 model
-// started with on peipei, with its desktop running (engine start memory
-// plan, E1; confirmed on the machine in R).
-const nvidiaUnifiedUsableFraction = 0.80
+// machine's memory (GB10) scored as usable (hardware.NvidiaUnifiedUsableFraction,
+// which the GPU report sends as the machine's memory).
+const nvidiaUnifiedUsableFraction = hardware.NvidiaUnifiedUsableFraction
 
 func detectDarwin(ctx context.Context, hw *Hardware) error {
 	productName, coreCount, err := parseSystemProfilerGPU(ctx)
@@ -193,45 +192,11 @@ func detectNVIDIA(ctx context.Context, hw *Hardware) error {
 }
 
 // memInfo is the system's memory: MemTotal and MemAvailable on Linux.
-type memInfo struct {
-	Total     int64
-	Available int64
-}
+type memInfo = hardware.MemInfo
 
-// parseMemInfo reads MemTotal and MemAvailable from /proc/meminfo's format.
-// Both must be there: a missing MemAvailable is an error, never 0 bytes free.
-func parseMemInfo(r io.Reader) (memInfo, error) {
-	var m memInfo
-	var haveTotal, haveAvailable bool
-	sc := bufio.NewScanner(r)
-	for sc.Scan() {
-		fields := strings.Fields(sc.Text())
-		if len(fields) < 2 {
-			continue
-		}
-		var dst *int64
-		switch fields[0] {
-		case "MemTotal:":
-			dst, haveTotal = &m.Total, true
-		case "MemAvailable:":
-			dst, haveAvailable = &m.Available, true
-		default:
-			continue
-		}
-		kb, err := strconv.ParseInt(fields[1], 10, 64)
-		if err != nil {
-			return memInfo{}, fmt.Errorf("meminfo %s: %w", fields[0], err)
-		}
-		*dst = kb * 1024
-	}
-	if err := sc.Err(); err != nil {
-		return memInfo{}, err
-	}
-	if !haveTotal || !haveAvailable || m.Total <= 0 {
-		return memInfo{}, errors.New("meminfo has no MemTotal or MemAvailable")
-	}
-	return m, nil
-}
+// parseMemInfo reads MemTotal and MemAvailable from /proc/meminfo's format
+// (hardware.ParseMemInfo, which the GPU report reads too).
+func parseMemInfo(r io.Reader) (memInfo, error) { return hardware.ParseMemInfo(r) }
 
 // nvidiaHardware fills hw from nvidia-smi's CSV (name, driver, total, used,
 // free, uuid, in MiB). mem reads the system's memory.
