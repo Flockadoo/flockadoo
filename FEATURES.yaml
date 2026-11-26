@@ -43,7 +43,7 @@ features:
   - name: Health report
     entry: Reporter.SendHealthReport, every 3 minutes and after each connect; node health for a Team Flock worker
     code: [pkg/health/reporter.go]
-    tests: [pkg/health/reporter_test.go, pkg/health/advertise_test.go, pkg/health/provider_type_test.go, pkg/contract/shape_test.go]
+    tests: [pkg/health/reporter_test.go, pkg/health/advertise_test.go, pkg/health/provider_type_test.go, pkg/contract/shape_test.go, pkg/contract/unified_test.go]
 
   - name: Capacity report
     entry: capacity.Sender.Loop, on every slot change and every 20 seconds
@@ -91,8 +91,8 @@ features:
     tests: [pkg/compat/*_test.go]
 
   - name: GPU information
-    entry: gpu.Monitor.GetGPUInfo for the health report
-    code: [pkg/gpu/*.go]
+    entry: gpu.Monitor.GetGPUInfo for the health report; a GB10's usable unified memory from /proc/meminfo, memory_kind "unified" for it and Apple Silicon
+    code: [pkg/gpu/*.go, internal/hardware/*.go]
     tests: [pkg/gpu/*_test.go]
     invariants: [I10]
 

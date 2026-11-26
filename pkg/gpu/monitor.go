@@ -55,7 +55,14 @@ type GPUInfo struct {
 	TemperatureC float64 `json:"temperature_c,omitempty"`
 	PowerDrawW   float64 `json:"power_draw_w,omitempty"`
 	PowerLimitW  float64 `json:"power_limit_w,omitempty"`
+	// MemoryUnified when the GPU shares the system's memory (a GB10, Apple
+	// Silicon): the memory figures are then the share the GPU can use, not
+	// memory of its own. Empty for dedicated memory.
+	MemoryKind string `json:"memory_kind,omitempty"`
 }
+
+// MemoryUnified is the memory kind of a GPU that shares the system's memory.
+const MemoryUnified = "unified"
 
 // NvidiaSMI represents the XML output of nvidia-smi
 type NvidiaSMI struct {
@@ -216,31 +223,58 @@ func (m *Monitor) getNvidiaGPUInfo(ctx context.Context) (*GPUInfo, error) {
 }
 
 // nvidiaGPUInfo is the machine's GPU from nvidia-smi's output; mem reads the
-// system's memory (unified memory plan, C1).
-func nvidiaGPUInfo(output []byte, _ func() (hardware.MemInfo, error)) (*GPUInfo, error) {
-	return parseNvidiaSMI(output)
+// system's memory. A GPU that reports no memory of its own (N/A, as a GB10
+// does) shares the system's memory (unified memory plan, C1, D3): it reports
+// the share it is scored with as its total (hardware.NvidiaUnifiedUsableFraction
+// of MemTotal), what the system uses (MemTotal − MemAvailable, at most that
+// total) as used, the rest as free, and memory_kind "unified". If the
+// system's memory cannot be read it reports 0 and no kind, as before.
+func nvidiaGPUInfo(output []byte, mem func() (hardware.MemInfo, error)) (*GPUInfo, error) {
+	info, gpu, err := parseNvidiaDoc(output)
+	if err != nil || !notReported(gpu.FBMemoryUsage.Total) {
+		return info, err
+	}
+	m, err := mem()
+	if err != nil {
+		// Every query (every few seconds) would log it: debug only.
+		logger.Debug("unified-memory GPU: system memory not read", zap.Error(err))
+		return info, nil
+	}
+	const mib = 1 << 20
+	total := int64(float64(m.Total)*hardware.NvidiaUnifiedUsableFraction) / mib
+	used := min(max((m.Total-m.Available)/mib, 0), total)
+	info.MemoryTotal, info.MemoryUsed, info.MemoryFree = total, used, total-used
+	info.MemoryKind = MemoryUnified
+	return info, nil
 }
 
 // parseNvidiaSMI reads the output of nvidia-smi -x -q: the machine's GPU
 // count and the first GPU's details.
 func parseNvidiaSMI(output []byte) (*GPUInfo, error) {
+	info, _, err := parseNvidiaDoc(output)
+	return info, err
+}
+
+// parseNvidiaDoc is parseNvidiaSMI, with the first GPU's entry as nvidia-smi
+// wrote it.
+func parseNvidiaDoc(output []byte) (*GPUInfo, GPU, error) {
 	var nvidiaSMI NvidiaSMI
 	if err := xml.Unmarshal(output, &nvidiaSMI); err != nil {
 		logger.Error("Failed to parse nvidia-smi output", zap.Error(err))
-		return nil, fmt.Errorf("failed to parse nvidia-smi output: %w", err)
+		return nil, GPU{}, fmt.Errorf("failed to parse nvidia-smi output: %w", err)
 	}
 
 	// Extract GPU count
 	gpuCount, err := strconv.Atoi(nvidiaSMI.AttachedGPUs)
 	if err != nil {
 		logger.Error("Failed to parse GPU count", zap.Error(err), zap.String("attached_gpus", nvidiaSMI.AttachedGPUs))
-		return nil, fmt.Errorf("failed to parse GPU count: %w", err)
+		return nil, GPU{}, fmt.Errorf("failed to parse GPU count: %w", err)
 	}
 
 	// If no GPUs are found, return an error
 	if gpuCount == 0 || len(nvidiaSMI.GPUs) == 0 {
 		logger.Error("No GPUs found", zap.Int("gpu_count", gpuCount), zap.Int("gpus_length", len(nvidiaSMI.GPUs)))
-		return nil, fmt.Errorf("no GPUs found")
+		return nil, GPU{}, fmt.Errorf("no GPUs found")
 	}
 
 	// Use the first GPU for now
@@ -286,7 +320,7 @@ func parseNvidiaSMI(output []byte) (*GPUInfo, error) {
 		zap.Float64("power_draw_w", gpuInfo.PowerDrawW),
 		zap.Float64("power_limit_w", gpuInfo.PowerLimitW))
 
-	return gpuInfo, nil
+	return gpuInfo, gpu, nil
 }
 
 // getMacGPUInfo returns information about the GPU on macOS
@@ -321,8 +355,16 @@ func (m *Monitor) getMacGPUInfo(ctx context.Context) (*GPUInfo, error) {
 	return gpuInfo, nil
 }
 
+// notReported is a memory value nvidia-smi gives for a GPU with no memory of
+// its own (unified memory, a GB10).
+func notReported(value string) bool {
+	v := strings.TrimSpace(value)
+	return v == "N/A" || v == "[N/A]"
+}
+
 // macGPUInfo is a Mac's GPU: name is the chip, stats its utilization and
-// Metal's memory, powerW and tempC its sensors (zero when not read).
+// Metal's memory, powerW and tempC its sensors (zero when not read). Apple
+// Silicon's memory is unified; the figures are Metal's share of it.
 func macGPUInfo(name string, stats macStats, powerW, tempC float64) *GPUInfo {
 	const mib = 1 << 20
 	used := stats.UsedBytes / mib
@@ -344,6 +386,7 @@ func macGPUInfo(name string, stats macStats, powerW, tempC float64) *GPUInfo {
 		IsBusy:        stats.Utilization > 20.0,
 		TemperatureC:  tempC,
 		PowerDrawW:    powerW,
+		MemoryKind:    MemoryUnified,
 	}
 }
 
@@ -410,7 +453,7 @@ func macProductName(ctx context.Context) (string, error) {
 // N/A is a GPU with no memory of its own (unified memory, a GB10): not
 // reported, so not a failure, and not warned about at every query.
 func memoryField(name, value string) int64 {
-	if v := strings.TrimSpace(value); v == "N/A" || v == "[N/A]" {
+	if notReported(value) {
 		return 0
 	}
 	n, err := parseMemoryValue(value)

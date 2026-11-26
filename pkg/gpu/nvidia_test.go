@@ -107,8 +107,9 @@ func nvidiaDoc(product, total, used, free string) []byte {
 // nvidia-smi reports its memory as N/A. The client logged three "Failed to
 // parse memory" warnings at every GPU query, every 3 seconds (about 86,000
 // lines a day), which buried the warnings that matter. N/A is "not
-// reported", not a failure: it is not warned about. The values stay 0, as
-// before (what the health report sends does not change).
+// reported", not a failure: it is not warned about. parseNvidiaSMI's values
+// stay 0; the health report fills them from the system's memory
+// (nvidiaGPUInfo, unified memory plan C1).
 func TestAGB10sUnreportedMemoryIsNotWarnedAbout(t *testing.T) {
 	logs := observeLogs(t)
 	got, err := parseNvidiaSMI(nvidiaDoc("NVIDIA GB10", "N/A", "N/A", "N/A"))
