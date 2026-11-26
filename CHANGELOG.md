@@ -1,5 +1,9 @@
 # Changelog
 
+## [0.49.1] - 2026-11-26
+
+- The console no longer shows the Memory share row. vLLM still starts with the memory share chosen at start on unified memory, and the share is still in `/api/status` as `memory_share`, in the web dashboard and in the log.
+
 ## [0.49.0] - 2026-11-26
 
 - On an NVIDIA GB10, the health report now sends the GPU memory the machine can use instead of 0. A GB10 has no memory of its own (nvidia-smi reports it as N/A), so the dashboard showed none. The client now sends 0.80 of the system's memory as the total, the same share the compatibility check scores it with (about 97.5 GiB on a 128 GB GB10). It sends what the system uses as used, at most that total, and the rest as free. If the system's memory cannot be read, it sends 0 as before.
