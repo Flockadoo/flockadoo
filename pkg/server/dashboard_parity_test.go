@@ -180,7 +180,6 @@ var consoleOrder = []string{
 	"Orphaned engines",
 	"Update",
 	"Engine",
-	"Memory share",
 	"Provider API Key",
 	"Platform URL",
 	"LLM URL",
