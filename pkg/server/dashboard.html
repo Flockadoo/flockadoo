@@ -124,7 +124,6 @@ function render(s) {
     ${s.orphaned_engines ? row("Orphaned engines", esc(s.orphaned_engines), "warn") : ""}
     ${updateHtml}
     ${row("Engine", esc(s.provider_type))}
-    ${s.memory_share ? row("Memory share", esc(s.memory_share)) : ""}
     ${row("Provider API Key", esc(s.provider_api_key))}
     ${row("Platform URL", esc(s.provider_url))}
     ${row("LLM URL", esc(s.llm_url))}
